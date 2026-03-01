@@ -1,3 +1,4 @@
+import os
 import platform
 import threading
 from typing import Callable, List, Dict, Optional
@@ -41,7 +42,12 @@ class TrayManager:
             from pystray import Icon, Menu, MenuItem
             from PIL import Image
             
-            image = Image.open(self.icon_path)
+            if self.icon_path and os.path.exists(self.icon_path):
+                image = Image.open(self.icon_path)
+            else:
+                # Fallback to a plain 64x64 colored image if icon is missing
+                print(f"[tray] Warning: Icon not found at {self.icon_path}. Using fallback.")
+                image = Image.new('RGB', (64, 64), (124, 77, 255)) # Purple
             
             def create_menu():
                 items = []
@@ -51,8 +57,8 @@ class TrayManager:
 
             self._tray = Icon(self.title, image, self.title, menu=create_menu())
             self._tray.run()
-        except ImportError:
-            print("[tray] Error: pystray or Pillow not found. System tray will not be available.")
+        except Exception as e:
+            print(f"[tray] Error in Windows tray: {e}")
 
     def _start_macos(self, on_tick: Optional[Callable] = None):
         try:
@@ -104,11 +110,23 @@ class TrayManager:
 
     def _update_windows_menu(self):
         if self._tray:
-            from pystray import Menu, MenuItem
-            items = []
-            for item in self.menu_items:
-                items.append(MenuItem(item['label'], item['callback'], checked=item.get('checked', None)))
-            self._tray.menu = Menu(*items)
+            try:
+                self._tray.menu = self._build_pystray_menu(self.menu_items)
+            except Exception as e:
+                print(f"[tray] Failed to update Windows tray menu: {e}")
+
+    def _build_pystray_menu(self, items):
+        from pystray import Menu, MenuItem
+        out_items = []
+        for item in items:
+            if item.get('label') == "---":
+                out_items.append(Menu.SEPARATOR)
+            elif item.get('submenu'):
+                sub_menu = self._build_pystray_menu(item['submenu'])
+                out_items.append(MenuItem(item['label'], sub_menu))
+            else:
+                out_items.append(MenuItem(item['label'], item.get('callback') or (lambda _: None), checked=item.get('checked', None)))
+        return Menu(*out_items)
 
     def _update_macos_menu(self):
         if self._tray:

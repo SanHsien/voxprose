@@ -18,7 +18,7 @@ from PyQt6.QtGui import QFont, QIcon, QColor, QPainter, QLinearGradient, QBrush,
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import load_config, save_config
 from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR
-STT_ENGINES = ["local_whisper", "mlx_whisper", "groq", "gemini", "openrouter"]
+STT_ENGINES = ["local_whisper", "groq", "gemini", "openrouter"] if platform.system() == "Windows" else ["local_whisper", "mlx_whisper", "groq", "gemini", "openrouter"]
 LLM_ENGINES = ["ollama", "openai", "claude", "openrouter", "gemini", "deepseek", "qwen"]
 WHISPER_MODELS = ["tiny", "base", "small", "medium", "large"]
 TRIGGER_MODES = ["push_to_talk", "toggle"]
@@ -50,6 +50,7 @@ class SidebarButton(QPushButton):
         font_family = "Taipei Sans TC Beta" if platform.system() == "Darwin" else "Microsoft JhengHei"
         self.setText(f"{icon_text}  {label}")
         self.setFont(QFont(font_family, 16, QFont.Weight.Medium))
+
         self.setFixedHeight(60)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.clicked.connect(lambda: on_click(self.index))
@@ -171,8 +172,11 @@ class PermissionLight(QWidget):
         layout.addWidget(self.dot)
 
         self.label = QLabel(label_text)
-        self.label.setStyleSheet("color: #e2e4e7; font-size: 14px;")
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+        self.label.setStyleSheet(f"color: #e2e4e7; font-size: 14px; font-family: '{win_font}';")
+        self.label.setWordWrap(True)
         layout.addWidget(self.label)
+
 
         layout.addStretch()
 
@@ -192,7 +196,11 @@ class PermissionLight(QWidget):
 
     def _open_preference(self):
         import subprocess
-        subprocess.run(["open", self.url])
+        if platform.system() == "Windows":
+            import os
+            os.startfile(self.url)
+        else:
+            subprocess.run(["open", self.url])
 
     def set_status(self, authorized: bool):
         color = "#00e676" if authorized else "#ff5252"
@@ -217,14 +225,18 @@ class ModelStatusLight(QWidget):
         top_layout.addWidget(self.dot)
         
         self.label = QLabel(f"{model_name} ({size_info})")
-        self.label.setStyleSheet("color: #e2e4e7; font-size: 13px; font-weight: bold;")
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+        self.label.setStyleSheet(f"color: #e2e4e7; font-size: 13px; font-weight: bold; font-family: '{win_font}';")
         top_layout.addWidget(self.label)
+
         top_layout.addStretch()
         layout.addLayout(top_layout)
         
         self.desc = QLabel(desc_text)
-        self.desc.setStyleSheet("color: #888; font-size: 11px; margin-left: 18px;")
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+        self.desc.setStyleSheet(f"color: #888; font-size: 11px; margin-left: 18px; font-family: '{win_font}';")
         self.desc.setWordWrap(True)
+
         layout.addWidget(self.desc)
 
     def set_status(self, downloaded: bool):
@@ -239,13 +251,22 @@ class SettingsWindow(QMainWindow):
         self.config = load_config()
         self.on_save = on_save
         self._is_dark = True # Pro mode is dark by default
+        
+        # Windows: Ensure window is popped up and focused (but not always on top)
+        if platform.system() == "Windows":
+             # We rely on raise_() and activateWindow() in _setup_ui to bring it to front initially
+             pass
+
         self._setup_ui()
         self._load_data()
         
         # 根據語言動態設定視窗標題
         lang = self.config.get("language", "zh")
         if "zh" in lang:
+            win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "Taipei Sans TC Beta"
+            self.setFont(QFont(win_font))
             self.setWindowTitle("嘴砲輸入法 2.6.0 Pro")
+
         else:
             self.setWindowTitle("VoiceType4TW Pro 2.6.0")
         
@@ -258,7 +279,12 @@ class SettingsWindow(QMainWindow):
         self.setWindowTitle("VoiceType4TW Pro 2.6.0")
         self.setMinimumSize(900, 680)
         
+        # Ensure it pops up correctly on Windows
+        self.raise_()
+        self.activateWindow()
+        
         # Premium CSS
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "PingFang TC"
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #0f1115;
@@ -286,9 +312,10 @@ class SettingsWindow(QMainWindow):
             }
             QLabel {
                 color: #e2e4e7;
-                font-family: 'PingFang TC';
+                font-family: '""" + win_font + """';
             }
             QLineEdit, QComboBox, QTextEdit, QListWidget, QTreeWidget {
+                font-family: '""" + win_font + """';
                 background-color: #1c1f26;
                 border: 1px solid #2d333d;
                 border-radius: 8px;
@@ -409,13 +436,14 @@ class SettingsWindow(QMainWindow):
         sns_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         sns_layout.setSpacing(10)
         
+        _assets_dir = str(Path(__file__).parent.parent / "assets")
         sns_links = [
-            ("/Users/acyk/scripts/voicetype-mac/assets/sns-youtube.png", "https://youtube.com/@Jimmy4TW"),
-            ("/Users/acyk/scripts/voicetype-mac/assets/sns-facebook.png", "https://www.facebook.com/acykjcms"),
-            ("/Users/acyk/scripts/voicetype-mac/assets/sns-instagram.png", "https://www.instagram.com/jimmy4tw/"),
-            ("/Users/acyk/scripts/voicetype-mac/assets/sns-tiktok.png", "https://www.tiktok.com/@jimmy4tw"),
-            ("/Users/acyk/scripts/voicetype-mac/assets/sns-threads.png", "https://www.threads.net/@jimmy4tw"),
-            ("/Users/acyk/scripts/voicetype-mac/assets/sns-4tw.png", "https://Jimmy4.TW/")
+            (os.path.join(_assets_dir, "sns-youtube.png"), "https://youtube.com/@Jimmy4TW"),
+            (os.path.join(_assets_dir, "sns-facebook.png"), "https://www.facebook.com/acykjcms"),
+            (os.path.join(_assets_dir, "sns-instagram.png"), "https://www.instagram.com/jimmy4tw/"),
+            (os.path.join(_assets_dir, "sns-tiktok.png"), "https://www.tiktok.com/@jimmy4tw"),
+            (os.path.join(_assets_dir, "sns-threads.png"), "https://www.threads.net/@jimmy4tw"),
+            (os.path.join(_assets_dir, "sns-4tw.png"), "https://Jimmy4.TW/")
         ]
         
         for icon_path, url in sns_links:
@@ -486,8 +514,10 @@ class SettingsWindow(QMainWindow):
         dash_header.addStretch()
         
         title_cn = QLabel("嘴砲輸入法")
-        title_cn.setStyleSheet("font-family: 'Taipei Sans TC Beta'; font-size: 32px; font-weight: bold; color: #ffffff;")
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "Taipei Sans TC Beta"
+        title_cn.setStyleSheet(f"font-family: '{win_font}'; font-size: 32px; font-weight: bold; color: #ffffff;")
         dash_header.addWidget(title_cn)
+
         
         # Add side margins to content but not to the header text alignment if needed
         dash_header_container = QWidget()
@@ -500,23 +530,82 @@ class SettingsWindow(QMainWindow):
         cards_row1 = QHBoxLayout()
         cards_row1.setSpacing(15)
         
-        # 1. Permission Card
-        perm_card = GlassCard()
-        p_layout = QVBoxLayout(perm_card)
-        p_layout.setContentsMargins(15, 15, 15, 15)
-        lbl_p = QLabel("🛡️ 權限驗證 (macOS)")
-        lbl_p.setStyleSheet("font-weight: bold; color: #aaa; margin-bottom: 5px;")
-        p_layout.addWidget(lbl_p)
-        
-        self.light_acc = PermissionLight("輔助功能 (Access)", "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-        p_layout.addWidget(self.light_acc)
-        
-        self.light_input = PermissionLight("輸入監聽 (Monitor)", "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
-        p_layout.addWidget(self.light_input)
-        
-        self.light_mic = PermissionLight("麥克風 (Mic)", "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
-        p_layout.addWidget(self.light_mic)
-        cards_row1.addWidget(perm_card)
+        # 1. Permission / System Environment Card
+        if platform.system() == "Windows":
+            # Windows: 顯示 GPU/CUDA 與麥克風資訊
+            env_card = GlassCard()
+            p_layout = QVBoxLayout(env_card)
+            p_layout.setContentsMargins(15, 15, 15, 15)
+            lbl_p = QLabel("🖥️ 系統環境")
+            lbl_p.setStyleSheet("font-weight: bold; color: #aaa; margin-bottom: 5px;")
+            p_layout.addWidget(lbl_p)
+            
+            # GPU / CUDA 偵測
+            gpu_text = "⏳ 偵測中..."
+            cuda_color = "#888"
+            try:
+                import ctranslate2
+                cuda_count = ctranslate2.get_cuda_device_count()
+                if cuda_count > 0:
+                    gpu_text = f"✅ CUDA GPU × {cuda_count} (加速可用)"
+                    cuda_color = "#00e676"
+                else:
+                    gpu_text = "⚠️ 未偵測到 CUDA GPU (CPU 模式)"
+                    cuda_color = "#ffab40"
+            except Exception:
+                gpu_text = "❌ 無法偵測 GPU"
+                cuda_color = "#ff5252"
+            
+            self.lbl_gpu = QLabel(gpu_text)
+            win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+            self.lbl_gpu.setStyleSheet(f"color: {cuda_color}; font-size: 14px; font-weight: bold; font-family: '{win_font}';")
+            self.lbl_gpu.setWordWrap(True)
+            p_layout.addWidget(self.lbl_gpu)
+
+            
+            # 麥克風裝置偵測
+            mic_text = "未知裝置"
+            try:
+                import sounddevice
+                dev = sounddevice.query_devices(kind='input')
+                mic_text = dev.get('name', '未知裝置')
+            except Exception:
+                mic_text = "無法偵測"
+            
+            self.lbl_mic_device = QLabel(f"🎤 {mic_text}")
+            win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+            self.lbl_mic_device.setStyleSheet(f"color: #e2e4e7; font-size: 13px; font-family: '{win_font}';")
+            self.lbl_mic_device.setWordWrap(True)
+
+            p_layout.addWidget(self.lbl_mic_device)
+            
+            cards_row1.addWidget(env_card)
+            
+            # 建立隱藏的權限燈號（讓 _check_all_permissions 不炸）
+            self.light_acc = PermissionLight("輔助功能", "")
+            self.light_acc.hide()
+            self.light_input = PermissionLight("輸入監聽", "")
+            self.light_input.hide()
+            self.light_mic = PermissionLight("麥克風", "")
+            self.light_mic.hide()
+        else:
+            # macOS: 原始權限卡片
+            perm_card = GlassCard()
+            p_layout = QVBoxLayout(perm_card)
+            p_layout.setContentsMargins(15, 15, 15, 15)
+            lbl_p = QLabel("🛡️ 權限驗證 (macOS)")
+            lbl_p.setStyleSheet("font-weight: bold; color: #aaa; margin-bottom: 5px;")
+            p_layout.addWidget(lbl_p)
+            
+            self.light_acc = PermissionLight("輔助功能 (Access)", "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+            p_layout.addWidget(self.light_acc)
+            
+            self.light_input = PermissionLight("輸入監聽 (Monitor)", "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
+            p_layout.addWidget(self.light_input)
+            
+            self.light_mic = PermissionLight("麥克風 (Mic)", "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
+            p_layout.addWidget(self.light_mic)
+            cards_row1.addWidget(perm_card)
 
         # 2. Model Card (New)
         model_card = GlassCard()
@@ -582,6 +671,34 @@ class SettingsWindow(QMainWindow):
         cards_row2.addWidget(time_card)
         
         layout.addLayout(cards_row2)
+
+        # ── Model Download Progress Card ──────────────────────
+        from PyQt6.QtWidgets import QProgressBar
+        self.download_card = GlassCard()
+        dl_layout = QVBoxLayout(self.download_card)
+        dl_layout.setContentsMargins(20, 20, 20, 20)
+        dl_layout.addWidget(QLabel("⬇️ 模型下載進度"))
+        
+        self.lbl_download_status = QLabel("等待模型載入...")
+        self.lbl_download_status.setStyleSheet("color: #00e5ff; font-size: 14px; font-weight: bold;")
+        dl_layout.addWidget(self.lbl_download_status)
+        
+        self.download_progress = QProgressBar()
+        self.download_progress.setRange(0, 0)  # 不確定進度 → 跑馬燈模式
+        self.download_progress.setFixedHeight(8)
+        self.download_progress.setStyleSheet("""
+            QProgressBar { background: #1c1f26; border: 1px solid #2d333d; border-radius: 4px; }
+            QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #7c4dff, stop:1 #00e5ff); border-radius: 4px; }
+        """)
+        dl_layout.addWidget(self.download_progress)
+        
+        self.lbl_download_detail = QLabel("首次啟動需要下載 AI 模型，請確保網路暢通。")
+        self.lbl_download_detail.setStyleSheet("color: #666; font-size: 11px;")
+        dl_layout.addWidget(self.lbl_download_detail)
+        
+        layout.addWidget(self.download_card)
+        # 預設隱藏：有模型就不需要看到
+        self.download_card.setVisible(not self._is_model_present(self.config.get("whisper_model", "medium")))
 
         # Recent Activity Card
         recent_card = GlassCard()
@@ -991,9 +1108,29 @@ class SettingsWindow(QMainWindow):
         self._check_all_permissions()
         self._check_local_models()
 
+    def update_download_progress(self, status: str, done: bool = False):
+        """由 main.py 呼叫，更新模型下載進度卡片。"""
+        try:
+            if done:
+                self.download_card.setVisible(False)
+                self._check_local_models()  # 刷新模型綠燈
+            else:
+                self.download_card.setVisible(True)
+                self.lbl_download_status.setText(status)
+        except Exception:
+            pass
+
     def _check_all_permissions(self):
         import logging
         log = logging.getLogger("voicetype")
+        
+        # Windows 不需要 macOS TCC 權限檢查，全部亮綠燈
+        if platform.system() == "Windows":
+            self.light_acc.set_status(True)
+            self.light_input.set_status(True)
+            self.light_mic.set_status(True)
+            log.info("[PERM] Windows: All permissions auto-granted.")
+            return
         
         # 1. Accessibility — AXIsProcessTrusted 是 C 函數，必須用 ctypes
         trusted = False

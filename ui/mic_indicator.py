@@ -19,6 +19,7 @@ class _Signals(QObject):
     set_label_suffix = pyqtSignal(str)
     show_window = pyqtSignal()
     hide_window = pyqtSignal()
+    show_settings = pyqtSignal()
     flash = pyqtSignal()
 
 
@@ -53,15 +54,16 @@ class MicIndicatorWindow(QWidget):
         self._timer.start(50)  # 20fps
 
     def _setup_window(self):
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.ToolTip
-            | Qt.WindowType.WindowDoesNotAcceptFocus
-        )
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        import platform
+        flags = (Qt.WindowType.FramelessWindowHint 
+                 | Qt.WindowType.WindowStaysOnTopHint 
+                 | Qt.WindowType.WindowDoesNotAcceptFocus)
+        if platform.system() == "Windows":
+            flags |= Qt.WindowType.Tool
+        else:
+            flags |= Qt.WindowType.ToolTip
+            
+        self.setWindowFlags(flags)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -212,6 +214,12 @@ class MicIndicator:
             self._app = QApplication(sys.argv)
         else:
             self._app = QApplication.instance()
+            
+        import platform
+        if platform.system() == "Windows":
+            from PyQt6.QtGui import QFont
+            self._app.setFont(QFont("Microsoft JhengHei", 10))
+            
         self._window = MicIndicatorWindow()
         def on_show():
             self._window._reposition()
@@ -224,6 +232,7 @@ class MicIndicator:
         self._signals.hide_window.connect(self._window.hide)
         self._signals.flash.connect(self._window.trigger_flash)
         self._signals.play_beep.connect(self._window._beep.play)
+        self._signals.show_settings.connect(lambda: None) # Placeholder to be overridden in main.py
         self._ready.set()
 
     def show(self):
@@ -233,6 +242,11 @@ class MicIndicator:
     def hide(self):
         self._ready.wait()
         self._signals.hide_window.emit()
+
+    def show_settings(self):
+        """Trigger showing the settings window from any thread."""
+        self._ready.wait()
+        self._signals.show_settings.emit()
 
     def flash(self):
         self._ready.wait()

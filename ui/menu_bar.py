@@ -16,9 +16,8 @@ class VoiceTypeMenuBar:
         self.on_toggle_llm = on_toggle_llm
         self.on_set_translation = on_set_translation
         self.on_config_saved = on_config_saved
-        self.on_set_template = None
-        
         self.tray = None # Set by main.py
+        self.floating_btn = None # Set by main.py
 
     def get_menu_items(self) -> List[Dict]:
         """Builds the nested list structure for TrayManager."""
@@ -87,23 +86,37 @@ class VoiceTypeMenuBar:
         self.refresh_ui()
 
     def _set_scenario(self, sender):
-        name = sender.text if hasattr(sender, 'text') else str(sender)
-        internal_name = "default" if "基底靈魂" in name else name
+        name = sender.text() if callable(getattr(sender, 'text', None)) else getattr(sender, 'text', str(sender))
+        print(f"[menu] Scenario Selected: {name}")
+        # Strip emoji and space if prefix exists (e.g. "🎭 Social" -> "Social")
+        import re
+        internal_name = re.sub(r'^[\W_]+', '', name).strip()
+        if "基底靈魂" in name: internal_name = "default"
+        
+        print(f"[menu] Mapping to Scenario File: {internal_name}")
         self.config["active_scenario"] = internal_name
         from config import save_config
         save_config(self.config)
+        if hasattr(self, 'on_config_saved') and callable(self.on_config_saved):
+            self.on_config_saved()
         self.refresh_ui()
 
     def _set_format(self, sender):
-        name = sender.text if hasattr(sender, 'text') else str(sender)
-        internal_name = "natural" if "自然排版" in name else name
+        name = sender.text() if callable(getattr(sender, 'text', None)) else getattr(sender, 'text', str(sender))
+        print(f"[menu] Format Selected: {name}")
+        import re
+        internal_name = re.sub(r'^[\W_]+', '', name).strip()
+        if "自然排版" in name: internal_name = "natural"
+        
         self.config["active_format"] = internal_name
         from config import save_config
         save_config(self.config)
+        if hasattr(self, 'on_config_saved') and callable(self.on_config_saved):
+            self.on_config_saved()
         self.refresh_ui()
 
     def _use_template(self, sender):
-        name = sender.text if hasattr(sender, 'text') else str(sender)
+        name = sender.text() if callable(getattr(sender, 'text', None)) else getattr(sender, 'text', str(sender))
         from paths import SOUL_TEMPLATE_DIR
         import json
         tpl_path = SOUL_TEMPLATE_DIR / f"{name}.json"
@@ -117,8 +130,8 @@ class VoiceTypeMenuBar:
         self.on_toggle_llm()
         self.refresh_ui()
 
-    def _translate_en(self): self.on_set_translation("英文"); self.refresh_ui()
-    def _translate_jp(self): self.on_set_translation("日文"); self.refresh_ui()
+    def _translate_en(self): self.on_set_translation("en"); self.refresh_ui()
+    def _translate_jp(self): self.on_set_translation("ja"); self.refresh_ui()
     def _translate_none(self): self.on_set_translation(None); self.refresh_ui()
 
     def _open_settings(self):
@@ -138,8 +151,17 @@ class VoiceTypeMenuBar:
         if self.tray: self.tray.stop()
 
     def refresh_ui(self):
+        from PyQt6.QtCore import QTimer
+        # Use singleShot to defer UI update until the current menu event loop finishes,
+        # preventing Access Violation crashes on Windows when deleting the active QAction.
+        QTimer.singleShot(0, self._deferred_refresh_ui)
+
+    def _deferred_refresh_ui(self):
+        items = self.get_menu_items()
         if self.tray:
-            self.tray.update_menu(self.get_menu_items())
+            self.tray.update_menu(items)
+        if getattr(self, 'floating_btn', None):
+            self.floating_btn.set_menu_items(items)
 
     def set_recording(self):
         if self.tray and hasattr(self.tray, 'set_icon'): 

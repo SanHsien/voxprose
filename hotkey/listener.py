@@ -66,6 +66,10 @@ class HotkeyListener:
         if IS_WINDOWS:
             if self._win_listener:
                 self._win_listener.stop()
+                try:
+                    self._win_listener.join()
+                except Exception:
+                    pass
         else:
             if self._run_loop:
                 from Foundation import CFRunLoopStop
@@ -80,12 +84,24 @@ class HotkeyListener:
             
             def on_press(key):
                 k_str = key_to_str(key)
+                print(f"[hotkey] PRESSED: {k_str}")
+                if k_str == "alt_gr" or k_str == "<165>": k_str = "alt_r"
+                if k_str == "<164>": k_str = "alt"
                 for mode, cfg_key in self.configs.items():
                     if cfg_key.lower() == k_str:
+                        import platform
+                        if platform.system() == "Windows" and "alt" in k_str:
+                            import ctypes
+                            # Send dummy VK_07 to prevent Alt menu focus
+                            ctypes.windll.user32.keybd_event(0x07, 0, 0, 0)
+                            ctypes.windll.user32.keybd_event(0x07, 0, 2, 0)
                         self._handle_press(mode)
 
             def on_release(key):
                 k_str = key_to_str(key)
+                print(f"[hotkey] RELEASED: {k_str}")
+                if k_str == "alt_gr" or k_str == "<165>": k_str = "alt_r"
+                if k_str == "<164>": k_str = "alt"
                 for mode, cfg_key in self.configs.items():
                     if cfg_key.lower() == k_str:
                         self._handle_release(mode)
