@@ -1,0 +1,3 @@
+[submodule ".aicore"]
+	path = .aicore
+	url = https://github.com/jfamily4tw/jfamily-ai-context.git
