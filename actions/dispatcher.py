@@ -60,13 +60,15 @@ class ActionDispatcher:
             if "國語" in target or "中文" in target or "正常" in target:
                 msg = self._perform_switch(translation_lang=None, active_scenario="default")
             elif "英文" in target:
-                msg = self._perform_switch(translation_lang="en", active_scenario="🌐 商務英文")
+                msg = self._perform_switch(translation_lang="en", active_scenario="商務回應") # v2.7.32: 商務英文已刪除，改用商務回應
             elif "日文" in target:
                 msg = self._perform_switch(translation_lang="ja")
             elif "情商" in target or "大師" in target:
-                msg = self._perform_switch(active_scenario="🤝 情商大師")
+                msg = self._perform_switch(active_scenario="情商大師")
             elif "商務回應" in target or "回應" in target:
-                msg = self._perform_switch(active_scenario="💼 商務回應")
+                msg = self._perform_switch(active_scenario="商務回應")
+            elif "社群" in target or "貼文" in target:
+                 msg = self._perform_switch(active_scenario="社群貼文")
             else:
                 return False
             

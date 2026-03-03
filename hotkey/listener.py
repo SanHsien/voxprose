@@ -11,6 +11,25 @@ def key_to_str(key) -> str:
 def str_to_key(key_str: str):
     return key_str
 
+def get_active_window_title() -> str:
+    """Helper to get the title of the currently focused window."""
+    try:
+        if platform.system() == "Windows":
+            import ctypes
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+            buff = ctypes.create_unicode_buffer(length + 1)
+            ctypes.windll.user32.GetWindowTextW(hwnd, buff, length + 1)
+            return buff.value
+        elif platform.system() == "Darwin":
+            # macOS implementation using AppKit
+            from AppKit import NSWorkspace
+            active_app = NSWorkspace.sharedWorkspace().activeApplication()
+            return active_app.get('NSApplicationName', '')
+    except Exception:
+        pass
+    return ""
+
 # Mapping common key names to macOS virtual key codes
 KEY_NAME_TO_CODE = {
     "alt": 58, "alt_r": 61,
@@ -23,6 +42,9 @@ KEY_NAME_TO_CODE = {
     "space": 49, "enter": 36, "tab": 48, "esc": 53,
 }
 
+import logging
+log = logging.getLogger("voicetype.hotkey")
+
 class HotkeyListener:
     def __init__(
         self,
@@ -33,6 +55,7 @@ class HotkeyListener:
         self.configs = hotkey_configs
         self.on_start = on_start
         self.on_stop = on_stop
+        self.log = log
         
         self._active_mode: Optional[str] = None
         self._loop_thread: Optional[threading.Thread] = None
@@ -84,7 +107,7 @@ class HotkeyListener:
             
             def on_press(key):
                 k_str = key_to_str(key)
-                print(f"[hotkey] PRESSED: {k_str}")
+                self.log.debug(f"PRESSED: {k_str}")
                 if k_str == "alt_gr" or k_str == "<165>": k_str = "alt_r"
                 if k_str == "<164>": k_str = "alt"
                 for mode, cfg_key in self.configs.items():
@@ -99,7 +122,7 @@ class HotkeyListener:
 
             def on_release(key):
                 k_str = key_to_str(key)
-                print(f"[hotkey] RELEASED: {k_str}")
+                self.log.debug(f"RELEASED: {k_str}")
                 if k_str == "alt_gr" or k_str == "<165>": k_str = "alt_r"
                 if k_str == "<164>": k_str = "alt"
                 for mode, cfg_key in self.configs.items():
@@ -108,9 +131,9 @@ class HotkeyListener:
 
             self._win_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
             self._win_listener.start()
-            print("[hotkey] Windows listener started.")
+            self.log.info("Windows listener started.")
         except ImportError:
-            print("[hotkey] Error: pynput not found on Windows.")
+            self.log.error("Error: pynput not found on Windows.")
 
     def _start_macos(self):
         if self._loop_thread and self._loop_thread.is_alive():
@@ -128,11 +151,12 @@ class HotkeyListener:
             Quartz.kCGEventTapOptionListenOnly, event_mask, self._macos_callback, None
         )
         if not self._tap:
-            print("[hotkey] ERR: Failed to create macOS event tap.")
+            self.log.error("Failed to create macOS event tap.")
             return
         run_loop_source = Quartz.CFMachPortCreateRunLoopSource(None, self._tap, 0)
         Quartz.CFRunLoopAddSource(self._run_loop, run_loop_source, kCFRunLoopDefaultMode)
         Quartz.CGEventTapEnable(self._tap, True)
+        self.log.info("macOS Quartz listener started.")
         CFRunLoopRunInMode(kCFRunLoopDefaultMode, 10e10, False)
 
     def _macos_callback(self, proxy, type, event, refcon):

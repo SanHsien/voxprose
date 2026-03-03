@@ -101,6 +101,16 @@ class FloatingButton(QWidget):
                 background-color: rgba(255, 255, 255, 30);
                 margin: 4px 0;
             }
+            QMenu::indicator {
+                width: 14px;
+                height: 14px;
+                margin-left: 6px;
+            }
+            QMenu::indicator:checked {
+                image: url(assets/check.png); /* Fallback to standard if asset missing */
+                background-color: #7c4dff;
+                border-radius: 3px;
+            }
         """)
 
         def add_items(parent_menu, items):

@@ -20,15 +20,15 @@ class VoiceTypeMenuBar:
         self.floating_btn = None # Set by main.py
 
     def get_menu_items(self) -> List[Dict]:
-        """Builds the nested list structure for TrayManager."""
+        """Builds the full nested list structure (used by Floating Button)."""
         llm_state = "ON" if self.config.get("llm_enabled") else "OFF"
         action_state = "ON" if self.config.get("action_mode") else "OFF"
         engine = self.config.get("stt_engine", "local_whisper")
         
         from paths import SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR
         scenarios = [f.stem for f in SOUL_SCENARIO_DIR.glob("*.md")] if SOUL_SCENARIO_DIR.exists() else []
-        formats = [f.stem for f in SOUL_FORMAT_DIR.glob("*.md")] if SOUL_FORMAT_DIR.exists() else []
-        templates = [f.stem for f in SOUL_TEMPLATE_DIR.glob("*.json")] if SOUL_TEMPLATE_DIR.exists() else []
+        # formats = [f.stem for f in SOUL_FORMAT_DIR.glob("*.md")] if SOUL_FORMAT_DIR.exists() else []
+        # templates = [f.stem for f in SOUL_TEMPLATE_DIR.glob("*.json")] if SOUL_TEMPLATE_DIR.exists() else []
 
         items = [
             {'label': "VoiceType4TW", 'callback': None},
@@ -40,14 +40,11 @@ class VoiceTypeMenuBar:
             {'label': f"AI 潤飾/翻譯 : {llm_state}", 'callback': self._toggle_llm},
             
             # Scenario Submenu
-            {'label': "🎭 情境模式", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)},
-            {'label': "📝 輸出格式", 'callback': None, 'submenu': self._build_format_menu(formats)},
-            {'label': "📌 我的模板", 'callback': None, 'submenu': self._build_template_menu(templates)},
-            
+            {'label': "🎭 靈魂情境", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)},
             {'label': "快速翻譯", 'callback': None, 'submenu': [
-                {'label': "翻譯成 英文", 'callback': lambda _: self._translate_en()},
-                {'label': "翻譯成 日文", 'callback': lambda _: self._translate_jp()},
-                {'label': "恢復正常模式", 'callback': lambda _: self._translate_none()},
+                {'label': "翻譯成 英文", 'callback': lambda _: self._translate_en(), 'checked': (self.config.get("translation_lang") == "en")},
+                {'label': "翻譯成 日文", 'callback': lambda _: self._translate_jp(), 'checked': (self.config.get("translation_lang") == "ja")},
+                {'label': "恢復正常模式", 'callback': lambda _: self._translate_none(), 'checked': (self.config.get("translation_lang") is None)},
             ]},
             
             {'label': "---", 'callback': None},
@@ -57,12 +54,29 @@ class VoiceTypeMenuBar:
         ]
         return items
 
+    def get_tray_menu_items(self) -> List[Dict]:
+        """Builds the simplified menu structure for the System Tray."""
+        return [
+            {'label': "VoiceType4TW", 'callback': None},
+            {'label': "關於", 'callback': lambda _: self._show_about()},
+            {'label': "---", 'callback': None},
+            {'label': "⚙️  偏好設定...", 'callback': lambda _: self._open_settings()},
+            {'label': "---", 'callback': None},
+            {'label': "結束", 'callback': lambda _: self._quit()},
+        ]
+
     def _build_scenario_menu(self, scenarios):
         active = self.config.get("active_scenario", "default")
-        items = [{'label': "🏠 基底靈魂", 'callback': self._set_scenario, 'checked': (active == "default")}]
+        items = [{'label': "預設 (基底靈魂)", 'callback': self._set_scenario, 'checked': (active == "default")}]
         for s in sorted(scenarios):
             if s == "default": continue
-            items.append({'label': s, 'callback': self._set_scenario, 'checked': (active == s)})
+            # v2.7.32: 移除名稱開頭的 Emoji 標記
+            import re
+            clean_name = re.sub(r'^[\W_]+', '', s).strip()
+            items.append({'label': clean_name, 'callback': self._set_scenario, 'checked': (active == s)})
+        
+        if not items:
+            items.append({'label': "(無其他靈魂)", 'callback': None})
         return items
 
     def _build_format_menu(self, formats):
@@ -157,11 +171,12 @@ class VoiceTypeMenuBar:
         QTimer.singleShot(0, self._deferred_refresh_ui)
 
     def _deferred_refresh_ui(self):
-        items = self.get_menu_items()
+        full_items = self.get_menu_items()
+        tray_items = self.get_tray_menu_items()
         if self.tray:
-            self.tray.update_menu(items)
+            self.tray.update_menu(tray_items)
         if getattr(self, 'floating_btn', None):
-            self.floating_btn.set_menu_items(items)
+            self.floating_btn.set_menu_items(full_items)
 
     def set_recording(self):
         if self.tray and hasattr(self.tray, 'set_icon'): 

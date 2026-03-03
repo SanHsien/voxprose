@@ -119,13 +119,19 @@ class TrayManager:
         from pystray import Menu, MenuItem
         out_items = []
         for item in items:
-            if item.get('label') == "---":
+            label = item.get('label', '')
+            callback = item.get('callback') or (lambda _: None)
+            checked = item.get('checked', None)
+            submenu = item.get('submenu')
+
+            if label == "---":
                 out_items.append(Menu.SEPARATOR)
-            elif item.get('submenu'):
-                sub_menu = self._build_pystray_menu(item['submenu'])
-                out_items.append(MenuItem(item['label'], sub_menu))
+            elif submenu:
+                sub_menu_obj = self._build_pystray_menu(submenu)
+                out_items.append(MenuItem(label, sub_menu_obj))
             else:
-                out_items.append(MenuItem(item['label'], item.get('callback') or (lambda _: None), checked=item.get('checked', None)))
+                # pystray MenuItem needs a callable callback to avoid internal errors during update
+                out_items.append(MenuItem(label, callback, checked=lambda _: checked if checked is not None else False) if checked is not None else MenuItem(label, callback))
         return Menu(*out_items)
 
     def _update_macos_menu(self):

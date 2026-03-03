@@ -17,14 +17,13 @@ from PyQt6.QtGui import QFont, QIcon, QColor, QPainter, QLinearGradient, QBrush,
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import load_config, save_config
-from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR
+from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR, BUILD_ID
 STT_ENGINES = ["local_whisper", "groq", "gemini", "openrouter"] if platform.system() == "Windows" else ["local_whisper", "mlx_whisper", "groq", "gemini", "openrouter"]
 LLM_ENGINES = ["ollama", "openai", "claude", "openrouter", "gemini", "deepseek", "qwen"]
 WHISPER_MODELS = ["tiny", "base", "small", "medium", "large"]
 TRIGGER_MODES = ["push_to_talk", "toggle"]
 HOTKEYS = ["right_option", "left_option", "right_ctrl", "f13", "f14", "f15"]
 LLM_MODES = ["replace", "fast"]
-BUILD_ID = "BUILD-0301-B"  # v2.6.0 build
 
 from hotkey.listener import key_to_str, str_to_key
 
@@ -265,10 +264,9 @@ class SettingsWindow(QMainWindow):
         if "zh" in lang:
             win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "Taipei Sans TC Beta"
             self.setFont(QFont(win_font))
-            self.setWindowTitle("嘴砲輸入法 2.6.0 Pro")
-
+            self.setWindowTitle("嘴砲輸入法 v2.7.32 beta (Windows)")
         else:
-            self.setWindowTitle("VoiceType4TW Pro 2.6.0")
+            self.setWindowTitle("VoiceType4TW v2.7.32 beta (Windows)")
         
         # 設定啟動頁面
         if 0 <= start_page < len(self.sidebar_buttons):
@@ -426,7 +424,7 @@ class SettingsWindow(QMainWindow):
         sidebar_layout.addStretch()
         
         # Credits and SNS at Bottom
-        credit_box = QLabel(f"v2.6.0 Pro | {BUILD_ID}\n主要開發者：吉米丘\n協助開發者：Gemini, Nebula")
+        credit_box = QLabel(f"2.7.32 | {BUILD_ID}\n主要開發者：吉米丘\n協助開發者：Gemini, Nebula")
         credit_box.setStyleSheet("color: #555; font-size: 10px; margin-left: 25px; line-height: 1.2;")
         sidebar_layout.addWidget(credit_box)
         
@@ -768,9 +766,13 @@ class SettingsWindow(QMainWindow):
         self.openrouter_key = self._add_grid_row(layout, "OpenRouter / DeepSeek Key", QLineEdit())
         self.openrouter_key.setEchoMode(QLineEdit.EchoMode.Password)
 
-        layout.addWidget(self._page_section_header("🪄 AI 魔術指令"))
+        layout.addWidget(self._page_section_header("🪄 AI 魔術指令與展示選項"))
         self.magic_trigger = self._add_grid_row(layout, "啟動咒語 (例如: 嘿 助理)", QLineEdit())
         self.magic_trigger.setPlaceholderText("預設為: 嘿 VoiceType")
+        
+        self.debug_showcase_mode_llm = QLabel("💡 提示：展示模式與 Demo 模式已移至「系統設定」分頁。")
+        self.debug_showcase_mode_llm.setStyleSheet("color: #666; font-size: 11px;")
+        layout.addWidget(self.debug_showcase_mode_llm)
 
         container.setLayout(layout)
         page.setWidget(container)
@@ -801,17 +803,17 @@ class SettingsWindow(QMainWindow):
         base_layout.addWidget(self.soul_prompt)
         self.soul_tabs.addTab(base_tab, "🏠 基底靈魂")
 
-        # 2. 情境瀏覽
-        scenario_tab = self._create_file_list_tab(SOUL_SCENARIO_DIR, "這裡存放不同場景的提示詞，例如：客訴、IG 貼文、商務簡報。")
-        self.soul_tabs.addTab(scenario_tab, "🎭 情境模板")
+        # 2. 情境瀏覽 (v2.7.32: 改名為性格模式)
+        scenario_tab = self._create_file_list_tab(SOUL_SCENARIO_DIR, "這裡存放不同場景的提示詞（性格模式），例如：社群貼文、商務回應。")
+        self.soul_tabs.addTab(scenario_tab, "🎭 性格模式")
 
-        # 3. 格式瀏覽
-        format_tab = self._create_file_list_tab(SOUL_FORMAT_DIR, "這裡決定輸出的格式，例如：電子郵件、表格、自然段落。")
-        self.soul_tabs.addTab(format_tab, "📝 輸出格式")
+        # 3. 格式瀏覽 (v2.7.32: 隱藏)
+        # format_tab = self._create_file_list_tab(SOUL_FORMAT_DIR, "這裡決定輸出的格式。")
+        # self.soul_tabs.addTab(format_tab, "📝 輸出格式")
 
-        # 4. 模板管理
-        template_tab = self._create_file_list_tab(SOUL_TEMPLATE_DIR, "這裡存放您儲存過的「好用輸出範例」。", is_json=True)
-        self.soul_tabs.addTab(template_tab, "📌 我的模板")
+        # 4. 模板管理 (v2.7.32: 隱藏)
+        # template_tab = self._create_file_list_tab(SOUL_TEMPLATE_DIR, "這裡存放儲存過的範例。")
+        # self.soul_tabs.addTab(template_tab, "📌 我的模板")
 
         layout.addWidget(self.soul_tabs)
         return page
@@ -855,6 +857,7 @@ class SettingsWindow(QMainWindow):
             if not directory.exists(): return
             ext = "*.json" if is_json else "*.md"
             for f in sorted(directory.glob(ext)):
+                if f.name == "default.md": continue # v2.7.32: 隱藏預設靈魂以免使用者誤改
                 lst.addItem(f.name)
         
         QTimer.singleShot(100, refresh)
@@ -1022,7 +1025,7 @@ class SettingsWindow(QMainWindow):
         
         layout.addWidget(hotkey_grid)
         
-        layout.addWidget(self._page_section_header("⚙️ 偏好偏好"))
+        layout.addWidget(self._page_section_header("⚙️ 偏好設定"))
         self.auto_paste = QCheckBox("結果自動貼上 (Paste automatically)")
         self.auto_paste.setChecked(self.config.get("auto_paste", True))
         layout.addWidget(self.auto_paste)
@@ -1030,15 +1033,43 @@ class SettingsWindow(QMainWindow):
         self.completion_sound = QCheckBox("錄音完成時播放音效 (Play sound on completion)")
         self.completion_sound.setChecked(self.config.get("completion_sound", True))
         layout.addWidget(self.completion_sound)
-        
+
         self.debug_mode = QCheckBox("啟用詳細日誌輸出 (Debug logging)")
         self.debug_mode.setChecked(self.config.get("debug_mode", False))
         layout.addWidget(self.debug_mode)
-
-        self.debug_demo_mode = QCheckBox("情境模擬 Demo 版 (Debug Scenario Demo Mode)")
-        self.debug_demo_mode.setChecked(self.config.get("debug_demo_mode", False))
+        
+        self.debug_demo_mode = QCheckBox("情境模擬 Demo 版 (需API KEY連結雲端LLM) (Debug Scenario Demo Mode)")
+        self.debug_demo_mode.setChecked(self.config.get("is_demo", False))
         layout.addWidget(self.debug_demo_mode)
 
+        self.output_prefix = QCheckBox("顯示模式名稱前綴 (需API KEY連結雲端LLM)  (Output with Mode Prefix)")
+        self.output_prefix.setChecked(self.config.get("output_prefix", False))
+        layout.addWidget(self.output_prefix)
+
+        self.separate_keystrike_log = QCheckBox("獨立記錄熱鍵事件 (Separate KeyStrike Log to keystrike.log)")
+        self.separate_keystrike_log.setChecked(self.config.get("separate_keystrike_log", False))
+        layout.addWidget(self.separate_keystrike_log)
+
+        self.showcase_mode = QCheckBox("LLM 展示版 (需API KEY連結雲端LLM)  (LLM Showcase Mode: [STT] + [LLM])")
+        self.showcase_mode.setChecked(self.config.get("showcase_mode", False))
+        layout.addWidget(self.showcase_mode)
+
+        layout.addWidget(self._page_section_header("🛠️ 診斷與修復"))
+        self.btn_run_self_check = QPushButton("🔍 執行系統自我檢測 (Run Self-Check)")
+        self.btn_run_self_check.setObjectName("secondary")
+        self.btn_run_self_check.clicked.connect(self._run_self_check)
+        layout.addWidget(self.btn_run_self_check)
+
+        self.btn_view_logs = QPushButton("📄 檢視詳細日誌 (View Detail Logs)")
+        self.btn_view_logs.setObjectName("secondary")
+        self.btn_view_logs.clicked.connect(self._view_debug_log)
+        layout.addWidget(self.btn_view_logs)
+
+        self.btn_view_keystrike = QPushButton("📄 檢視熱鍵紀錄 (View KeyStrike Logs)")
+        self.btn_view_keystrike.setObjectName("secondary")
+        self.btn_view_keystrike.clicked.connect(self._view_keystrike_log)
+        layout.addWidget(self.btn_view_keystrike)
+        
         layout.addStretch()
         return page
 
@@ -1315,16 +1346,59 @@ class SettingsWindow(QMainWindow):
         self.config["auto_paste"] = self.auto_paste.isChecked()
         self.config["completion_sound"] = self.completion_sound.isChecked()
         self.config["debug_mode"] = self.debug_mode.isChecked()
-        self.config["debug_demo_mode"] = self.debug_demo_mode.isChecked()
+        self.config["is_demo"] = self.debug_demo_mode.isChecked() # Match key used in main.py
+        self.config["output_prefix"] = self.output_prefix.isChecked()
+        self.config["separate_keystrike_log"] = self.separate_keystrike_log.isChecked()
+        self.config["showcase_mode"] = self.showcase_mode.isChecked()
 
         try:
             SOUL_BASE_PATH.write_text(self.soul_prompt.toPlainText().strip(), encoding="utf-8")
         except: pass
 
         save_config(self.config)
-        QMessageBox.information(self, "嘴砲輸入法", "設定已儲存並生效。")
+        # v2.7.32: Windows 穩定性優先，提示手動重啟而非自動連鎖反應
+        QMessageBox.information(self, "嘴砲輸入法", "設定已儲存！\n\n為了確保「啟動防護」與「模組加載」完整生效，請務必手動『結束並重啟』本程式。")
         if self.on_save: self.on_save(self.config)
         self.close()
+
+    def _run_self_check(self):
+        import subprocess
+        import sys
+        import os
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "self_check.py")
+        if os.path.exists(script_path):
+            # Launch in a new terminal window on Windows
+            if platform.system() == "Windows":
+                subprocess.Popen(["cmd.exe", "/c", "start", sys.executable, script_path])
+            else:
+                subprocess.Popen([sys.executable, script_path])
+        else:
+            QMessageBox.warning(self, "錯誤", f"找不到檢測程式：{script_path}")
+
+    def _view_debug_log(self):
+        from paths import APP_DATA_DIR
+        log_path = APP_DATA_DIR / "debug.log"
+        if log_path.exists():
+            import os, platform
+            if platform.system() == "Windows":
+                os.startfile(str(log_path))
+            else:
+                import subprocess
+                subprocess.run(["open", str(log_path)])
+        else:
+            QMessageBox.information(self, "資訊", f"日誌檔案尚未建立：\n{log_path}")
+
+    def _view_keystrike_log(self):
+        from paths import KEYSTRIKE_LOG_PATH
+        if KEYSTRIKE_LOG_PATH.exists():
+            import os, platform
+            if platform.system() == "Windows":
+                os.startfile(str(KEYSTRIKE_LOG_PATH))
+            else:
+                import subprocess
+                subprocess.run(["open", str(KEYSTRIKE_LOG_PATH)])
+        else:
+            QMessageBox.information(self, "資訊", f"熱鍵日誌檔案尚未建立：\n{KEYSTRIKE_LOG_PATH}")
 
     def run(self):
         self.show()
