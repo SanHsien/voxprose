@@ -1029,6 +1029,10 @@ class SettingsWindow(QMainWindow):
         self.auto_paste = QCheckBox("結果自動貼上 (Paste automatically)")
         self.auto_paste.setChecked(self.config.get("auto_paste", True))
         layout.addWidget(self.auto_paste)
+
+        self.show_floating_button = QCheckBox("顯示顯示浮動按鈕 (Show Floating Button)")
+        self.show_floating_button.setChecked(self.config.get("show_floating_button", True))
+        layout.addWidget(self.show_floating_button)
         
         self.completion_sound = QCheckBox("錄音完成時播放音效 (Play sound on completion)")
         self.completion_sound.setChecked(self.config.get("completion_sound", True))
@@ -1349,6 +1353,7 @@ class SettingsWindow(QMainWindow):
         self.config["is_demo"] = self.debug_demo_mode.isChecked() # Match key used in main.py
         self.config["output_prefix"] = self.output_prefix.isChecked()
         self.config["separate_keystrike_log"] = self.separate_keystrike_log.isChecked()
+        self.config["show_floating_button"] = self.show_floating_button.isChecked()
         self.config["showcase_mode"] = self.showcase_mode.isChecked()
 
         try:

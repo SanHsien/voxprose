@@ -169,7 +169,16 @@
 - **啟動修復 (Hotfix)**：
   - 修正了 B12 版本中 `SettingsWindow` 的 `AttributeError`。該錯誤是因為按鈕綁定了已更名的日誌方法 `_view_logs` (已更正為 `_view_debug_log`)，導致啟動時可能產生崩潰。
   - **同步 KeyStrike 配置**：統一了 UI 改動後的 `showcase_mode` 鍵值，確保設定能正確儲存並生效於主程式。
-- **穩定性更新**：Build 編號正式升級至 **B13**。
+- **穩定性更新**：Build 編號正式升級至 **B18**。
+
+---
+
+## v2.8.0 Build-0303-B19 (瀏覽器解禁版)
+### 改進清單 (Requested by User)
+- **瀏覽器輸入修復 (Browser Injection Fix)**：
+  - 徹底移除先前版本中針對瀏覽器 (Chrome, Edge, Firefox 等) 的「注入攔截」邏輯。
+  - **功能恢復**：現在您可以正常在臉書 (Facebook)、網頁郵件、或任何瀏覽器輸入框中直接透過語音輸入文字，不再受限於僅複製到剪貼簿。
+- **穩定性更新**：Build 編號正式升級至 **B19**。
 
 ---
 

@@ -202,7 +202,7 @@ class VoiceTypeApp:
         if not os.path.exists(icon_path):
              icon_path = None
 
-        if IS_WINDOWS:
+        if IS_WINDOWS and self.config.get("show_floating_button", True):
             self.floating_btn = FloatingButton(icon_path)
             self.floating_btn.set_menu_items(self.menu_bar.get_menu_items())
             self.floating_btn.show()
@@ -383,19 +383,8 @@ class VoiceTypeApp:
             
             final_text = full2half(final_text)
 
-            # --- 4. 瀏覽器注入保護 (v2.7.32) ---
-            from hotkey.listener import get_active_window_title
-            active_title = get_active_window_title().lower()
-            is_browser = any(b in active_title for b in ["chrome", "edge", "firefox", "safari", "arc"])
-            
-            if is_browser:
-                print(f"[main] Browser detected: {active_title}. Skipping injection, clipboard only.")
-                import pyperclip
-                pyperclip.copy(final_text)
-                self.indicator.set_state("done")
-                # 可選：發送通知
-            else:
-                self.injector.inject(final_text)
+            # --- 4. 注入最終文字 (v2.8.0 B19: 已移除瀏覽器攔截) ---
+            self.injector.inject(final_text)
 
             # --- 5. 紀錄長期記憶與自動學習 (v2.7.32 Fix) ---
             try:
