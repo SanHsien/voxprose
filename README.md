@@ -1,4 +1,4 @@
-# VoiceType4TW 嘴砲輸入法 (v2.6.0 Pro)
+# VoiceType4TW 嘴砲輸入法 (PC v2.8.0 / Mac v2.6.0 Pro)
 
 主要開發者：吉米丘  
 協助開發者：Gemini、Nebula (Google AI)
@@ -145,10 +145,12 @@
 curl -fsSL https://raw.githubusercontent.com/jfamily4tw/voicetype4tw-mac/main/install.sh | bash
 ```
 
-### Windows (PC 版)
+### Windows (PC v2.8.0 正式版)
 1. 下載本專案並進入目錄。
-2. 執行 `pip install -r requirements-win.txt`。
-3. 執行 `python main.py` 即可在系統列看到🎙圖示。
+2. 建議使用 Python 3.10+ 環境。
+3. 執行 `pip install -r requirements-win.txt` (支援 CUDA 加速)。
+4. 執行 `python main.py` 啟動。
+5. **首次使用建議**：點選右下角托盤 > 偏好設定 > `🔍 執行系統自我檢測`，確保 CUDA 與相關依賴完整。
 
 ---
 
@@ -196,9 +198,9 @@ python main.py
 
 ## 系統需求
 
-- macOS 12+  
-- Python 3.10+  
-- Apple Silicon（推薦，可用 MLX 加速）或 Intel Mac  
+- **macOS** 12+ (Apple Silicon 推薦，可用 MLX/CoreML 加速)。
+- **Windows** 10/11 (Python 3.10+，推薦搭配 NVIDIA GPU 以使用 CUDA 加速)。
+- **記憶體**: 建議 16GB 以上。
 
 ---
 
