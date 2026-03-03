@@ -26,6 +26,7 @@ class _Signals(QObject):
 class MicIndicatorWindow(QWidget):
     STATE_COLORS = {
         "recording": QColor(255, 80, 80),      # red
+        "ai_recording": QColor(0, 220, 255),   # cyan/blue for AI modes
         "processing": QColor(255, 200, 50),    # yellow
         "done": QColor(80, 200, 120),          # green
         "loading": QColor(0, 122, 255),       # blue
@@ -67,7 +68,7 @@ class MicIndicatorWindow(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.setFixedSize(180, 26)
+        self.setFixedSize(180, 32)
         self._reposition()
 
     def _reposition(self):
@@ -156,9 +157,9 @@ class MicIndicatorWindow(QWidget):
         # ── 寬度計算與置中 ──
         import platform
         font_family = "PingFang TC" if platform.system() == "Darwin" else "Microsoft JhengHei"
-        f_prefix = QFont(font_family, 7)
+        f_prefix = QFont(font_family, 8)
         f_prefix.setBold(True)
-        f_label = QFont(font_family, 7)
+        f_label = QFont(font_family, 8)
         fm_prefix = QFontMetrics(f_prefix)
         fm_label = QFontMetrics(f_label)
 
@@ -185,7 +186,7 @@ class MicIndicatorWindow(QWidget):
             start_x += prefix_w + prefix_gap
 
         center_y = self.height() // 2
-        max_bar_h = 14
+        max_bar_h = 18
         for i, val in enumerate(self._bars):
             h = max(2, int(val * max_bar_h))
             x = start_x + i * (bar_w + gap)

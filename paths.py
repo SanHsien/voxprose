@@ -26,7 +26,8 @@ SOUL_FORMAT_DIR = SOUL_DIR / "format"
 SOUL_TEMPLATE_DIR = SOUL_DIR / "templates"
 SOUL_SNIPPET_DIR = SOUL_DIR / "snippets"
 AI_PERMANENT_MEMORY_PATH = APP_DATA_DIR / "ai_permanent_memory.md"
-BUILD_ID = "BUILD-0303-B19"  # v2.8.0 b19
+BUILD_ID = "BUILD-0303-B28"  # v2.8.0 b28
+VERSION_NAME = "v2.8.0"
 KEYSTRIKE_LOG_PATH = APP_DATA_DIR / "keystrike.log"
 
 # 舊版路徑 (用於遷移)

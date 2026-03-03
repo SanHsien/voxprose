@@ -19,6 +19,5 @@ def get_stt(config: dict) -> BaseSTT:
         return GeminiSTT(config)
     else:
         from .local_whisper import LocalWhisperSTT
-        size = config.get("whisper_model", "medium")
-        return LocalWhisperSTT(model_size=size)
+        return LocalWhisperSTT(config)
 

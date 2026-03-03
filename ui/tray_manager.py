@@ -23,12 +23,20 @@ class TrayManager:
             self._start_macos(on_tick)
 
     def stop(self):
+        # Stop ticker first to avoid calls during app teardown
+        self.stop_ticker()
+        
         if IS_WINDOWS:
             if self._tray:
                 self._tray.stop()
         else:
             import rumps
             rumps.quit_application()
+
+    def stop_ticker(self):
+        """Stop the background loop that drives Qt events (macOS)."""
+        if not IS_WINDOWS and self._tray:
+            self._tray._stop_ticker = True
 
     def update_menu(self, menu_items: List[Dict]):
         self.menu_items = menu_items
@@ -50,10 +58,7 @@ class TrayManager:
                 image = Image.new('RGB', (64, 64), (124, 77, 255)) # Purple
             
             def create_menu():
-                items = []
-                for item in self.menu_items:
-                    items.append(MenuItem(item['label'], item['callback'], checked=item.get('checked', None)))
-                return Menu(*items)
+                return self._build_pystray_menu(self.menu_items)
 
             self._tray = Icon(self.title, image, self.title, menu=create_menu())
             self._tray.run()
@@ -64,10 +69,11 @@ class TrayManager:
         try:
             import rumps
             class App(rumps.App):
-                def __init__(self, title, icon, items, tick_callback):
-                    super().__init__(title, icon=icon, quit_button=None)
+                def __init__(self, title, icon_path, items, tick_callback):
+                    super().__init__(title, icon=icon_path, quit_button=None)
                     self.items = items
                     self.tick_callback = tick_callback
+                    self._stop_ticker = False
                     self._rebuild_menu()
 
                 def _rebuild_menu(self):
@@ -89,19 +95,23 @@ class TrayManager:
                             # Create a nested menu item
                             sub_menu_item = rumps.MenuItem(name)
                             menu_obj.add(sub_menu_item)
-                            # rumps doesn't have a direct "sub-menu" object, 
-                            # we just add items to the MenuItem itself as if it were a menu
                             self._add_items_to_menu(sub_menu_item, submenu)
                         else:
+                            # Check if explicitly None or missing
+                            checked_val = item.get('checked', None)
                             btn = rumps.MenuItem(name, callback=callback)
-                            if checked is not None:
-                                btn.state = 1 if checked else 0
+                            if checked_val is not None:
+                                btn.state = 1 if checked_val else 0
                             menu_obj.add(btn)
 
                 @rumps.timer(0.1)
                 def drive_tick(self, _):
-                    if self.tick_callback:
-                        self.tick_callback()
+                    if not self._stop_ticker and self.tick_callback:
+                        try:
+                            self.tick_callback()
+                        except:
+                            # Catch errors during shutdown when objects might be dead
+                            pass
 
             self._tray = App(self.title, self.icon_path, self.menu_items, on_tick)
             self._tray.run()
@@ -130,8 +140,16 @@ class TrayManager:
                 sub_menu_obj = self._build_pystray_menu(submenu)
                 out_items.append(MenuItem(label, sub_menu_obj))
             else:
-                # pystray MenuItem needs a callable callback to avoid internal errors during update
-                out_items.append(MenuItem(label, callback, checked=lambda _: checked if checked is not None else False) if checked is not None else MenuItem(label, callback))
+                # Wrap callback to match rumps: callback(sender)
+                # pystray provides (icon, item), we pass item as sender
+                wrapped_cb = (lambda i, it, cb=callback: cb(it)) if callback else None
+                
+                if checked is not None:
+                    # pystray checked needs a callable or bool
+                    # We use a lambda to ensure it stays in sync with our state
+                    out_items.append(MenuItem(label, wrapped_cb, checked=lambda _: checked))
+                else:
+                    out_items.append(MenuItem(label, wrapped_cb))
         return Menu(*out_items)
 
     def _update_macos_menu(self):

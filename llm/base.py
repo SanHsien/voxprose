@@ -6,3 +6,7 @@ class BaseLLM(ABC):
     def refine(self, text: str, prompt: str) -> str:
         """Refine raw transcription text using the given system prompt."""
         ...
+
+    def warmup(self):
+        """Pre-load models or initialize hardware (optional)."""
+        pass

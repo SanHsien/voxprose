@@ -100,7 +100,7 @@ class VoiceTypeMenuBar:
         self.refresh_ui()
 
     def _set_scenario(self, sender):
-        name = sender.text() if callable(getattr(sender, 'text', None)) else getattr(sender, 'text', str(sender))
+        name = self._get_sender_text(sender)
         print(f"[menu] Scenario Selected: {name}")
         # Strip emoji and space if prefix exists (e.g. "🎭 Social" -> "Social")
         import re
@@ -116,7 +116,7 @@ class VoiceTypeMenuBar:
         self.refresh_ui()
 
     def _set_format(self, sender):
-        name = sender.text() if callable(getattr(sender, 'text', None)) else getattr(sender, 'text', str(sender))
+        name = self._get_sender_text(sender)
         print(f"[menu] Format Selected: {name}")
         import re
         internal_name = re.sub(r'^[\W_]+', '', name).strip()
@@ -130,7 +130,7 @@ class VoiceTypeMenuBar:
         self.refresh_ui()
 
     def _use_template(self, sender):
-        name = sender.text() if callable(getattr(sender, 'text', None)) else getattr(sender, 'text', str(sender))
+        name = self._get_sender_text(sender)
         from paths import SOUL_TEMPLATE_DIR
         import json
         tpl_path = SOUL_TEMPLATE_DIR / f"{name}.json"
@@ -173,8 +173,16 @@ class VoiceTypeMenuBar:
     def _deferred_refresh_ui(self):
         full_items = self.get_menu_items()
         tray_items = self.get_tray_menu_items()
+        
         if self.tray:
-            self.tray.update_menu(tray_items)
+            # v2.8.0 Restoration: On Mac, we don't have the floating button, 
+            # so the system tray MUST keep the full menu.
+            from ui.tray_manager import IS_WINDOWS
+            if not IS_WINDOWS:
+                self.tray.update_menu(full_items)
+            else:
+                self.tray.update_menu(tray_items)
+                
         if getattr(self, 'floating_btn', None):
             self.floating_btn.set_menu_items(full_items)
 
@@ -189,3 +197,12 @@ class VoiceTypeMenuBar:
     def set_idle(self):
         if self.tray and hasattr(self.tray, 'set_icon'):
             self.tray.set_icon("🎙")
+
+    def _get_sender_text(self, sender):
+        """Helper to get text label from different tray item objects (rumps/pystray)."""
+        if hasattr(sender, 'title'): # rumps.MenuItem
+            return sender.title
+        if hasattr(sender, 'text'): # pystray.MenuItem
+            return sender.text
+        # If it's already a string or something else
+        return str(sender)

@@ -22,7 +22,7 @@ class OpenRouterLLM(BaseLLM):
             "model": self.model,
             "messages": [
                 {"role": "system", "content": prompt},
-                {"role": "user", "content": text}
+                {"role": "user", "content": f"<Draft>\n{text}\n</Draft>"}
             ],
         }
         try:

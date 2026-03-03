@@ -12,7 +12,7 @@ class ClaudeLLM(BaseLLM):
             model=self.model,
             max_tokens=1024,
             system=prompt,
-            messages=[{"role": "user", "content": text}],
+            messages=[{"role": "user", "content": f"<Draft>\n{text}\n</Draft>"}],
         )
         result = message.content[0].text.strip()
         print(f"[llm] Claude refined: {result}")

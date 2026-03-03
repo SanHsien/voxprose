@@ -7,7 +7,7 @@ import os
 import platform
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QStackedWidget, QLabel, QLineEdit, QComboBox, QCheckBox, QPushButton, 
     QTextEdit, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView,
     QMessageBox, QFileDialog, QScrollArea, QFrame, QSplitter
@@ -260,13 +260,14 @@ class SettingsWindow(QMainWindow):
         self._load_data()
         
         # 根據語言動態設定視窗標題
+        from paths import VERSION_NAME
         lang = self.config.get("language", "zh")
         if "zh" in lang:
             win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "Taipei Sans TC Beta"
             self.setFont(QFont(win_font))
-            self.setWindowTitle("嘴砲輸入法 v2.7.32 beta (Windows)")
+            self.setWindowTitle(f"嘴砲輸入法 {VERSION_NAME}")
         else:
-            self.setWindowTitle("VoiceType4TW v2.7.32 beta (Windows)")
+            self.setWindowTitle(f"VoiceType4TW {VERSION_NAME}")
         
         # 設定啟動頁面
         if 0 <= start_page < len(self.sidebar_buttons):
@@ -274,7 +275,8 @@ class SettingsWindow(QMainWindow):
             QTimer.singleShot(10, lambda: self._on_sidebar_changed(start_page))
 
     def _setup_ui(self):
-        self.setWindowTitle("VoiceType4TW Pro 2.6.0")
+        from paths import VERSION_NAME
+        self.setWindowTitle(f"VoiceType4TW {VERSION_NAME}")
         self.setMinimumSize(900, 680)
         
         # Ensure it pops up correctly on Windows
@@ -388,6 +390,10 @@ class SettingsWindow(QMainWindow):
         lbl_en.setStyleSheet("font-family: 'Myriad Pro'; font-weight: bold; font-size: 28px; color: white;")
         lbl_en.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
+        lbl_en = QLabel("VoiceType4TW")
+        lbl_en.setStyleSheet("font-family: 'Myriad Pro'; font-weight: bold; font-size: 28px; color: white;")
+        lbl_en.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
         os_ver = "Mac version" if platform.system() == "Darwin" else "Windows version"
         lbl_os = QLabel(os_ver)
         lbl_os.setStyleSheet("font-family: 'Myriad Pro'; font-style: italic; font-size: 14px; color: #8a8d91;")
@@ -424,7 +430,8 @@ class SettingsWindow(QMainWindow):
         sidebar_layout.addStretch()
         
         # Credits and SNS at Bottom
-        credit_box = QLabel(f"2.7.32 | {BUILD_ID}\n主要開發者：吉米丘\n協助開發者：Gemini, Nebula")
+        from paths import VERSION_NAME, BUILD_ID
+        credit_box = QLabel(f"{VERSION_NAME} | {BUILD_ID}\n主要開發者：吉米丘\n協助開發者：Gemini, Nebula")
         credit_box.setStyleSheet("color: #555; font-size: 10px; margin-left: 25px; line-height: 1.2;")
         sidebar_layout.addWidget(credit_box)
         
@@ -1023,6 +1030,9 @@ class SettingsWindow(QMainWindow):
         self.btn_ptt = HotkeyRecorderButton(self.config.get("hotkey_ptt", "alt_r"))
         self._add_grid_row(grid_layout, "錄音按住 (PTT)", self.btn_ptt)
         
+        self.btn_toggle = HotkeyRecorderButton(self.config.get("hotkey_toggle", "f13"))
+        self._add_grid_row(grid_layout, "錄音開關 (Toggle)", self.btn_toggle)
+        
         layout.addWidget(hotkey_grid)
         
         layout.addWidget(self._page_section_header("⚙️ 偏好設定"))
@@ -1059,20 +1069,32 @@ class SettingsWindow(QMainWindow):
         layout.addWidget(self.showcase_mode)
 
         layout.addWidget(self._page_section_header("🛠️ 診斷與修復"))
-        self.btn_run_self_check = QPushButton("🔍 執行系統自我檢測 (Run Self-Check)")
+        
+        diag_grid = QGridLayout()
+        diag_grid.setContentsMargins(0, 5, 0, 5)
+        diag_grid.setSpacing(10)
+
+        self.btn_mic_test = QPushButton("🎤 麥克風測試與診斷 (Mic Test)")
+        self.btn_mic_test.setObjectName("secondary")
+        self.btn_mic_test.clicked.connect(self._run_mic_test)
+        diag_grid.addWidget(self.btn_mic_test, 0, 0)
+        
+        self.btn_run_self_check = QPushButton("🔍 系統自我檢測 (Self-Check)")
         self.btn_run_self_check.setObjectName("secondary")
         self.btn_run_self_check.clicked.connect(self._run_self_check)
-        layout.addWidget(self.btn_run_self_check)
+        diag_grid.addWidget(self.btn_run_self_check, 0, 1)
 
         self.btn_view_logs = QPushButton("📄 檢視詳細日誌 (View Detail Logs)")
         self.btn_view_logs.setObjectName("secondary")
         self.btn_view_logs.clicked.connect(self._view_debug_log)
-        layout.addWidget(self.btn_view_logs)
+        diag_grid.addWidget(self.btn_view_logs, 1, 0)
 
-        self.btn_view_keystrike = QPushButton("📄 檢視熱鍵紀錄 (View KeyStrike Logs)")
+        self.btn_view_keystrike = QPushButton("📄 檢視熱鍵紀錄 (View Keys Logs)")
         self.btn_view_keystrike.setObjectName("secondary")
         self.btn_view_keystrike.clicked.connect(self._view_keystrike_log)
-        layout.addWidget(self.btn_view_keystrike)
+        diag_grid.addWidget(self.btn_view_keystrike, 1, 1)
+
+        layout.addLayout(diag_grid)
         
         layout.addStretch()
         return page
@@ -1347,6 +1369,7 @@ class SettingsWindow(QMainWindow):
         self.config["openrouter_api_key"] = self.openrouter_key.text().strip()
         self.config["magic_trigger"] = self.magic_trigger.text().strip() or "嘿 VoiceType"
         self.config["hotkey_ptt"] = self.btn_ptt.key_str
+        self.config["hotkey_toggle"] = self.btn_toggle.key_str
         self.config["auto_paste"] = self.auto_paste.isChecked()
         self.config["completion_sound"] = self.completion_sound.isChecked()
         self.config["debug_mode"] = self.debug_mode.isChecked()
@@ -1408,6 +1431,61 @@ class SettingsWindow(QMainWindow):
     def run(self):
         self.show()
 
+    def _run_mic_test(self):
+        from PyQt6.QtWidgets import QMessageBox, QProgressDialog
+        import sounddevice as sd
+        import numpy as np
+        import platform
+        import time
+
+        if platform.system() != "Darwin":
+            QMessageBox.information(self, "系統診斷", "此診斷功能目前專為 macOS 設計。")
+            return
+
+        reply = QMessageBox.question(self, "麥克風測試", 
+                                   "即將開始 3 秒鐘的錄音測試，請對著麥克風說話。\n\n準備好了嗎？",
+                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        
+        if reply == QMessageBox.StandardButton.No:
+            return
+
+        # Create a non-modal (but blocking) progress dialog
+        progress = QProgressDialog("正在錄音中，請說話...", None, 0, 3, self)
+        progress.setWindowTitle("麥克風測試")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.show()
+        
+        fs = 16000
+        duration = 3.0
+        
+        try:
+            recording = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='float32')
+            
+            for i in range(3):
+                progress.setValue(i)
+                QApplication.processEvents()
+                time.sleep(1)
+            
+            sd.wait()
+            progress.setValue(3)
+            progress.close()
+            
+            energy = np.sqrt(np.mean(recording**2))
+            
+            if energy < 1e-7:
+                QMessageBox.critical(self, "測試失敗", 
+                    "偵測到【完全靜音】(Silence)。\n\n這通常代表 macOS TCC 權限異常，請嘗試在終端機執行：\ntccutil reset Microphone\n然後重啟 App。")
+            elif energy < 1e-3:
+                QMessageBox.warning(self, "測試警告", 
+                    f"音訊能源過低 ({energy:.6f})。\n\n請檢查系統輸入音量設定。")
+            else:
+                QMessageBox.information(self, "測試成功", 
+                    f"成功接收音訊資料！\n能源強度: {energy:.6f}\n您的麥克風運作正常。")
+                
+        except Exception as e:
+            if 'progress' in locals(): progress.close()
+            QMessageBox.critical(self, "錯誤", f"錄音測試失敗: {str(e)}")
+
 def has_api_key(config: dict) -> bool:
     stt = config.get("stt_engine", "local_whisper")
     if stt == "local_whisper" and (not config.get("llm_enabled") or config.get("llm_engine") == "ollama"):
@@ -1415,6 +1493,7 @@ def has_api_key(config: dict) -> bool:
     for k in ["groq_api_key", "openai_api_key", "openrouter_api_key"]:
         if config.get(k): return True
     return False
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

@@ -13,9 +13,23 @@ MODEL_REPO_MAP = {
 
 
 class MLXWhisperSTT(BaseSTT):
-    def __init__(self, model_size: str = "medium"):
+    def __init__(self, config: dict):
+        model_size = config.get("whisper_model", "medium")
         self.model_repo = MODEL_REPO_MAP.get(model_size, MODEL_REPO_MAP["medium"])
-        print(f"[stt] MLX Whisper model: {self.model_repo} (lazy load on first use)")
+        print(f"[stt] MLX Whisper model: {self.model_repo} (waiting for warmup)")
+
+    def warmup(self):
+        """Pre-initialize MLX and Metal by loading the model and doing a tiny dummy transcription."""
+        print(f"[stt] Warming up MLX Whisper ({self.model_repo})...")
+        try:
+            import mlx_whisper
+            import numpy as np
+            # Warm up with 0.05s of silence to trigger model loading and Metal init
+            silence = np.zeros(800, dtype=np.float32)
+            mlx_whisper.transcribe(silence, path_or_hf_repo=self.model_repo)
+            print(f"[stt] MLX Whisper warmup complete.")
+        except Exception as e:
+            print(f"[stt] Warmup error: {e}")
 
     def transcribe(self, audio_bytes: bytes, language: str = "zh") -> str:
         if not audio_bytes:

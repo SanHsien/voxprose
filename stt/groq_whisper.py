@@ -4,7 +4,8 @@ from .base import BaseSTT
 
 
 class GroqWhisperSTT(BaseSTT):
-    def __init__(self, api_key: str):
+    def __init__(self, config: dict):
+        api_key = config.get("groq_api_key", "")
         self.client = Groq(api_key=api_key)
 
     def transcribe(self, audio_bytes: bytes, language: str = "zh") -> str:

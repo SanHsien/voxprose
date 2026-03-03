@@ -1,4 +1,4 @@
-# VoiceType4TW 嘴砲輸入法 (PC v2.8.0 / Mac v2.6.0 Pro)
+# VoiceType4TW 嘴砲輸入法 (v2.8.0 旗艦版)
 
 主要開發者：吉米丘  
 協助開發者：Gemini、Nebula (Google AI)
@@ -7,7 +7,7 @@
 
 ---
 
-![影片縮圖](https://img.youtube.com/vi/gZA-GSiRJqw/0.jpg)
+![影片縮圖](assets/youtube-cover.jpg)
 
 👉 [點我觀看完整影片](https://www.youtube.com/watch?v=gZA-GSiRJqw)
 
@@ -57,6 +57,8 @@
 
 ## ✨ 靈魂治理：三層疊加系統
 
+![靈魂治理](assets/screenshot-03.png)
+
 這套系統最核心的特色在於您可以自由調配 AI 的「靈魂組成」：
 
 1.  **🏠 基底靈魂 (Base)**：定義 AI 的核心價值觀，例如：不廢話、修正錯字、繁體中文輸出。
@@ -70,6 +72,7 @@
 ## 詞彙記憶
 
 ![詞彙記憶](assets/screenshot-04.png)
+
 因為吉米常常需要輸入一些專有名詞，或者是客戶的品牌名稱，所以我在這個地方設計了一個詞彙新增的功能，可以手動輸入我們想要辨識的專有名詞
 
 甚至我這邊是設定了，當一個詞彙出現三次以上，他會自動把它記錄起來
@@ -121,7 +124,7 @@
 
 ![系統設定](assets/screenshot-06.png)
 
-設定成要按哪個按鈕來觸發語音輸入法的設定頁面。在這個地方可以按住錄音的呈現，錄音切換這個部分，我現在還在調整當中。強制AI處理這部分，其實我沒有MenuBar的選單就可以了。這部分我來修改一下好了。
+設定成要按哪個按鈕來觸發語音輸入法的設定頁面。在這個地方可以設定按住錄音 (PTT) 或 單擊開關 (Toggle) 的運作方式。
 
 結果自動貼上，這玩意兒就是會把我們輸入之後的文字，自動貼上我們所在Focus的視窗輸入頁面上面，同時也會存在剪貼簿裡面。
 
@@ -152,7 +155,20 @@
 curl -fsSL https://raw.githubusercontent.com/jfamily4tw/voicetype4tw-mac/main/install.sh | bash
 ```
 
-### Windows (PC v2.8.0 正式版)
+#### 🔍 麥克風權限與無聲診斷
+
+![麥克風權限與無聲診斷](assets/mictest-01.png)
+
+若安裝後錄音「沒有聲音」或「權限無法取得」，請在終端機執行診斷腳本：
+```bash
+python3 diagnose_mic.py
+```
+若顯示授權正常但仍無聲，請執行修復指令並重啟：
+```bash
+tccutil reset Microphone
+```
+
+### Windows (v2.8.0 正式版)
 1. 下載本專案並進入目錄。
 2. 建議使用 Python 3.10+ 環境。
 3. 執行 `pip install -r requirements-win.txt` (支援 CUDA 加速)。

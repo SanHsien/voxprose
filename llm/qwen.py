@@ -20,7 +20,8 @@ class QwenLLM(BaseLLM):
             "model": self.model,
             "input": {
                 "messages": [
-                    {"role": "user", "content": f"{prompt}\n\n{text}"}
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": f"<Draft>\n{text}\n</Draft>"}
                 ]
             },
         }

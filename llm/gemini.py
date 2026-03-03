@@ -14,7 +14,7 @@ class GeminiLLM(BaseLLM):
             return text
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
         payload = {
-            "contents": [{"parts": [{"text": f"{prompt}\n\n{text}"}]}]
+            "contents": [{"parts": [{"text": f"{prompt}\n\n<Draft>\n{text}\n</Draft>"}]}]
         }
         try:
             resp = httpx.post(url, json=payload, timeout=30)
