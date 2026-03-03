@@ -7,6 +7,13 @@
 
 ---
 
+![影片縮圖](https://img.youtube.com/vi/gZA-GSiRJqw/0.jpg)
+
+👉 [點我觀看完整影片](https://www.youtube.com/watch?v=gZA-GSiRJqw)
+
+
+---
+
 ## 為什麼做這套工具
 
 ![Dashboard](assets/screenshot-01.png)
