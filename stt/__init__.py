@@ -1,18 +1,24 @@
 from .base import BaseSTT
-from .local_whisper import LocalWhisperSTT
-from .groq_whisper import GroqWhisperSTT
-from .openrouter_stt import OpenRouterSTT
-from .gemini_stt import GeminiSTT
-from .mlx_whisper import MLXWhisperSTT
+
+# Lazy imports: 各引擎只在 build_stt() 選中時才 import，
+# 避免在 Windows 上缺少 groq / mlx 等 macOS 專屬模組而崩潰。
 
 def get_stt(config: dict) -> BaseSTT:
     engine = config.get("stt_engine", "local_whisper")
-    engines = {
-        "local_whisper": LocalWhisperSTT,
-        "mlx_whisper": MLXWhisperSTT,
-        "groq": GroqWhisperSTT,
-        "openrouter": OpenRouterSTT,
-        "gemini": GeminiSTT,
-    }
-    cls = engines.get(engine, LocalWhisperSTT)
-    return cls(config)
+    if engine == "mlx_whisper":
+        from .mlx_whisper import MLXWhisperSTT
+        return MLXWhisperSTT(config)
+    elif engine == "groq":
+        from .groq_whisper import GroqWhisperSTT
+        return GroqWhisperSTT(config)
+    elif engine == "openrouter":
+        from .openrouter_stt import OpenRouterSTT
+        return OpenRouterSTT(config)
+    elif engine == "gemini":
+        from .gemini_stt import GeminiSTT
+        return GeminiSTT(config)
+    else:
+        from .local_whisper import LocalWhisperSTT
+        size = config.get("whisper_model", "medium")
+        return LocalWhisperSTT(model_size=size)
+

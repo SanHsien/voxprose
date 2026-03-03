@@ -17,14 +17,13 @@ from PyQt6.QtGui import QFont, QIcon, QColor, QPainter, QLinearGradient, QBrush,
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import load_config, save_config
-from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR
-STT_ENGINES = ["local_whisper", "mlx_whisper", "groq", "gemini", "openrouter"]
+from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR, BUILD_ID
+STT_ENGINES = ["local_whisper", "groq", "gemini", "openrouter"] if platform.system() == "Windows" else ["local_whisper", "mlx_whisper", "groq", "gemini", "openrouter"]
 LLM_ENGINES = ["ollama", "openai", "claude", "openrouter", "gemini", "deepseek", "qwen"]
 WHISPER_MODELS = ["tiny", "base", "small", "medium", "large"]
 TRIGGER_MODES = ["push_to_talk", "toggle"]
 HOTKEYS = ["right_option", "left_option", "right_ctrl", "f13", "f14", "f15"]
 LLM_MODES = ["replace", "fast"]
-BUILD_ID = "BUILD-0301-B"  # v2.6.0 build
 
 from hotkey.listener import key_to_str, str_to_key
 
@@ -50,6 +49,7 @@ class SidebarButton(QPushButton):
         font_family = "Taipei Sans TC Beta" if platform.system() == "Darwin" else "Microsoft JhengHei"
         self.setText(f"{icon_text}  {label}")
         self.setFont(QFont(font_family, 16, QFont.Weight.Medium))
+
         self.setFixedHeight(60)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.clicked.connect(lambda: on_click(self.index))
@@ -171,8 +171,11 @@ class PermissionLight(QWidget):
         layout.addWidget(self.dot)
 
         self.label = QLabel(label_text)
-        self.label.setStyleSheet("color: #e2e4e7; font-size: 14px;")
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+        self.label.setStyleSheet(f"color: #e2e4e7; font-size: 14px; font-family: '{win_font}';")
+        self.label.setWordWrap(True)
         layout.addWidget(self.label)
+
 
         layout.addStretch()
 
@@ -192,7 +195,11 @@ class PermissionLight(QWidget):
 
     def _open_preference(self):
         import subprocess
-        subprocess.run(["open", self.url])
+        if platform.system() == "Windows":
+            import os
+            os.startfile(self.url)
+        else:
+            subprocess.run(["open", self.url])
 
     def set_status(self, authorized: bool):
         color = "#00e676" if authorized else "#ff5252"
@@ -217,14 +224,18 @@ class ModelStatusLight(QWidget):
         top_layout.addWidget(self.dot)
         
         self.label = QLabel(f"{model_name} ({size_info})")
-        self.label.setStyleSheet("color: #e2e4e7; font-size: 13px; font-weight: bold;")
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+        self.label.setStyleSheet(f"color: #e2e4e7; font-size: 13px; font-weight: bold; font-family: '{win_font}';")
         top_layout.addWidget(self.label)
+
         top_layout.addStretch()
         layout.addLayout(top_layout)
         
         self.desc = QLabel(desc_text)
-        self.desc.setStyleSheet("color: #888; font-size: 11px; margin-left: 18px;")
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+        self.desc.setStyleSheet(f"color: #888; font-size: 11px; margin-left: 18px; font-family: '{win_font}';")
         self.desc.setWordWrap(True)
+
         layout.addWidget(self.desc)
 
     def set_status(self, downloaded: bool):
@@ -239,15 +250,23 @@ class SettingsWindow(QMainWindow):
         self.config = load_config()
         self.on_save = on_save
         self._is_dark = True # Pro mode is dark by default
+        
+        # Windows: Ensure window is popped up and focused (but not always on top)
+        if platform.system() == "Windows":
+             # We rely on raise_() and activateWindow() in _setup_ui to bring it to front initially
+             pass
+
         self._setup_ui()
         self._load_data()
         
         # 根據語言動態設定視窗標題
         lang = self.config.get("language", "zh")
         if "zh" in lang:
-            self.setWindowTitle("嘴砲輸入法 2.6.0 Pro")
+            win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "Taipei Sans TC Beta"
+            self.setFont(QFont(win_font))
+            self.setWindowTitle("嘴砲輸入法 v2.7.32 beta (Windows)")
         else:
-            self.setWindowTitle("VoiceType4TW Pro 2.6.0")
+            self.setWindowTitle("VoiceType4TW v2.7.32 beta (Windows)")
         
         # 設定啟動頁面
         if 0 <= start_page < len(self.sidebar_buttons):
@@ -258,7 +277,12 @@ class SettingsWindow(QMainWindow):
         self.setWindowTitle("VoiceType4TW Pro 2.6.0")
         self.setMinimumSize(900, 680)
         
+        # Ensure it pops up correctly on Windows
+        self.raise_()
+        self.activateWindow()
+        
         # Premium CSS
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "PingFang TC"
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #0f1115;
@@ -286,9 +310,10 @@ class SettingsWindow(QMainWindow):
             }
             QLabel {
                 color: #e2e4e7;
-                font-family: 'PingFang TC';
+                font-family: '""" + win_font + """';
             }
             QLineEdit, QComboBox, QTextEdit, QListWidget, QTreeWidget {
+                font-family: '""" + win_font + """';
                 background-color: #1c1f26;
                 border: 1px solid #2d333d;
                 border-radius: 8px;
@@ -399,7 +424,7 @@ class SettingsWindow(QMainWindow):
         sidebar_layout.addStretch()
         
         # Credits and SNS at Bottom
-        credit_box = QLabel(f"v2.6.0 Pro | {BUILD_ID}\n主要開發者：吉米丘\n協助開發者：Gemini, Nebula")
+        credit_box = QLabel(f"2.7.32 | {BUILD_ID}\n主要開發者：吉米丘\n協助開發者：Gemini, Nebula")
         credit_box.setStyleSheet("color: #555; font-size: 10px; margin-left: 25px; line-height: 1.2;")
         sidebar_layout.addWidget(credit_box)
         
@@ -409,13 +434,14 @@ class SettingsWindow(QMainWindow):
         sns_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         sns_layout.setSpacing(10)
         
+        _assets_dir = str(Path(__file__).parent.parent / "assets")
         sns_links = [
-            ("/Users/acyk/scripts/voicetype-mac/assets/sns-youtube.png", "https://youtube.com/@Jimmy4TW"),
-            ("/Users/acyk/scripts/voicetype-mac/assets/sns-facebook.png", "https://www.facebook.com/acykjcms"),
-            ("/Users/acyk/scripts/voicetype-mac/assets/sns-instagram.png", "https://www.instagram.com/jimmy4tw/"),
-            ("/Users/acyk/scripts/voicetype-mac/assets/sns-tiktok.png", "https://www.tiktok.com/@jimmy4tw"),
-            ("/Users/acyk/scripts/voicetype-mac/assets/sns-threads.png", "https://www.threads.net/@jimmy4tw"),
-            ("/Users/acyk/scripts/voicetype-mac/assets/sns-4tw.png", "https://Jimmy4.TW/")
+            (os.path.join(_assets_dir, "sns-youtube.png"), "https://youtube.com/@Jimmy4TW"),
+            (os.path.join(_assets_dir, "sns-facebook.png"), "https://www.facebook.com/acykjcms"),
+            (os.path.join(_assets_dir, "sns-instagram.png"), "https://www.instagram.com/jimmy4tw/"),
+            (os.path.join(_assets_dir, "sns-tiktok.png"), "https://www.tiktok.com/@jimmy4tw"),
+            (os.path.join(_assets_dir, "sns-threads.png"), "https://www.threads.net/@jimmy4tw"),
+            (os.path.join(_assets_dir, "sns-4tw.png"), "https://Jimmy4.TW/")
         ]
         
         for icon_path, url in sns_links:
@@ -486,8 +512,10 @@ class SettingsWindow(QMainWindow):
         dash_header.addStretch()
         
         title_cn = QLabel("嘴砲輸入法")
-        title_cn.setStyleSheet("font-family: 'Taipei Sans TC Beta'; font-size: 32px; font-weight: bold; color: #ffffff;")
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "Taipei Sans TC Beta"
+        title_cn.setStyleSheet(f"font-family: '{win_font}'; font-size: 32px; font-weight: bold; color: #ffffff;")
         dash_header.addWidget(title_cn)
+
         
         # Add side margins to content but not to the header text alignment if needed
         dash_header_container = QWidget()
@@ -500,23 +528,82 @@ class SettingsWindow(QMainWindow):
         cards_row1 = QHBoxLayout()
         cards_row1.setSpacing(15)
         
-        # 1. Permission Card
-        perm_card = GlassCard()
-        p_layout = QVBoxLayout(perm_card)
-        p_layout.setContentsMargins(15, 15, 15, 15)
-        lbl_p = QLabel("🛡️ 權限驗證 (macOS)")
-        lbl_p.setStyleSheet("font-weight: bold; color: #aaa; margin-bottom: 5px;")
-        p_layout.addWidget(lbl_p)
-        
-        self.light_acc = PermissionLight("輔助功能 (Access)", "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-        p_layout.addWidget(self.light_acc)
-        
-        self.light_input = PermissionLight("輸入監聽 (Monitor)", "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
-        p_layout.addWidget(self.light_input)
-        
-        self.light_mic = PermissionLight("麥克風 (Mic)", "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
-        p_layout.addWidget(self.light_mic)
-        cards_row1.addWidget(perm_card)
+        # 1. Permission / System Environment Card
+        if platform.system() == "Windows":
+            # Windows: 顯示 GPU/CUDA 與麥克風資訊
+            env_card = GlassCard()
+            p_layout = QVBoxLayout(env_card)
+            p_layout.setContentsMargins(15, 15, 15, 15)
+            lbl_p = QLabel("🖥️ 系統環境")
+            lbl_p.setStyleSheet("font-weight: bold; color: #aaa; margin-bottom: 5px;")
+            p_layout.addWidget(lbl_p)
+            
+            # GPU / CUDA 偵測
+            gpu_text = "⏳ 偵測中..."
+            cuda_color = "#888"
+            try:
+                import ctranslate2
+                cuda_count = ctranslate2.get_cuda_device_count()
+                if cuda_count > 0:
+                    gpu_text = f"✅ CUDA GPU × {cuda_count} (加速可用)"
+                    cuda_color = "#00e676"
+                else:
+                    gpu_text = "⚠️ 未偵測到 CUDA GPU (CPU 模式)"
+                    cuda_color = "#ffab40"
+            except Exception:
+                gpu_text = "❌ 無法偵測 GPU"
+                cuda_color = "#ff5252"
+            
+            self.lbl_gpu = QLabel(gpu_text)
+            win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+            self.lbl_gpu.setStyleSheet(f"color: {cuda_color}; font-size: 14px; font-weight: bold; font-family: '{win_font}';")
+            self.lbl_gpu.setWordWrap(True)
+            p_layout.addWidget(self.lbl_gpu)
+
+            
+            # 麥克風裝置偵測
+            mic_text = "未知裝置"
+            try:
+                import sounddevice
+                dev = sounddevice.query_devices(kind='input')
+                mic_text = dev.get('name', '未知裝置')
+            except Exception:
+                mic_text = "無法偵測"
+            
+            self.lbl_mic_device = QLabel(f"🎤 {mic_text}")
+            win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+            self.lbl_mic_device.setStyleSheet(f"color: #e2e4e7; font-size: 13px; font-family: '{win_font}';")
+            self.lbl_mic_device.setWordWrap(True)
+
+            p_layout.addWidget(self.lbl_mic_device)
+            
+            cards_row1.addWidget(env_card)
+            
+            # 建立隱藏的權限燈號（讓 _check_all_permissions 不炸）
+            self.light_acc = PermissionLight("輔助功能", "")
+            self.light_acc.hide()
+            self.light_input = PermissionLight("輸入監聽", "")
+            self.light_input.hide()
+            self.light_mic = PermissionLight("麥克風", "")
+            self.light_mic.hide()
+        else:
+            # macOS: 原始權限卡片
+            perm_card = GlassCard()
+            p_layout = QVBoxLayout(perm_card)
+            p_layout.setContentsMargins(15, 15, 15, 15)
+            lbl_p = QLabel("🛡️ 權限驗證 (macOS)")
+            lbl_p.setStyleSheet("font-weight: bold; color: #aaa; margin-bottom: 5px;")
+            p_layout.addWidget(lbl_p)
+            
+            self.light_acc = PermissionLight("輔助功能 (Access)", "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+            p_layout.addWidget(self.light_acc)
+            
+            self.light_input = PermissionLight("輸入監聽 (Monitor)", "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
+            p_layout.addWidget(self.light_input)
+            
+            self.light_mic = PermissionLight("麥克風 (Mic)", "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
+            p_layout.addWidget(self.light_mic)
+            cards_row1.addWidget(perm_card)
 
         # 2. Model Card (New)
         model_card = GlassCard()
@@ -582,6 +669,34 @@ class SettingsWindow(QMainWindow):
         cards_row2.addWidget(time_card)
         
         layout.addLayout(cards_row2)
+
+        # ── Model Download Progress Card ──────────────────────
+        from PyQt6.QtWidgets import QProgressBar
+        self.download_card = GlassCard()
+        dl_layout = QVBoxLayout(self.download_card)
+        dl_layout.setContentsMargins(20, 20, 20, 20)
+        dl_layout.addWidget(QLabel("⬇️ 模型下載進度"))
+        
+        self.lbl_download_status = QLabel("等待模型載入...")
+        self.lbl_download_status.setStyleSheet("color: #00e5ff; font-size: 14px; font-weight: bold;")
+        dl_layout.addWidget(self.lbl_download_status)
+        
+        self.download_progress = QProgressBar()
+        self.download_progress.setRange(0, 0)  # 不確定進度 → 跑馬燈模式
+        self.download_progress.setFixedHeight(8)
+        self.download_progress.setStyleSheet("""
+            QProgressBar { background: #1c1f26; border: 1px solid #2d333d; border-radius: 4px; }
+            QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #7c4dff, stop:1 #00e5ff); border-radius: 4px; }
+        """)
+        dl_layout.addWidget(self.download_progress)
+        
+        self.lbl_download_detail = QLabel("首次啟動需要下載 AI 模型，請確保網路暢通。")
+        self.lbl_download_detail.setStyleSheet("color: #666; font-size: 11px;")
+        dl_layout.addWidget(self.lbl_download_detail)
+        
+        layout.addWidget(self.download_card)
+        # 預設隱藏：有模型就不需要看到
+        self.download_card.setVisible(not self._is_model_present(self.config.get("whisper_model", "medium")))
 
         # Recent Activity Card
         recent_card = GlassCard()
@@ -651,9 +766,13 @@ class SettingsWindow(QMainWindow):
         self.openrouter_key = self._add_grid_row(layout, "OpenRouter / DeepSeek Key", QLineEdit())
         self.openrouter_key.setEchoMode(QLineEdit.EchoMode.Password)
 
-        layout.addWidget(self._page_section_header("🪄 AI 魔術指令"))
+        layout.addWidget(self._page_section_header("🪄 AI 魔術指令與展示選項"))
         self.magic_trigger = self._add_grid_row(layout, "啟動咒語 (例如: 嘿 助理)", QLineEdit())
         self.magic_trigger.setPlaceholderText("預設為: 嘿 VoiceType")
+        
+        self.debug_showcase_mode_llm = QLabel("💡 提示：展示模式與 Demo 模式已移至「系統設定」分頁。")
+        self.debug_showcase_mode_llm.setStyleSheet("color: #666; font-size: 11px;")
+        layout.addWidget(self.debug_showcase_mode_llm)
 
         container.setLayout(layout)
         page.setWidget(container)
@@ -684,17 +803,17 @@ class SettingsWindow(QMainWindow):
         base_layout.addWidget(self.soul_prompt)
         self.soul_tabs.addTab(base_tab, "🏠 基底靈魂")
 
-        # 2. 情境瀏覽
-        scenario_tab = self._create_file_list_tab(SOUL_SCENARIO_DIR, "這裡存放不同場景的提示詞，例如：客訴、IG 貼文、商務簡報。")
-        self.soul_tabs.addTab(scenario_tab, "🎭 情境模板")
+        # 2. 情境瀏覽 (v2.7.32: 改名為性格模式)
+        scenario_tab = self._create_file_list_tab(SOUL_SCENARIO_DIR, "這裡存放不同場景的提示詞（性格模式），例如：社群貼文、商務回應。")
+        self.soul_tabs.addTab(scenario_tab, "🎭 性格模式")
 
-        # 3. 格式瀏覽
-        format_tab = self._create_file_list_tab(SOUL_FORMAT_DIR, "這裡決定輸出的格式，例如：電子郵件、表格、自然段落。")
-        self.soul_tabs.addTab(format_tab, "📝 輸出格式")
+        # 3. 格式瀏覽 (v2.7.32: 隱藏)
+        # format_tab = self._create_file_list_tab(SOUL_FORMAT_DIR, "這裡決定輸出的格式。")
+        # self.soul_tabs.addTab(format_tab, "📝 輸出格式")
 
-        # 4. 模板管理
-        template_tab = self._create_file_list_tab(SOUL_TEMPLATE_DIR, "這裡存放您儲存過的「好用輸出範例」。", is_json=True)
-        self.soul_tabs.addTab(template_tab, "📌 我的模板")
+        # 4. 模板管理 (v2.7.32: 隱藏)
+        # template_tab = self._create_file_list_tab(SOUL_TEMPLATE_DIR, "這裡存放儲存過的範例。")
+        # self.soul_tabs.addTab(template_tab, "📌 我的模板")
 
         layout.addWidget(self.soul_tabs)
         return page
@@ -738,6 +857,7 @@ class SettingsWindow(QMainWindow):
             if not directory.exists(): return
             ext = "*.json" if is_json else "*.md"
             for f in sorted(directory.glob(ext)):
+                if f.name == "default.md": continue # v2.7.32: 隱藏預設靈魂以免使用者誤改
                 lst.addItem(f.name)
         
         QTimer.singleShot(100, refresh)
@@ -905,7 +1025,7 @@ class SettingsWindow(QMainWindow):
         
         layout.addWidget(hotkey_grid)
         
-        layout.addWidget(self._page_section_header("⚙️ 偏好偏好"))
+        layout.addWidget(self._page_section_header("⚙️ 偏好設定"))
         self.auto_paste = QCheckBox("結果自動貼上 (Paste automatically)")
         self.auto_paste.setChecked(self.config.get("auto_paste", True))
         layout.addWidget(self.auto_paste)
@@ -913,15 +1033,43 @@ class SettingsWindow(QMainWindow):
         self.completion_sound = QCheckBox("錄音完成時播放音效 (Play sound on completion)")
         self.completion_sound.setChecked(self.config.get("completion_sound", True))
         layout.addWidget(self.completion_sound)
-        
+
         self.debug_mode = QCheckBox("啟用詳細日誌輸出 (Debug logging)")
         self.debug_mode.setChecked(self.config.get("debug_mode", False))
         layout.addWidget(self.debug_mode)
-
-        self.debug_demo_mode = QCheckBox("情境模擬 Demo 版 (Debug Scenario Demo Mode)")
-        self.debug_demo_mode.setChecked(self.config.get("debug_demo_mode", False))
+        
+        self.debug_demo_mode = QCheckBox("情境模擬 Demo 版 (需API KEY連結雲端LLM) (Debug Scenario Demo Mode)")
+        self.debug_demo_mode.setChecked(self.config.get("is_demo", False))
         layout.addWidget(self.debug_demo_mode)
 
+        self.output_prefix = QCheckBox("顯示模式名稱前綴 (需API KEY連結雲端LLM)  (Output with Mode Prefix)")
+        self.output_prefix.setChecked(self.config.get("output_prefix", False))
+        layout.addWidget(self.output_prefix)
+
+        self.separate_keystrike_log = QCheckBox("獨立記錄熱鍵事件 (Separate KeyStrike Log to keystrike.log)")
+        self.separate_keystrike_log.setChecked(self.config.get("separate_keystrike_log", False))
+        layout.addWidget(self.separate_keystrike_log)
+
+        self.showcase_mode = QCheckBox("LLM 展示版 (需API KEY連結雲端LLM)  (LLM Showcase Mode: [STT] + [LLM])")
+        self.showcase_mode.setChecked(self.config.get("showcase_mode", False))
+        layout.addWidget(self.showcase_mode)
+
+        layout.addWidget(self._page_section_header("🛠️ 診斷與修復"))
+        self.btn_run_self_check = QPushButton("🔍 執行系統自我檢測 (Run Self-Check)")
+        self.btn_run_self_check.setObjectName("secondary")
+        self.btn_run_self_check.clicked.connect(self._run_self_check)
+        layout.addWidget(self.btn_run_self_check)
+
+        self.btn_view_logs = QPushButton("📄 檢視詳細日誌 (View Detail Logs)")
+        self.btn_view_logs.setObjectName("secondary")
+        self.btn_view_logs.clicked.connect(self._view_debug_log)
+        layout.addWidget(self.btn_view_logs)
+
+        self.btn_view_keystrike = QPushButton("📄 檢視熱鍵紀錄 (View KeyStrike Logs)")
+        self.btn_view_keystrike.setObjectName("secondary")
+        self.btn_view_keystrike.clicked.connect(self._view_keystrike_log)
+        layout.addWidget(self.btn_view_keystrike)
+        
         layout.addStretch()
         return page
 
@@ -991,9 +1139,29 @@ class SettingsWindow(QMainWindow):
         self._check_all_permissions()
         self._check_local_models()
 
+    def update_download_progress(self, status: str, done: bool = False):
+        """由 main.py 呼叫，更新模型下載進度卡片。"""
+        try:
+            if done:
+                self.download_card.setVisible(False)
+                self._check_local_models()  # 刷新模型綠燈
+            else:
+                self.download_card.setVisible(True)
+                self.lbl_download_status.setText(status)
+        except Exception:
+            pass
+
     def _check_all_permissions(self):
         import logging
         log = logging.getLogger("voicetype")
+        
+        # Windows 不需要 macOS TCC 權限檢查，全部亮綠燈
+        if platform.system() == "Windows":
+            self.light_acc.set_status(True)
+            self.light_input.set_status(True)
+            self.light_mic.set_status(True)
+            log.info("[PERM] Windows: All permissions auto-granted.")
+            return
         
         # 1. Accessibility — AXIsProcessTrusted 是 C 函數，必須用 ctypes
         trusted = False
@@ -1178,16 +1346,59 @@ class SettingsWindow(QMainWindow):
         self.config["auto_paste"] = self.auto_paste.isChecked()
         self.config["completion_sound"] = self.completion_sound.isChecked()
         self.config["debug_mode"] = self.debug_mode.isChecked()
-        self.config["debug_demo_mode"] = self.debug_demo_mode.isChecked()
+        self.config["is_demo"] = self.debug_demo_mode.isChecked() # Match key used in main.py
+        self.config["output_prefix"] = self.output_prefix.isChecked()
+        self.config["separate_keystrike_log"] = self.separate_keystrike_log.isChecked()
+        self.config["showcase_mode"] = self.showcase_mode.isChecked()
 
         try:
             SOUL_BASE_PATH.write_text(self.soul_prompt.toPlainText().strip(), encoding="utf-8")
         except: pass
 
         save_config(self.config)
-        QMessageBox.information(self, "嘴砲輸入法", "設定已儲存並生效。")
+        # v2.7.32: Windows 穩定性優先，提示手動重啟而非自動連鎖反應
+        QMessageBox.information(self, "嘴砲輸入法", "設定已儲存！\n\n為了確保「啟動防護」與「模組加載」完整生效，請務必手動『結束並重啟』本程式。")
         if self.on_save: self.on_save(self.config)
         self.close()
+
+    def _run_self_check(self):
+        import subprocess
+        import sys
+        import os
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "self_check.py")
+        if os.path.exists(script_path):
+            # Launch in a new terminal window on Windows
+            if platform.system() == "Windows":
+                subprocess.Popen(["cmd.exe", "/c", "start", sys.executable, script_path])
+            else:
+                subprocess.Popen([sys.executable, script_path])
+        else:
+            QMessageBox.warning(self, "錯誤", f"找不到檢測程式：{script_path}")
+
+    def _view_debug_log(self):
+        from paths import APP_DATA_DIR
+        log_path = APP_DATA_DIR / "debug.log"
+        if log_path.exists():
+            import os, platform
+            if platform.system() == "Windows":
+                os.startfile(str(log_path))
+            else:
+                import subprocess
+                subprocess.run(["open", str(log_path)])
+        else:
+            QMessageBox.information(self, "資訊", f"日誌檔案尚未建立：\n{log_path}")
+
+    def _view_keystrike_log(self):
+        from paths import KEYSTRIKE_LOG_PATH
+        if KEYSTRIKE_LOG_PATH.exists():
+            import os, platform
+            if platform.system() == "Windows":
+                os.startfile(str(KEYSTRIKE_LOG_PATH))
+            else:
+                import subprocess
+                subprocess.run(["open", str(KEYSTRIKE_LOG_PATH)])
+        else:
+            QMessageBox.information(self, "資訊", f"熱鍵日誌檔案尚未建立：\n{KEYSTRIKE_LOG_PATH}")
 
     def run(self):
         self.show()

@@ -20,11 +20,14 @@ CONFIG_PATH = APP_DATA_DIR / "config.json"
 
 # v2.5 新版三層式靈魂目錄
 SOUL_DIR = APP_DATA_DIR / "soul"
-SOUL_BASE_PATH = SOUL_DIR / "base.md"
 SOUL_SCENARIO_DIR = SOUL_DIR / "scenario"
+SOUL_BASE_PATH = SOUL_SCENARIO_DIR / "default.md"
 SOUL_FORMAT_DIR = SOUL_DIR / "format"
 SOUL_TEMPLATE_DIR = SOUL_DIR / "templates"
 SOUL_SNIPPET_DIR = SOUL_DIR / "snippets"
+AI_PERMANENT_MEMORY_PATH = APP_DATA_DIR / "ai_permanent_memory.md"
+BUILD_ID = "BUILD-0303-B17"  # v2.8.0 b17
+KEYSTRIKE_LOG_PATH = APP_DATA_DIR / "keystrike.log"
 
 # 舊版路徑 (用於遷移)
 OLD_SOUL_PATH = APP_DATA_DIR / "soul.md"

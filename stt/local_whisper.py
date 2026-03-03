@@ -8,7 +8,9 @@ from .base import BaseSTT
 class LocalWhisperSTT(BaseSTT):
     def __init__(self, model_size: str = "medium"):
         print(f"[stt] Loading local Whisper model: {model_size} ...")
+        # Re-enable auto device (GPU if available) now that OMP fix is at the top of main.py
         self.model = WhisperModel(model_size, device="auto", compute_type="int8")
+
         print("[stt] Model loaded.")
 
     def transcribe(self, audio_bytes: bytes, language: str = "zh") -> str:

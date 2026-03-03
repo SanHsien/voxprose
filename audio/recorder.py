@@ -25,6 +25,11 @@ class AudioRecorder:
         self._frames: list[np.ndarray] = []
         self._lock = threading.Lock()
         self._stream: Optional[sd.InputStream] = None
+        
+        # Event handlers for main.py integration
+        self.on_start: Optional[Callable[[], None]] = None
+        self.on_stop: Optional[Callable[[bytes], None]] = None
+
 
     def start(self) -> None:
         """Start recording audio."""
@@ -43,6 +48,9 @@ class AudioRecorder:
         
         self._poll_thread = threading.Thread(target=self._poll_audio, daemon=True)
         self._poll_thread.start()
+        
+        if self.on_start:
+            self.on_start()
 
     def _poll_audio(self) -> None:
         while self._recording and self._stream:
@@ -86,7 +94,10 @@ class AudioRecorder:
                 pass
             self._stream = None
 
-        return self._to_wav_bytes()
+        wav_bytes = self._to_wav_bytes()
+        if self.on_stop:
+            self.on_stop(wav_bytes)
+        return wav_bytes
 
     def _to_wav_bytes(self) -> bytes:
         if not self._frames:

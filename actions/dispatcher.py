@@ -52,7 +52,53 @@ class ActionDispatcher:
             self._finish_action(result)
             return True
 
+        # 6. 切換模式 (System Switch)
+        switch_match = re.search(r"(切換|換到|變成|設定為)(?:至)?(.+)(模式|靈魂|人格|情境)?", text)
+        if switch_match:
+            target = switch_match.group(2).strip()
+            # 依據關鍵字判斷目標
+            if "國語" in target or "中文" in target or "正常" in target:
+                msg = self._perform_switch(translation_lang=None, active_scenario="default")
+            elif "英文" in target:
+                msg = self._perform_switch(translation_lang="en", active_scenario="商務回應") # v2.7.32: 商務英文已刪除，改用商務回應
+            elif "日文" in target:
+                msg = self._perform_switch(translation_lang="ja")
+            elif "情商" in target or "大師" in target:
+                msg = self._perform_switch(active_scenario="情商大師")
+            elif "商務回應" in target or "回應" in target:
+                msg = self._perform_switch(active_scenario="商務回應")
+            elif "社群" in target or "貼文" in target:
+                 msg = self._perform_switch(active_scenario="社群貼文")
+            else:
+                return False
+            
+            self._finish_action(msg)
+            return True
+
         return False
+
+    def _perform_switch(self, translation_lang=None, active_scenario=None):
+        """執行設定變更並存檔。"""
+        from config import load_config, save_config
+        cfg = load_config()
+        updated = False
+        msg = "模式已切換"
+        
+        if translation_lang is not None or "translation_lang" in cfg:
+            cfg["translation_lang"] = translation_lang
+            updated = True
+            msg = f"已切換至 {translation_lang or '自動'} 語系"
+            
+        if active_scenario:
+            cfg["active_scenario"] = active_scenario
+            updated = True
+            msg += f" 並載入 {active_scenario} 情境"
+            
+        if updated:
+            save_config(cfg)
+            # 觸發主程式重載 (這裡暫時透過存檔觸發，因為 main 有監聽或定時重載，或是之後由 main 呼叫 refresh)
+            return msg
+        return "未偵測到變動"
 
     def _finish_action(self, msg: str):
         """執行完動作後的統一回饋。"""
