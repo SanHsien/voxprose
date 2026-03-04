@@ -16,8 +16,14 @@ class OllamaLLM(BaseLLM):
             ],
             "stream": False,
         }
-        resp = requests.post(f"{self.base_url}/api/chat", json=payload, timeout=30)
-        resp.raise_for_status()
-        result = resp.json()["message"]["content"].strip()
-        print(f"[llm] Ollama refined: {result}")
-        return result
+        try:
+            # Use smaller timeout for local Ollama to fail fast if not running
+            resp = requests.post(f"{self.base_url}/api/chat", json=payload, timeout=5)
+            resp.raise_for_status()
+            result = resp.json()["message"]["content"].strip()
+            print(f"[llm] Ollama refined: {result}")
+            return result
+        except Exception as e:
+            print(f"[llm] Ollama error: {e}")
+            # Fallback to original text to prevent thread crash
+            return text

@@ -353,40 +353,47 @@ class VoiceTypeApp:
                 scenarios = sorted([f.stem for f in SOUL_SCENARIO_DIR.glob("*.md")])
                 original_scenario = self.config.get("active_scenario", "default")
                 
-                # B5 requires "default" to be labeled "〔底層靈魂〕"
                 for s in scenarios:
-                    print(f"[process] Demo processing: {s}")
-                    self.config["active_scenario"] = s
-                    prompt = self._build_llm_prompt(text)
-                    refined = self.llm.refine(text, prompt)
-                    
-                    label = "底層靈魂" if s == "default" else s
-                    results.append(f"[{label}] {refined}")
-                
+                    try:
+                        print(f"[process] Demo processing: {s}")
+                        self.config["active_scenario"] = s
+                        prompt = self._build_llm_prompt(text)
+                        refined = self.llm.refine(text, prompt)
+                        
+                        label = "底層靈魂" if s == "default" else s
+                        results.append(f"[{label}] {refined}")
+                    except Exception as e:
+                        print(f"[process] Demo processing failed for {s}: {e}")
+                        label = "底層靈魂" if s == "default" else s
+                        results.append(f"[{label}] (AI 無法串接)")
+
                 # Restore original scenario
                 self.config["active_scenario"] = original_scenario
                 final_text = "\n\n".join(results)
                 print("[process] Demo Mode complete.")
 
             elif (llm_enabled or showcase_mode) and self.llm:
-                # v2.7.32: Ensure Showcase mode works even if llm_enabled is off but showcase is on
-                print("[process] LLM processing...")
-                prompt = self._build_llm_prompt(text)
-                refined = self.llm.refine(text, prompt)
-                print(f"[process] LLM result: {refined[:50]}...")
-                
-                if showcase_mode:
-                    # v2.7.32 b20: Showcase format [STT] / [Dynamic Soul Label]
-                    s = self.config.get("active_scenario", "default")
-                    label = "底層靈魂" if s == "default" else s
-                    final_text = f"[STT] {text}\n\n[{label}] {refined}"
-                elif self.config.get("output_prefix", False):
-                    # v2.7.32 b11: Dynamic Mode Prefix (requested as Mode Name instead of LLM)
-                    s = self.config.get("active_scenario", "default")
-                    label = "底層靈魂" if s == "default" else s
-                    final_text = f"[{label}] {refined}"
-                else:
-                    final_text = refined
+                try:
+                    # v2.7.32: Ensure Showcase mode works
+                    print("[process] LLM processing...")
+                    prompt = self._build_llm_prompt(text)
+                    refined = self.llm.refine(text, prompt)
+                    print(f"[process] LLM result: {refined[:50]}...")
+                    
+                    if showcase_mode:
+                        s = self.config.get("active_scenario", "default")
+                        label = "底層靈魂" if s == "default" else s
+                        final_text = f"[STT] {text}\n\n[{label}] {refined}"
+                    elif self.config.get("output_prefix", False):
+                        s = self.config.get("active_scenario", "default")
+                        label = "底層靈魂" if s == "default" else s
+                        final_text = f"[{label}] {refined}"
+                    else:
+                        final_text = refined
+                except Exception as e:
+                    print(f"[process] LLM processing failed: {e}")
+                    # Fallback to original text on failure
+                    final_text = text
 
             # --- 3. 標點轉換與格式過濾 ---
             replacements = {
