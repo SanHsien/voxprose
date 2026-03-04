@@ -102,6 +102,14 @@ class HotkeyRecorderButton(QPushButton):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMinimumHeight(32)
 
+    @property
+    def key_str(self):
+        return self._key_str
+
+    def set_key(self, key_str):
+        self._key_str = key_str
+        self._update_text()
+
     def _update_text(self):
         if self._recording:
             self.setText("錄製中...")
@@ -172,7 +180,7 @@ class PermissionLight(QWidget):
         layout.addWidget(self.dot)
 
         self.label = QLabel(label_text)
-        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else ""
         self.label.setStyleSheet(f"color: #e2e4e7; font-size: 14px; font-family: '{win_font}';")
         self.label.setWordWrap(True)
         layout.addWidget(self.label)
@@ -225,7 +233,7 @@ class ModelStatusLight(QWidget):
         top_layout.addWidget(self.dot)
         
         self.label = QLabel(f"{model_name} ({size_info})")
-        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else ""
         self.label.setStyleSheet(f"color: #e2e4e7; font-size: 13px; font-weight: bold; font-family: '{win_font}';")
         top_layout.addWidget(self.label)
 
@@ -233,7 +241,7 @@ class ModelStatusLight(QWidget):
         layout.addLayout(top_layout)
         
         self.desc = QLabel(desc_text)
-        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else ""
         self.desc.setStyleSheet(f"color: #888; font-size: 11px; margin-left: 18px; font-family: '{win_font}';")
         self.desc.setWordWrap(True)
 
@@ -636,7 +644,7 @@ class SettingsWindow(QMainWindow):
                 cuda_color = "#ff5252"
             
             self.lbl_gpu = QLabel(gpu_text)
-            win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+            win_font = "Microsoft JhengHei" if platform.system() == "Windows" else ""
             self.lbl_gpu.setStyleSheet(f"color: {cuda_color}; font-size: 14px; font-weight: bold; font-family: '{win_font}';")
             self.lbl_gpu.setWordWrap(True)
             p_layout.addWidget(self.lbl_gpu)
@@ -652,7 +660,7 @@ class SettingsWindow(QMainWindow):
                 mic_text = "無法偵測"
             
             self.lbl_mic_device = QLabel(f"🎤 {mic_text}")
-            win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "inherit"
+            win_font = "Microsoft JhengHei" if platform.system() == "Windows" else ""
             self.lbl_mic_device.setStyleSheet(f"color: #e2e4e7; font-size: 13px; font-family: '{win_font}';")
             self.lbl_mic_device.setWordWrap(True)
 
@@ -841,11 +849,23 @@ class SettingsWindow(QMainWindow):
         self.llm_mode.addItems(LLM_MODES)
 
         # API Keys
-        self.openai_key = self._add_grid_row(layout, "OpenAI / Claude Key", QLineEdit())
+        self.openai_key = self._add_grid_row(layout, "OpenAI API Key", QLineEdit())
         self.openai_key.setEchoMode(QLineEdit.EchoMode.Password)
         
-        self.openrouter_key = self._add_grid_row(layout, "OpenRouter / DeepSeek Key", QLineEdit())
+        self.anthropic_key = self._add_grid_row(layout, "Anthropic (Claude) Key", QLineEdit())
+        self.anthropic_key.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        self.gemini_key = self._add_grid_row(layout, "Gemini API Key", QLineEdit())
+        self.gemini_key.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        self.openrouter_key = self._add_grid_row(layout, "OpenRouter API Key", QLineEdit())
         self.openrouter_key.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        self.qwen_key = self._add_grid_row(layout, "通義千問 (Qwen) Key", QLineEdit())
+        self.qwen_key.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        self.deepseek_key = self._add_grid_row(layout, "DeepSeek API Key", QLineEdit())
+        self.deepseek_key.setEchoMode(QLineEdit.EchoMode.Password)
 
         layout.addWidget(self._page_section_header("🪄 AI 魔術指令與展示選項"))
         self.magic_trigger = self._add_grid_row(layout, "啟動咒語 (例如: 嘿 助理)", QLineEdit())
@@ -1257,40 +1277,63 @@ class SettingsWindow(QMainWindow):
         if SOUL_BASE_PATH.exists():
             self.soul_prompt.setPlainText(SOUL_BASE_PATH.read_text(encoding="utf-8"))
         
-        # Load from config
+        # 1. 語音辨識
         stt_val = self.config.get("stt_engine", "local_whisper")
         stt_idx = self.stt_engine.findData(stt_val)
-        if stt_idx >= 0:
-            self.stt_engine.setCurrentIndex(stt_idx)
-        else:
-            self.stt_engine.setCurrentText(stt_val)
+        if stt_idx >= 0: self.stt_engine.setCurrentIndex(stt_idx)
+        else: self.stt_engine.setCurrentText(stt_val)
             
-        # Whisper model selection
         m_val = self.config.get("whisper_model", "medium")
         m_idx = self.whisper_model.findData(m_val)
-        if m_idx >= 0:
-            self.whisper_model.setCurrentIndex(m_idx)
-        else:
-            self.whisper_model.setCurrentText(m_val) # fallback
+        if m_idx >= 0: self.whisper_model.setCurrentIndex(m_idx)
+        else: self.whisper_model.setCurrentText(m_val)
+        
         self.groq_key.setText(self.config.get("groq_api_key", ""))
+        
+        # 2. 語言與 AI 配置
         lang_val = self.config.get("language", "zh")
         lang_idx = self.language.findData(lang_val)
-        if lang_idx >= 0:
-            self.language.setCurrentIndex(lang_idx)
-        else:
-            self.language.setCurrentText(lang_val)
+        if lang_idx >= 0: self.language.setCurrentIndex(lang_idx)
+        else: self.language.setCurrentText(lang_val)
+        
         self.llm_enabled.setChecked(self.config.get("llm_enabled", False))
         self.llm_engine.setCurrentText(self.config.get("llm_engine", "ollama"))
         self.llm_mode.setCurrentText(self.config.get("llm_mode", "replace"))
+        
+        # API Keys
         self.openai_key.setText(self.config.get("openai_api_key", ""))
+        self.anthropic_key.setText(self.config.get("anthropic_api_key", ""))
+        self.gemini_key.setText(self.config.get("gemini_api_key", ""))
         self.openrouter_key.setText(self.config.get("openrouter_api_key", ""))
+        self.qwen_key.setText(self.config.get("qwen_api_key", ""))
+        self.deepseek_key.setText(self.config.get("deepseek_api_key", ""))
+        
         self.magic_trigger.setText(self.config.get("magic_trigger", "嘿 VoiceType"))
+        
+        # 3. 系統設定 (Critical: fix UI overwriting disk with stale state)
+        self.btn_ptt.set_key(self.config.get("hotkey_ptt", "alt_r"))
+        self.btn_toggle.set_key(self.config.get("hotkey_toggle", "f13"))
+        
+        self.auto_paste.setChecked(self.config.get("auto_paste", True))
+        self.show_floating_button.setChecked(self.config.get("show_floating_button", True))
+        self.completion_sound.setChecked(self.config.get("completion_sound", True))
+        self.debug_mode.setChecked(self.config.get("debug_mode", False))
+        self.debug_demo_mode.setChecked(self.config.get("is_demo", False))
+        self.output_prefix.setChecked(self.config.get("output_prefix", False))
+        self.separate_keystrike_log.setChecked(self.config.get("separate_keystrike_log", False))
+        self.showcase_mode.setChecked(self.config.get("showcase_mode", False))
 
+        # Refreshes
         self._refresh_vocab()
         self._refresh_learned_vocab()
         self._refresh_memory()
         self._refresh_stats()
         self._update_dashboard_status()
+
+    def refresh_config(self, new_config):
+        """外部呼叫：強制重載設定到 UI (防止 stale data)"""
+        self.config = new_config.copy()
+        self._load_data()
 
     def _update_dashboard_status(self):
         ai = "已開啟" if self.config.get("llm_enabled") else "已關閉"
@@ -1505,7 +1548,11 @@ class SettingsWindow(QMainWindow):
         self.config["llm_engine"] = self.llm_engine.currentText()
         self.config["llm_mode"] = self.llm_mode.currentText()
         self.config["openai_api_key"] = self.openai_key.text().strip()
+        self.config["anthropic_api_key"] = self.anthropic_key.text().strip()
+        self.config["gemini_api_key"] = self.gemini_key.text().strip()
         self.config["openrouter_api_key"] = self.openrouter_key.text().strip()
+        self.config["qwen_api_key"] = self.qwen_key.text().strip()
+        self.config["deepseek_api_key"] = self.deepseek_key.text().strip()
         self.config["magic_trigger"] = self.magic_trigger.text().strip() or "嘿 VoiceType"
         self.config["hotkey_ptt"] = self.btn_ptt.key_str
         self.config["hotkey_toggle"] = self.btn_toggle.key_str

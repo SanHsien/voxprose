@@ -30,6 +30,7 @@ class MicIndicatorWindow(QWidget):
         "processing": QColor(255, 200, 50),    # yellow
         "done": QColor(80, 200, 120),          # green
         "loading": QColor(0, 122, 255),       # blue
+        "error": QColor(255, 50, 50),          # bright red for errors
     }
 
     def __init__(self):
@@ -101,6 +102,9 @@ class MicIndicatorWindow(QWidget):
             self.trigger_flash()
             # "完成" 狀態多留一會兒
             QTimer.singleShot(1200, self.hide)
+        elif state == "error":
+            # 錯誤狀態留長一點，讓使用者看清楚
+            QTimer.singleShot(3000, self.hide)
         self.update()
 
     def set_label_suffix(self, suffix: str):
@@ -168,10 +172,22 @@ class MicIndicatorWindow(QWidget):
         bar_w, gap = 3, 2
         total_bars = len(self._bars)
         bars_w = total_bars * (bar_w + gap) - gap
-        label_map = {"recording": "錄音中...", "processing": "辨識中...", "done": "完成", "loading": "載入中..."}
+        label_map = {
+            "recording": "錄音中...", 
+            "ai_recording": "錄音中...", 
+            "processing": "辨識中...", 
+            "done": "完成", 
+            "loading": "載入中...",
+            "error": "錯誤"
+        }
         label_text = label_map.get(self._state, "")
-        if self._state not in ["done", "loading"] and self._label_suffix:
+        if self._state not in ["done", "loading", "recording", "ai_recording"] and self._label_suffix:
             label_text += f" {self._label_suffix}"
+            
+        # 錯誤狀態時，如果有 suffix(例如 'Key 未填')，則優先顯示
+        if self._state == "error" and self._label_suffix:
+            label_text = f"錯誤: {self._label_suffix}"
+            
         label_w = fm_label.horizontalAdvance(label_text)
         label_gap = 8 if label_w > 0 else 0
         total_content_w = prefix_w + prefix_gap + bars_w + label_gap + label_w

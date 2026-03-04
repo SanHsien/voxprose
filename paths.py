@@ -56,8 +56,8 @@ MEMORY_DIR = SYNC_BASE_DIR / "memory"
 STATS_DIR = SYNC_BASE_DIR / "stats"
 AI_PERMANENT_MEMORY_PATH = SYNC_BASE_DIR / "ai_permanent_memory.md"
 
-BUILD_ID = "BUILD-0304-DEV"  # v2.8.1 dev
-VERSION_NAME = "v2.8.1-dev"
+BUILD_ID = "BUILD-0304-RELEASE-V2"  # v2.8.2 dev
+VERSION_NAME = "v2.8.2-stable"
 KEYSTRIKE_LOG_PATH = APP_DATA_DIR / "keystrike.log"
 
 # 舊版路徑 (用於遷移)
@@ -107,15 +107,7 @@ def _initialize_data():
     sync_defaults("soul/scenario", SOUL_SCENARIO_DIR)
     sync_defaults("soul/format", SOUL_FORMAT_DIR)
 
-    # 3. 如果沒檔案，從 bundle 複製預設值
-    for filename in ["config.json"]:
-        bundled_file = base_dir / filename
-        user_file = APP_DATA_DIR / filename
-        if bundled_file.exists() and not user_file.exists():
-            try:
-                shutil.copy2(bundled_file, user_file)
-            except Exception:
-                pass
+    # Template copy logic removed (handled by config.py defaults)
     
     # 複製內建模板 (如果有在 bundle 裡的話)
     # 這裡暫時依賴 main.py 啟動時自動檢查

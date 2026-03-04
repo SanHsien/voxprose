@@ -38,16 +38,17 @@ DEFAULT_CONFIG = {
     "action_mode": False,
     # 統計 / Debug
     "debug_mode": False,
-    "debug_demo_mode": False,
+    "is_demo": False,
     # 其他
     "auto_paste": True,
     "magic_trigger": "嘿 VoiceType",
 }
 # 🗝️ 本地設定白名單 (不進行雲端同步的項目)
 LOCAL_KEYS = {
-    "hotkey_ptt", "hotkey_toggle", "hotkey_llm", 
-    "trigger_mode", "floating_button_enabled", "sound_on_complete",
-    "debug_mode", "debug_demo_mode"
+    "hotkey_ptt", "hotkey_toggle", "hotkey_llm", "hotkey", 
+    "trigger_mode", "show_floating_button", "completion_sound",
+    "debug_mode", "is_demo", "output_prefix", 
+    "separate_keystrike_log", "showcase_mode"
 }
 
 from paths import GLOBAL_CONFIG_PATH, LOCAL_CONFIG_PATH, APP_DATA_DIR
@@ -58,12 +59,16 @@ def load_config() -> dict:
     
     # 0. 舊版 config.json 遷移邏輯 (v2.9.0 升級防護)
     old_config_path = APP_DATA_DIR / "config.json"
-    if old_config_path.exists() and not LOCAL_CONFIG_PATH.exists():
+    if old_config_path.exists():
         try:
             with open(old_config_path, "r", encoding="utf-8") as f:
                 legacy_config = json.load(f)
-            save_config(legacy_config) # 直接觸發拆分儲存
-            os.remove(old_config_path)  # 刪除舊檔
+            # 先跟目前的 config 合併（確保 legacy 有值的地方蓋掉 default）
+            config.update(legacy_config)
+            # 立即觸發拆分儲存，這樣會產生 config_local.json 與 config_global.json
+            save_config(config) 
+            # 成功遷移後刪除舊檔
+            os.remove(old_config_path)  
         except Exception:
             pass
 

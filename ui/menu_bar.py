@@ -3,6 +3,7 @@ Cross-platform Menu Bar / System Tray manager.
 """
 from typing import Callable, List, Dict
 import platform
+from config import load_config, save_config
 
 class VoiceTypeMenuBar:
     """
@@ -93,38 +94,44 @@ class VoiceTypeMenuBar:
         return [{'label': t, 'callback': self._use_template} for t in sorted(templates)]
 
     def _toggle_action_mode(self, _):
-        enabled = not self.config.get("action_mode", False)
-        self.config["action_mode"] = enabled
-        from config import save_config
-        save_config(self.config)
+        latest = load_config()
+        enabled = not latest.get("action_mode", False)
+        latest["action_mode"] = enabled
+        save_config(latest)
+        self.config.clear()
+        self.config.update(latest)
         self.refresh_ui()
 
     def _set_scenario(self, sender):
+        latest = load_config()
         name = self._get_sender_text(sender)
         print(f"[menu] Scenario Selected: {name}")
-        # Strip emoji and space if prefix exists (e.g. "🎭 Social" -> "Social")
         import re
         internal_name = re.sub(r'^[\W_]+', '', name).strip()
         if "基底靈魂" in name: internal_name = "default"
         
-        print(f"[menu] Mapping to Scenario File: {internal_name}")
-        self.config["active_scenario"] = internal_name
-        from config import save_config
-        save_config(self.config)
+        latest["active_scenario"] = internal_name
+        save_config(latest)
+        self.config.clear()
+        self.config.update(latest)
+        
         if hasattr(self, 'on_config_saved') and callable(self.on_config_saved):
             self.on_config_saved()
         self.refresh_ui()
 
     def _set_format(self, sender):
+        latest = load_config()
         name = self._get_sender_text(sender)
         print(f"[menu] Format Selected: {name}")
         import re
         internal_name = re.sub(r'^[\W_]+', '', name).strip()
         if "自然排版" in name: internal_name = "natural"
         
-        self.config["active_format"] = internal_name
-        from config import save_config
-        save_config(self.config)
+        latest["active_format"] = internal_name
+        save_config(latest)
+        self.config.clear()
+        self.config.update(latest)
+        
         if hasattr(self, 'on_config_saved') and callable(self.on_config_saved):
             self.on_config_saved()
         self.refresh_ui()

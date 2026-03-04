@@ -261,6 +261,10 @@ class VoiceTypeApp:
     def _show_settings(self):
         """Callback from menu bar to show the settings window."""
         from PyQt6.QtCore import QTimer
+        # v2.8.2-stable: 同步當前設定到視窗 (防止托盤選單修改後視窗顯示舊資料)
+        if self.settings_window:
+            self.settings_window.refresh_config(self.config)
+            
         QTimer.singleShot(0, lambda: (self.settings_window.show(), self.settings_window.raise_(), self.settings_window.activateWindow()))
 
     def _on_record_start(self):
@@ -284,6 +288,7 @@ class VoiceTypeApp:
             state = "ai_recording"
             
         self.indicator.set_prefix(prefix)
+        self.indicator.set_label_suffix("")  # v2.8.2-stable: clear any stale error suffix
         self.indicator.set_state(state)
         self.indicator.show()
 
@@ -318,16 +323,57 @@ class VoiceTypeApp:
             self._is_manually_cancelled = True
         self.recorder.stop()
 
+    def _log_execution(self, text, final_text, is_llm_used, engine="N/A"):
+        """v2.8.2-stable: 追蹤執行狀態並寫入 debug.log"""
+        if not self.config.get("debug_mode", False):
+            return
+            
+        import datetime
+        from paths import APP_DATA_DIR
+        log_path = APP_DATA_DIR / "debug.log"
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        log_content = [
+            f"========== 執行紀錄: {now} ==========",
+            "【系統開關狀態】",
+            f"  - llm_enabled (常規潤飾): {self.config.get('llm_enabled', False)}",
+            f"  - showcase_mode (展示模式): {self.config.get('showcase_mode', False)}",
+            f"  - is_demo (除錯展示模式): {self.config.get('is_demo', False)}",
+            f"  - action_mode (助理模式): {self.config.get('action_mode', False)}",
+            f"  - 輸出前綴 (output_prefix): {self.config.get('output_prefix', False)}",
+            "【AI 引擎狀態】",
+            f"  - 使用的引擎: {engine}",
+            f"  - 是否實際呼叫 LLM: {is_llm_used}",
+            f"  - 當前性格/情境: {self.config.get('active_scenario', 'default')}",
+            "【文字結果】",
+            f"  - STT 原文: {text}",
+            f"  - 最終輸出: {final_text[:200].replace(chr(10), ' ')}",
+            "============================================="
+        ]
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write("\n".join(log_content) + "\n\n")
+        except Exception as e:
+            print(f"[log] Error writing execution log: {e}")
+
     def _process_audio(self, audio_data):
         try:
+            import time
+            stt_start_time = time.time()
+            
             print("[process] STT starting...")
             lang = self.config.get("translation_lang", "zh")
             text = self.stt.transcribe(audio_data, language=lang)
-            print(f"[process] Raw text: {text}")
+            
+            stt_duration = time.time() - stt_start_time
+            print(f"[process] Raw text: {text} ({stt_duration:.2f}s)")
             
             if not text or len(text.strip()) < 1:
                 self.indicator.hide()
                 return
+
+            is_llm_used = False
+            engine = self.config.get("llm_engine", "ollama")
 
             # --- 1. 語音指令檢測 ---
             is_demo = self.config.get("is_demo", False)
@@ -344,10 +390,11 @@ class VoiceTypeApp:
 
             final_text = text
             if is_demo and self.llm:
+                is_llm_used = True
                 # v2.7.32 b7: Precision Demo Mode - Labels [STT], [底層靈魂], [情境]
                 print("[process] Demo Mode: Iterating all scenarios...")
                 from paths import SOUL_SCENARIO_DIR
-                results = [f"[STT] {text}"]
+                results = [f"[STT] {text} （ 處理時間：{stt_duration:.1f}秒 ）"]
                 
                 # Get all scenario files (md)
                 scenarios = sorted([f.stem for f in SOUL_SCENARIO_DIR.glob("*.md")])
@@ -358,10 +405,13 @@ class VoiceTypeApp:
                         print(f"[process] Demo processing: {s}")
                         self.config["active_scenario"] = s
                         prompt = self._build_llm_prompt(text)
+                        
+                        llm_start_time = time.time()
                         refined = self.llm.refine(text, prompt)
+                        llm_duration = time.time() - llm_start_time
                         
                         label = "底層靈魂" if s == "default" else s
-                        results.append(f"[{label}] {refined}")
+                        results.append(f"[{label}] {refined} （ 處理時間：{llm_duration:.1f}秒 ）")
                     except Exception as e:
                         print(f"[process] Demo processing failed for {s}: {e}")
                         label = "底層靈魂" if s == "default" else s
@@ -374,16 +424,33 @@ class VoiceTypeApp:
 
             elif (llm_enabled or showcase_mode) and self.llm:
                 try:
-                    # v2.7.32: Ensure Showcase mode works
+                    # v2.8.2-stable: 檢查是否有 API Key (非 Ollama 時)
+                    key_map = {
+                        "openai": "openai_api_key",
+                        "claude": "anthropic_api_key",
+                        "gemini": "gemini_api_key",
+                        "openrouter": "openrouter_api_key",
+                        "qwen": "qwen_api_key",
+                        "deepseek": "deepseek_api_key"
+                    }
+                    if engine in key_map:
+                        if not self.config.get(key_map[engine]):
+                            raise ValueError("API Key 未填")
+
                     print("[process] LLM processing...")
                     prompt = self._build_llm_prompt(text)
+                    
+                    llm_start_time = time.time()
                     refined = self.llm.refine(text, prompt)
-                    print(f"[process] LLM result: {refined[:50]}...")
+                    llm_duration = time.time() - llm_start_time
+                    
+                    is_llm_used = True
+                    print(f"[process] LLM result: {refined[:50]}... ({llm_duration:.2f}s)")
                     
                     if showcase_mode:
                         s = self.config.get("active_scenario", "default")
                         label = "底層靈魂" if s == "default" else s
-                        final_text = f"[STT] {text}\n\n[{label}] {refined}"
+                        final_text = f"[STT] {text} （ 處理時間：{stt_duration:.1f}秒 ）\n\n[{label}] {refined} （ 處理時間：{llm_duration:.1f}秒 ）"
                     elif self.config.get("output_prefix", False):
                         s = self.config.get("active_scenario", "default")
                         label = "底層靈魂" if s == "default" else s
@@ -392,7 +459,9 @@ class VoiceTypeApp:
                         final_text = refined
                 except Exception as e:
                     print(f"[process] LLM processing failed: {e}")
-                    # Fallback to original text on failure
+                    # 視覺化反饋
+                    self.indicator.set_state("error")
+                    self.indicator.set_label_suffix(str(e))
                     final_text = text
 
             # --- 3. 標點轉換與格式過濾 ---
@@ -417,6 +486,9 @@ class VoiceTypeApp:
                 return "".join(res)
             
             final_text = full2half(final_text)
+
+            # --- 紀錄執行狀態 ---
+            self._log_execution(text, final_text, is_llm_used, engine)
 
             # --- 4. 注入最終文字 (v2.8.0 B19: 已移除瀏覽器攔截) ---
             self.injector.inject(final_text)
@@ -568,7 +640,14 @@ class VoiceTypeApp:
     def _on_config_saved(self, new_config=None):
         with self._config_lock:
             print("[main] Config saved. Reloading settings...")
+            old_engine = self.config.get("llm_engine")
             self.config = load_config()
+            
+            # v2.8.2-stable: 核心引擊重載 (確保 API Key 更新後立即生效)
+            from llm import get_llm
+            self.llm = get_llm(self.config)
+            print(f"[main] LLM reloaded: {self.config.get('llm_engine')}")
+
             if self.hotkey_listener:
                 new_hotkeys = {
                     "ptt": self.config.get("hotkey_ptt", "alt_r"),
