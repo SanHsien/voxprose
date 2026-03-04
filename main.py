@@ -157,6 +157,31 @@ class VoiceTypeApp:
         self._config_lock = threading.Lock()
 
     def run(self):
+        # ── macOS UI Customization (v2.8.2-stable Fix) ───────────
+        if platform.system() == "Darwin":
+            try:
+                # Use NSApplication.sharedApplication() to ensure NSApp is ready
+                from AppKit import NSApplication, NSImage, NSBundle, NSProcessInfo
+                _shared_app = NSApplication.sharedApplication()
+                
+                # 1. Update Process Name (Force Dock/Activity Mon display)
+                _proc_info = NSProcessInfo.processInfo()
+                _proc_info.setProcessName_("嘴砲輸入法")
+                
+                # 2. Set Info.plist Display Name (fallback)
+                _info = NSBundle.mainBundle().infoDictionary()
+                _info["CFBundleName"] = "嘴砲輸入法"
+                _info["CFBundleDisplayName"] = "嘴砲輸入法"
+                
+                # 2. Set Icon
+                _icon_file = Path(__file__).parent / "assets" / "icon.png"
+                if _icon_file.exists():
+                    _image = NSImage.alloc().initByReferencingFile_(str(_icon_file))
+                    _shared_app.setApplicationIconImage_(_image)
+                    print(f"[main] macOS UI (Name & Icon) updated via sharedApplication")
+            except Exception as _e:
+                print(f"[main] Failed to set macOS UI customizations in run(): {_e}")
+
         # 1. Setup Hotkeys
         hotkeys = {
             "ptt": self.config.get("hotkey_ptt", "alt_r"),
