@@ -4,7 +4,17 @@
 
 ---
 
-## [v2.7.32 beta] - 正在進行中的旗艦版升級
+## [v2.8.2] - 2026-03-04 (Stable Release)
+### 全功能同步與對齊 (Full Parity)
+- **旗艦功能對齊**：同步 Mac 版的高精度「處理耗時顯示」與「執行日誌系統」。
+- **API Key 預檢機制**：增加強健性檢查，若 API Key 未填將在 MicIndicator 顯示紅色警告，防止測試閃退。
+- **雙層設定架構 (Double-Layer Config)**：
+  - `config_local.json`：存放熱鍵、硬體特定設定（不參與同步）。
+  - `config_global.json`：存放 API Keys、Prompt（參與同步）。
+- **NAS 指標同步**：實作 `sync_path.txt` 目錄重定向，支援 NAS 私密靈魂同步。
+- **穩定性修補**：移除 PC 版過時的 `CONFIG_PATH` 依賴。
+
+---
 **狀態**: 規劃中 (In Progress)
 
 ## [v2.7.32 beta] - 2024-03-01 (Windows Stability Update)
