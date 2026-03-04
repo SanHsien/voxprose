@@ -322,12 +322,17 @@ class VoiceTypeApp:
         try:
             print("[process] STT starting...")
             lang = self.config.get("translation_lang", "zh")
+            stt_start_time = time.time()
             text = self.stt.transcribe(audio_data, language=lang)
-            print(f"[process] Raw text: {text}")
+            stt_duration = time.time() - stt_start_time
+            print(f"[process] Raw text: {text} ({stt_duration:.2f}s)")
             
             if not text or len(text.strip()) < 1:
                 self.indicator.hide()
                 return
+
+            is_llm_used = False
+            engine = self.config.get("llm_engine", "ollama")
 
             # --- 1. 語音指令檢測 ---
             is_demo = self.config.get("is_demo", False)
@@ -344,10 +349,11 @@ class VoiceTypeApp:
 
             final_text = text
             if is_demo and self.llm:
+                is_llm_used = True
                 # v2.7.32 b7: Precision Demo Mode - Labels [STT], [底層靈魂], [情境]
                 print("[process] Demo Mode: Iterating all scenarios...")
                 from paths import SOUL_SCENARIO_DIR
-                results = [f"[STT] {text}"]
+                results = [f"[STT] {text} （處理時間：{stt_duration:.1f}秒）"]
                 
                 # Get all scenario files (md)
                 scenarios = sorted([f.stem for f in SOUL_SCENARIO_DIR.glob("*.md")])
@@ -355,13 +361,21 @@ class VoiceTypeApp:
                 
                 # B5 requires "default" to be labeled "〔底層靈魂〕"
                 for s in scenarios:
-                    print(f"[process] Demo processing: {s}")
-                    self.config["active_scenario"] = s
-                    prompt = self._build_llm_prompt(text)
-                    refined = self.llm.refine(text, prompt)
-                    
-                    label = "底層靈魂" if s == "default" else s
-                    results.append(f"[{label}] {refined}")
+                    try:
+                        print(f"[process] Demo processing: {s}")
+                        self.config["active_scenario"] = s
+                        prompt = self._build_llm_prompt(text)
+                        
+                        llm_start_time = time.time()
+                        refined = self.llm.refine(text, prompt)
+                        llm_duration = time.time() - llm_start_time
+                        
+                        label = "底層靈魂" if s == "default" else s
+                        results.append(f"[{label}] {refined} （處理時間：{llm_duration:.1f}秒）")
+                    except Exception as e:
+                        print(f"[process] Demo processing failed for {s}: {e}")
+                        label = "底層靈魂" if s == "default" else s
+                        results.append(f"[{label}] (AI 接口串接失敗)")
                 
                 # Restore original scenario
                 self.config["active_scenario"] = original_scenario
@@ -369,24 +383,48 @@ class VoiceTypeApp:
                 print("[process] Demo Mode complete.")
 
             elif (llm_enabled or showcase_mode) and self.llm:
-                # v2.7.32: Ensure Showcase mode works even if llm_enabled is off but showcase is on
-                print("[process] LLM processing...")
-                prompt = self._build_llm_prompt(text)
-                refined = self.llm.refine(text, prompt)
-                print(f"[process] LLM result: {refined[:50]}...")
-                
-                if showcase_mode:
-                    # v2.7.32 b20: Showcase format [STT] / [Dynamic Soul Label]
-                    s = self.config.get("active_scenario", "default")
-                    label = "底層靈魂" if s == "default" else s
-                    final_text = f"[STT] {text}\n\n[{label}] {refined}"
-                elif self.config.get("output_prefix", False):
-                    # v2.7.32 b11: Dynamic Mode Prefix (requested as Mode Name instead of LLM)
-                    s = self.config.get("active_scenario", "default")
-                    label = "底層靈魂" if s == "default" else s
-                    final_text = f"[{label}] {refined}"
-                else:
-                    final_text = refined
+                try:
+                    # v2.8.2-stable: 檢查是否有填 API Key (非 Ollama 時)
+                    key_map = {
+                        "openai": "openai_api_key",
+                        "claude": "anthropic_api_key",
+                        "gemini": "gemini_api_key",
+                        "openrouter": "openrouter_api_key",
+                        "qwen": "qwen_api_key",
+                        "deepseek": "deepseek_api_key"
+                    }
+                    if engine in key_map:
+                        if not self.config.get(key_map[engine]):
+                            raise ValueError("API Key 未填")
+
+                    print("[process] LLM processing...")
+                    prompt = self._build_llm_prompt(text)
+                    
+                    llm_start_time = time.time()
+                    refined = self.llm.refine(text, prompt)
+                    llm_duration = time.time() - llm_start_time
+                    
+                    is_llm_used = True
+                    print(f"[process] LLM result: {refined[:50]}... ({llm_duration:.2f}s)")
+                    
+                    if showcase_mode:
+                        # v2.7.32 b20: Showcase format [STT] / [Dynamic Soul Label]
+                        s = self.config.get("active_scenario", "default")
+                        label = "底層靈魂" if s == "default" else s
+                        final_text = f"[STT] {text} （處理時間：{stt_duration:.1f}秒）\n\n[{label}] {refined} （處理時間：{llm_duration:.1f}秒）"
+                    elif self.config.get("output_prefix", False):
+                        # v2.7.32 b11: Dynamic Mode Prefix (requested as Mode Name instead of LLM)
+                        s = self.config.get("active_scenario", "default")
+                        label = "底層靈魂" if s == "default" else s
+                        final_text = f"[{label}] {refined}"
+                    else:
+                        final_text = refined
+                except Exception as e:
+                    print(f"[process] LLM processing failed: {e}")
+                    # 視覺化報警
+                    self.indicator.set_state("error")
+                    self.indicator.set_label_suffix(str(e))
+                    final_text = text
 
             # --- 3. 標點轉換與格式過濾 ---
             replacements = {
@@ -410,6 +448,9 @@ class VoiceTypeApp:
                 return "".join(res)
             
             final_text = full2half(final_text)
+
+            # --- 紀錄執行狀態 ---
+            self._log_execution(text, final_text, is_llm_used, engine)
 
             # --- 4. 注入最終文字 (v2.8.0 B19: 已移除瀏覽器攔截) ---
             self.injector.inject(final_text)
@@ -441,6 +482,37 @@ class VoiceTypeApp:
             log.error(f"[process] CRITICAL ERROR IN AUDIO THREAD:\n{err_msg}")
             print(f"[process] Error: {e}")
             self.indicator.hide()
+
+    def _log_execution(self, text, final_text, is_llm_used, engine="N/A"):
+        """v2.8.2-stable: 追蹤執行流程並寫入 debug.log"""
+        if not self.config.get("debug_mode", False):
+            return
+            
+        import datetime
+        from paths import APP_DATA_DIR
+        log_path = APP_DATA_DIR / "debug.log"
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        log_content = [
+            f"========== 執行紀錄 {now} ==========",
+            "【模式系統參數】",
+            f"  - llm_enabled (常態潤飾): {self.config.get('llm_enabled', False)}",
+            f"  - showcase_mode (展示模式): {self.config.get('showcase_mode', False)}",
+            f"  - is_demo (除錯展示模式): {self.config.get('is_demo', False)}",
+            "【引擎與輸出】",
+            f"  - LLM Used: {is_llm_used}",
+            f"  - Engine: {engine}",
+            f"  - Translation: {self.config.get('translation_lang', 'zh')}",
+            f"  - Input Length: {len(text)}",
+            f"  - Output Length: {len(final_text)}",
+            "====================================\n"
+        ]
+        
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write("\n".join(log_content))
+        except:
+            pass
 
     def _build_llm_prompt(self, text, is_refine=False):
         # v2.7.32 b7: 優化 Prompt 順序 - 規則優先，資料在後 (防止 LLM 輸出身份設定)
@@ -586,6 +658,7 @@ class VoiceTypeApp:
             try:
                 from llm import get_llm
                 self.llm = get_llm(self.config)
+                print(f"[main] LLM reloaded: {self.config.get('llm_engine')}")
             except Exception as e:
                 print(f"[main] Failed to reload LLM engine: {e}")
 
