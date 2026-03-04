@@ -92,12 +92,14 @@ def _initialize_data():
 
     # 2. 複製內建模板 (情境與格式)
     def sync_defaults(sub_path, dest_dir):
+        # v2.8.2-stable: 如果目標目錄已經有檔案，則不執行自動補回，尊重使用者的刪除與修改
+        if any(dest_dir.iterdir()):
+            return
+            
         src_dir = base_dir / sub_path
         if src_dir.exists():
             for f in src_dir.glob("*.md"):
                 dest_file = dest_dir / f.name
-                # 如果目標不存在，則從 bundle 複製預設值
-                # 這樣使用者修改後就不會被覆蓋，但新用戶能拿到最讚的預設集
                 if not dest_file.exists():
                     try:
                         shutil.copy2(f, dest_file)
