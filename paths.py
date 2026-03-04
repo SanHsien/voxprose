@@ -16,18 +16,48 @@ else:
 # Ensure the directory exists
 APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-CONFIG_PATH = APP_DATA_DIR / "config.json"
+# 📄 基於指標的同步系統 (Synchronized Path Redirection)
+# 儲存同步目錄的指標檔案 (此檔案永遠留於本機 AppData)
+SYNC_POINTER_PATH = APP_DATA_DIR / "sync_path.txt"
 
-# v2.5 新版三層式靈魂目錄
-SOUL_DIR = APP_DATA_DIR / "soul"
+def get_sync_base_dir() -> Path:
+    """獲取目前的數據基礎目錄，若有同步指標則重定向至雲端目錄"""
+    if SYNC_POINTER_PATH.exists():
+        try:
+            path_str = SYNC_POINTER_PATH.read_text(encoding="utf-8").strip()
+            if path_str:
+                sync_path = Path(path_str)
+                if sync_path.exists() and sync_path.is_dir():
+                    return sync_path
+        except Exception:
+            pass
+    return APP_DATA_DIR
+
+# 核心同步目錄 (根據指標動態重定向)
+SYNC_BASE_DIR = get_sync_base_dir()
+
+# 設定檔拆分：本機 (Local) 與 全域同步 (Global)
+# 本機設定 (永遠存放於 AppData，存放熱鍵等裝置特定資訊)
+LOCAL_CONFIG_PATH = APP_DATA_DIR / "config_local.json"
+# 全域設定 (可跟隨指標同步，存放 API Key 與 Prompt)
+GLOBAL_CONFIG_PATH = SYNC_BASE_DIR / "config_global.json"
+
+# v2.5 新版三層式靈魂目錄 (動態跟隨 SYNC_BASE_DIR)
+SOUL_DIR = SYNC_BASE_DIR / "soul"
 SOUL_SCENARIO_DIR = SOUL_DIR / "scenario"
 SOUL_BASE_PATH = SOUL_SCENARIO_DIR / "default.md"
 SOUL_FORMAT_DIR = SOUL_DIR / "format"
 SOUL_TEMPLATE_DIR = SOUL_DIR / "templates"
 SOUL_SNIPPET_DIR = SOUL_DIR / "snippets"
-AI_PERMANENT_MEMORY_PATH = APP_DATA_DIR / "ai_permanent_memory.md"
-BUILD_ID = "BUILD-0303-B28"  # v2.8.0 b28
-VERSION_NAME = "v2.8.0"
+
+# 其他需同步的資料目錄
+VOCAB_DIR = SYNC_BASE_DIR / "vocab"
+MEMORY_DIR = SYNC_BASE_DIR / "memory"
+STATS_DIR = SYNC_BASE_DIR / "stats"
+AI_PERMANENT_MEMORY_PATH = SYNC_BASE_DIR / "ai_permanent_memory.md"
+
+BUILD_ID = "BUILD-0304-B30"  # v2.8.2-stable
+VERSION_NAME = "v2.8.2-stable"
 KEYSTRIKE_LOG_PATH = APP_DATA_DIR / "keystrike.log"
 
 # 舊版路徑 (用於遷移)
