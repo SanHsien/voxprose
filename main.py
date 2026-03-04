@@ -101,7 +101,7 @@ from actions.dispatcher import ActionDispatcher
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QTimer
 
-from paths import CONFIG_PATH, SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR, SOUL_SNIPPET_DIR
+from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR, SOUL_SNIPPET_DIR
 
 # ── 內建 LLM Prompt ──────────────────────────────────────────────
 DEFAULT_LLM_PROMPT = (

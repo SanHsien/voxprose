@@ -43,22 +43,70 @@ DEFAULT_CONFIG = {
     "auto_paste": True,
     "magic_trigger": "嘿 VoiceType",
 }
-from paths import CONFIG_PATH
+# 🗝️ 本地設定白名單 (不進行雲端同步的項目)
+LOCAL_KEYS = {
+    "hotkey_ptt", "hotkey_toggle", "hotkey_llm", 
+    "trigger_mode", "floating_button_enabled", "sound_on_complete",
+    "debug_mode", "debug_demo_mode"
+}
+
+from paths import GLOBAL_CONFIG_PATH, LOCAL_CONFIG_PATH, APP_DATA_DIR
 
 def load_config() -> dict:
-    """Load config from config.json, falling back to defaults for missing keys."""
+    """載入設定：合併本機設定與全域同步設定。"""
     config = DEFAULT_CONFIG.copy()
-    if os.path.exists(CONFIG_PATH):
+    
+    # 0. 舊版 config.json 遷移邏輯 (v2.9.0 升級防護)
+    old_config_path = APP_DATA_DIR / "config.json"
+    if old_config_path.exists() and not LOCAL_CONFIG_PATH.exists():
         try:
-            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-                user_config = json.load(f)
-            config.update(user_config)
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"[config] Warning: failed to load config.json: {e}")
+            with open(old_config_path, "r", encoding="utf-8") as f:
+                legacy_config = json.load(f)
+            save_config(legacy_config) # 直接觸發拆分儲存
+            os.remove(old_config_path)  # 刪除舊檔
+        except Exception:
+            pass
+
+    # 1. 載入全域設定 (Global) - 優先權低
+    if os.path.exists(GLOBAL_CONFIG_PATH):
+        try:
+            with open(GLOBAL_CONFIG_PATH, "r", encoding="utf-8") as f:
+                global_data = json.load(f)
+            # 過濾掉不該出現在全域的本地 key
+            config.update({k: v for k, v in global_data.items() if k not in LOCAL_KEYS})
+        except Exception:
+            pass
+
+    # 2. 載入本機設定 (Local) - 優先權高
+    if os.path.exists(LOCAL_CONFIG_PATH):
+        try:
+            with open(LOCAL_CONFIG_PATH, "r", encoding="utf-8") as f:
+                local_data = json.load(f)
+            config.update(local_data)
+        except Exception:
+            pass
+
     return config
 
 
 def save_config(config: dict) -> None:
-    """Save config dict back to config.json."""
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(config, f, ensure_ascii=False, indent=2)
+    """儲存設定：依據白名單拆分並分別寫入本機與同步目錄。"""
+    # 拆分資料
+    local_data = {k: v for k, v in config.items() if k in LOCAL_KEYS}
+    global_data = {k: v for k, v in config.items() if k not in LOCAL_KEYS}
+
+    # 儲存本機配置
+    try:
+        with open(LOCAL_CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(local_data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[config] Error saving local config: {e}")
+
+    # 儲存全域配置
+    try:
+        # 確保全域所在的父目錄存在 (可能在 NAS 上)
+        GLOBAL_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(GLOBAL_CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(global_data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[config] Error saving global config: {e}")
