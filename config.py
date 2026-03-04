@@ -1,12 +1,15 @@
 import json
 import os
+import platform
+
+IS_WINDOWS = platform.system() == "Windows"
 
 DEFAULT_CONFIG = {
     "hotkey_ptt": "alt_r",
     "hotkey_toggle": "f13",
     "hotkey_llm": "f14",
     # STT
-    "stt_engine": "local_whisper",
+    "stt_engine": "mlx_whisper" if not IS_WINDOWS else "local_whisper",
     "whisper_model": "medium",
     "groq_api_key": "",
     "language": "zh",
@@ -48,10 +51,11 @@ LOCAL_KEYS = {
     "hotkey_ptt", "hotkey_toggle", "hotkey_llm", "hotkey", 
     "trigger_mode", "show_floating_button", "completion_sound",
     "debug_mode", "is_demo", "output_prefix", 
-    "separate_keystrike_log", "showcase_mode"
+    "separate_keystrike_log", "showcase_mode",
+    "stt_engine", "whisper_model"
 }
 
-from paths import GLOBAL_CONFIG_PATH, LOCAL_CONFIG_PATH, APP_DATA_DIR
+from paths import GLOBAL_CONFIG_PATH, LOCAL_CONFIG_PATH, APP_DATA_DIR, IS_WINDOWS
 
 def load_config() -> dict:
     """載入設定：合併本機設定與全域同步設定。"""

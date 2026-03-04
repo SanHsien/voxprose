@@ -4,7 +4,9 @@ from .base import BaseSTT
 # 避免在 Windows 上缺少 groq / mlx 等 macOS 專屬模組而崩潰。
 
 def get_stt(config: dict) -> BaseSTT:
-    engine = config.get("stt_engine", "local_whisper")
+    import platform
+    default_engine = "mlx_whisper" if platform.system() == "Darwin" else "local_whisper"
+    engine = config.get("stt_engine", default_engine)
     if engine == "mlx_whisper":
         from .mlx_whisper import MLXWhisperSTT
         return MLXWhisperSTT(config)
