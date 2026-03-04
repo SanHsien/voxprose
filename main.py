@@ -388,8 +388,8 @@ class VoiceTypeApp:
             
             print("[process] STT starting...")
             lang = self.config.get("translation_lang", "zh")
+            stt_start_time = time.time()
             text = self.stt.transcribe(audio_data, language=lang)
-            
             stt_duration = time.time() - stt_start_time
             print(f"[process] Raw text: {text} ({stt_duration:.2f}s)")
             
@@ -546,6 +546,37 @@ class VoiceTypeApp:
             print(f"[process] Error: {e}")
             self.indicator.hide()
 
+    def _log_execution(self, text, final_text, is_llm_used, engine="N/A"):
+        """v2.8.2-stable: 追蹤執行流程並寫入 debug.log"""
+        if not self.config.get("debug_mode", False):
+            return
+            
+        import datetime
+        from paths import APP_DATA_DIR
+        log_path = APP_DATA_DIR / "debug.log"
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        log_content = [
+            f"========== 執行紀錄 {now} ==========",
+            "【模式系統參數】",
+            f"  - llm_enabled (常態潤飾): {self.config.get('llm_enabled', False)}",
+            f"  - showcase_mode (展示模式): {self.config.get('showcase_mode', False)}",
+            f"  - is_demo (除錯展示模式): {self.config.get('is_demo', False)}",
+            "【引擎與輸出】",
+            f"  - LLM Used: {is_llm_used}",
+            f"  - Engine: {engine}",
+            f"  - Translation: {self.config.get('translation_lang', 'zh')}",
+            f"  - Input Length: {len(text)}",
+            f"  - Output Length: {len(final_text)}",
+            "====================================\n"
+        ]
+        
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write("\n".join(log_content))
+        except:
+            pass
+
     def _build_llm_prompt(self, text, is_refine=False):
         # v2.7.32 b7: 優化 Prompt 順序 - 規則優先，資料在後 (防止 LLM 輸出身份設定)
         parts = []
@@ -697,6 +728,7 @@ class VoiceTypeApp:
             try:
                 from llm import get_llm
                 self.llm = get_llm(self.config)
+                print(f"[main] LLM reloaded: {self.config.get('llm_engine')}")
             except Exception as e:
                 print(f"[main] Failed to reload LLM engine: {e}")
 
