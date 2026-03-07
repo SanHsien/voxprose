@@ -25,15 +25,27 @@ class OpenRouterLLM(BaseLLM):
                 {"role": "user", "content": f"<Draft>\n{text}\n</Draft>"}
             ],
         }
+        
+        # v2.8.17: Detailed lifecycle logging
+        print(f"[LLM] Request Sent. Model: {self.model}")
+        
         try:
             resp = httpx.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=30,
+                timeout=15.0, # Reduced to 15s for fast-fail
             )
+            print(f"[LLM] Response Received. (HTTP {resp.status_code})")
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]["content"].strip()
+            
+        except httpx.TimeoutException:
+            print(f"[LLM] Timeout (15s) - Fast fail fallback to raw text")
+            return text
+        except httpx.HTTPStatusError as e:
+            print(f"[LLM] API Error (HTTP {e.response.status_code}): {e.response.text[:200]}")
+            return text
         except Exception as e:
-            print(f"[OpenRouter LLM Error] {e}")
+            print(f"[LLM] Connection Failed / Unknown Error: {e}")
             return text

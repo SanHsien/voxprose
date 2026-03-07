@@ -24,8 +24,8 @@ class MLXWhisperSTT(BaseSTT):
         try:
             import mlx_whisper
             import numpy as np
-            # Warm up with 0.05s of silence to trigger model loading and Metal init
-            silence = np.zeros(800, dtype=np.float32)
+            # Warm up with 1.0s of silence to reliably trigger model loading and Metal init
+            silence = np.zeros(16000, dtype=np.float32)
             mlx_whisper.transcribe(silence, path_or_hf_repo=self.model_repo)
             print(f"[stt] MLX Whisper warmup complete.")
         except Exception as e:

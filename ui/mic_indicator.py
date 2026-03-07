@@ -46,7 +46,11 @@ class MicIndicatorWindow(QWidget):
         # 音效器
         self._beep = QSoundEffect(self)
         from pathlib import Path
-        beep_path = Path(__file__).parent.parent / "assets" / "beep.wav"
+        import os
+        if os.environ.get("RESOURCEPATH"):
+            beep_path = Path(os.environ["RESOURCEPATH"]) / "assets" / "beep.wav"
+        else:
+            beep_path = Path(__file__).parent.parent / "assets" / "beep.wav"
         from PyQt6.QtCore import QUrl
         self._beep.setSource(QUrl.fromLocalFile(str(beep_path.absolute())))
         self._beep.setVolume(0.5)

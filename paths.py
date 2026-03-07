@@ -13,8 +13,45 @@ else:
     # macOS: ~/Library/Application Support/VoiceType4TW
     APP_DATA_DIR = HOME / "Library" / "Application Support" / "VoiceType4TW"
 
-# Ensure the directory exists
+# v2.9.1: Legacy Migration Logic
+def migrate_legacy_data():
+    legacy_paths = [
+        HOME / "Library" / "Application Support" / "嘴炮輸入法",
+        HOME / "Library" / "Application Support" / "嘴砲輸入法"
+    ]
+    for lp in legacy_paths:
+        if lp.exists() and lp.is_dir():
+            print(f"[paths] Migrating legacy data from {lp} to {APP_DATA_DIR}")
+            for item in lp.iterdir():
+                target = APP_DATA_DIR / item.name
+                try:
+                    import shutil
+                    if item.is_dir():
+                        if not target.exists():
+                            shutil.copytree(item, target)
+                        else:
+                            # Merge existing directories instead of skipping
+                            for sub_item in item.iterdir():
+                                sub_target = target / sub_item.name
+                                if not sub_target.exists():
+                                    if sub_item.is_dir():
+                                        shutil.copytree(sub_item, sub_target)
+                                    else:
+                                        shutil.copy2(sub_item, sub_target)
+                    else:
+                        if not target.exists():
+                            shutil.copy2(item, target)
+                    print(f"[paths] Migrated {item.name}")
+                except Exception as e:
+                    print(f"[paths] Migration error for {item.name}: {e}")
+
+# Ensure the directory exists and migrate
 APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+migrate_legacy_data()
+
+# v2.8.12-dev: Force create critical log files to prevent UI error
+(APP_DATA_DIR / "debug.log").touch(exist_ok=True)
+(APP_DATA_DIR / "keystrike.log").touch(exist_ok=True)
 
 # 📄 基於指標的同步系統 (Synchronized Path Redirection)
 # 儲存同步目錄的指標檔案 (此檔案永遠留於本機 AppData)
@@ -31,9 +68,12 @@ def get_sync_base_dir() -> Path:
                     return sync_path
         except Exception:
             pass
-    return APP_DATA_DIR
+    # 預設：本機 Documents 內的 VoiceType4TW_Sync
+    default_sync = Path("~/Documents/VoiceType4TW_Sync").expanduser()
+    default_sync.mkdir(parents=True, exist_ok=True)
+    return default_sync
 
-# 核心同步目錄 (根據指標動態重定向)
+# 核心同步目錄
 SYNC_BASE_DIR = get_sync_base_dir()
 
 # 設定檔拆分：本機 (Local) 與 全域同步 (Global)
@@ -56,8 +96,8 @@ MEMORY_DIR = SYNC_BASE_DIR / "memory"
 STATS_DIR = SYNC_BASE_DIR / "stats"
 AI_PERMANENT_MEMORY_PATH = SYNC_BASE_DIR / "ai_permanent_memory.md"
 
-BUILD_ID = "BUILD-0304-RELEASE-V2" 
-VERSION_NAME = "v2.8.2-stable"
+BUILD_ID = "BUILD-0307-E" 
+VERSION_NAME = "2.8.27 Free Edition"
 KEYSTRIKE_LOG_PATH = APP_DATA_DIR / "keystrike.log"
 
 # 舊版路徑 (用於遷移)
@@ -113,5 +153,6 @@ def _initialize_data():
     
     # 複製內建模板 (如果有在 bundle 裡的話)
     # 這裡暫時依賴 main.py 啟動時自動檢查
+    print(f"[paths] Data initialized. SYNC_BASE_DIR is mapped to: {SYNC_BASE_DIR}")
     
 _initialize_data()

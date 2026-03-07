@@ -11,7 +11,14 @@ class TrayManager:
     """
     def __init__(self, title: str, icon_path: str, menu_items: List[Dict]):
         self.title = title
-        self.icon_path = icon_path
+        # v2.8.4: Prefer template icon for automatic macOS theme switching
+        base_dir = os.path.dirname(icon_path)
+        templ = os.path.join(base_dir, "icon-menubarTemplate.png")
+        if not IS_WINDOWS and os.path.exists(templ):
+            self.icon_path = templ
+        else:
+            self.icon_path = icon_path
+
         self.menu_items = menu_items
         self._tray = None
         self._loop_thread = None
@@ -114,6 +121,10 @@ class TrayManager:
                             pass
 
             self._tray = App(self.title, self.icon_path, self.menu_items, on_tick)
+            # v2.8.4: Force template mode if it's a template icon
+            if self.icon_path and "Template" in self.icon_path:
+                self._tray.template = True
+                
             self._tray.run()
         except ImportError:
             print("[tray] Error: rumps not found.")

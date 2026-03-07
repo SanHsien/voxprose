@@ -10,15 +10,17 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QStackedWidget, QLabel, QLineEdit, QComboBox, QCheckBox, QPushButton, 
     QTextEdit, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView,
-    QMessageBox, QFileDialog, QScrollArea, QFrame, QSplitter
+    QMessageBox, QFileDialog, QScrollArea, QFrame, QSplitter, QSizePolicy
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRect, QUrl, QTimer
 from PyQt6.QtGui import QFont, QIcon, QColor, QPainter, QLinearGradient, QBrush, QPixmap, QDesktopServices
 import shutil
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+import logging
 from config import load_config, save_config
 from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR, BUILD_ID
+
+log = logging.getLogger("voicetype.ui")
 STT_ENGINES = ["local_whisper", "groq", "gemini", "openrouter"] if platform.system() == "Windows" else ["local_whisper", "mlx_whisper", "groq", "gemini", "openrouter"]
 LLM_ENGINES = ["ollama", "openai", "claude", "openrouter", "gemini", "deepseek", "qwen"]
 WHISPER_MODELS = ["tiny", "base", "small", "medium", "large"]
@@ -87,6 +89,51 @@ class SNSButton(QPushButton):
     def _open_url(self):
         QDesktopServices.openUrl(QUrl(self.url))
 
+CODE_TO_MAC_NAME = {
+    61: "alt_r (Option右)",
+    62: "ctrl_r (Control右)",
+    60: "shift_r (Shift右)",
+    54: "cmd_r (Command右)",
+    55: "cmd (Command左)",
+    56: "shift (Shift左)",
+    59: "ctrl (Control左)",
+    58: "alt (Option左)",
+    63: "fn",
+    116: "page_up",
+    121: "page_down",
+    115: "home",
+    119: "end",
+    117: "delete",
+    114: "insert",
+    123: "left",
+    124: "right",
+    125: "down",
+    126: "up",
+    53: "esc",
+    105: "f13",
+    107: "f14",
+    113: "f15",
+    106: "f16"
+}
+
+def translate_key_string(key_str):
+    import re
+    if not key_str:
+        return "未設定"
+    
+    match = re.search(r'\(?code:(\d+)\)?', key_str, re.IGNORECASE)
+    if not match:
+        return key_str # fallback to literal if no code is present
+        
+    code = int(match.group(1))
+    main_name = CODE_TO_MAC_NAME.get(code, f"Key_{code}")
+    
+    parts = key_str.replace(f"(code:{code})", "").replace(f"code:{code}", "").split("+")
+    mods = [p.strip() for p in parts if p.strip()]
+    
+    if mods:
+        return f"{'+'.join(mods)} + {main_name}"
+    return main_name
 
 class HotkeyRecorderButton(QPushButton):
     """A button that captures the next key press to set a hotkey."""
@@ -106,16 +153,21 @@ class HotkeyRecorderButton(QPushButton):
     def key_str(self):
         return self._key_str
 
-    def set_key(self, key_str):
-        self._key_str = key_str
+    @key_str.setter
+    def key_str(self, val):
+        self._key_str = val
         self._update_text()
+
+    def set_key(self, key_str):
+        self.key_str = key_str
 
     def _update_text(self):
         if self._recording:
             self.setText("錄製中...")
             self.setStyleSheet("background: palette(highlight); color: white; border-radius: 6px;")
         else:
-            self.setText(self._key_str if self._key_str else "未設定")
+            display_text = translate_key_string(self._key_str) if self._key_str else "未設定"
+            self.setText(display_text)
             self.setStyleSheet("""
                 QPushButton {
                     background: rgba(255, 255, 255, 10);
@@ -136,35 +188,68 @@ class HotkeyRecorderButton(QPushButton):
         self.setFocus()
 
     def keyPressEvent(self, event):
-        if self._recording:
+        if not self._recording:
+            super().keyPressEvent(event)
+            return
+            
+        try:
             key = event.key()
-            qt_to_pynput = {
-                Qt.Key.Key_Alt: "alt_r",
-                Qt.Key.Key_Control: "ctrl_r",
-                Qt.Key.Key_Shift: "shift_r",
-                Qt.Key.Key_Meta: "cmd_r",
-                Qt.Key.Key_F13: "f13",
-                Qt.Key.Key_F14: "f14",
-                Qt.Key.Key_F15: "f15",
-                Qt.Key.Key_Return: "enter",
-                Qt.Key.Key_Space: "space",
+            modifiers = event.modifiers()
+            native_code = event.nativeVirtualKey()
+            
+            log.info(f"[recorder] Captured QtKey={key}, NativeCode={native_code}")
+            
+            # Capture native modifiers for Fn key support
+            try:
+                native_mods = event.nativeModifiers()
+                is_fn = bool(native_mods & 0x800000) # kCGEventFlagMaskSecondaryFn
+            except:
+                is_fn = False
+            
+            # v2.8.17: Modifier-only hotkeys (e.g., single Right Ctrl, Right Cmd)
+            # These are single-key modifier hotkeys that should record immediately
+            SINGLE_MODIFIER_KEYS = {
+                Qt.Key.Key_Control: "ctrl",
+                Qt.Key.Key_Alt: "alt",
+                Qt.Key.Key_Shift: "shift",
+                Qt.Key.Key_Meta: "cmd",
             }
-            p_key = qt_to_pynput.get(key) or event.text()
-            if p_key:
-                self._key_str = p_key
+            
+            if key in SINGLE_MODIFIER_KEYS:
+                # v2.8.24: Store purely as code:XX format
+                self._key_str = f"code:{native_code}"
                 self._recording = False
                 self._update_text()
                 self.key_changed.emit(self._key_str)
                 self.clearFocus()
-        else:
-            super().keyPressEvent(event)
+                log.info(f"[recorder] Recorded modifier key: {self._key_str}")
+                return
 
-    @property
-    def key_str(self): return self._key_str
-    @key_str.setter
-    def key_str(self, val):
-        self._key_str = val
-        self._update_text()
+            # For composite keys (e.g., Ctrl+A, Cmd+Shift+S)
+            modifier_map = []
+            if modifiers & Qt.KeyboardModifier.ControlModifier: modifier_map.append("ctrl")
+            if modifiers & Qt.KeyboardModifier.AltModifier: modifier_map.append("alt")
+            if modifiers & Qt.KeyboardModifier.ShiftModifier: modifier_map.append("shift")
+            if modifiers & Qt.KeyboardModifier.MetaModifier: modifier_map.append("cmd")
+            if is_fn: modifier_map.append("fn")
+            
+            # Use raw code for composite payload
+            full_list = [m for m in modifier_map] + [f"code:{native_code}"]
+            self._key_str = "+".join(full_list)
+            
+            self._recording = False
+            self._update_text()
+            self.key_changed.emit(self._key_str)
+            self.clearFocus()
+            log.info(f"[recorder] Recorded combo: {self._key_str}")
+        except Exception as e:
+            import traceback
+            log.error(f"[recorder] Error in keyPressEvent: {e}\n{traceback.format_exc()}")
+            self._recording = False
+            self._update_text()
+            self.clearFocus()
+        else:
+            pass  # keyAccepted
 
 
 class PermissionLight(QWidget):
@@ -254,6 +339,11 @@ class ModelStatusLight(QWidget):
 
 
 class SettingsWindow(QMainWindow):
+    test_start = pyqtSignal()
+    test_stop = pyqtSignal()
+    test_toggle = pyqtSignal()
+    test_llm = pyqtSignal()   # v2.8.15: LLM Mode hotkey test
+    
     def __init__(self, on_save=None, start_page=0):
         super().__init__()
         self.config = load_config()
@@ -274,7 +364,7 @@ class SettingsWindow(QMainWindow):
         if "zh" in lang:
             win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "Taipei Sans TC Beta"
             self.setFont(QFont(win_font))
-            self.setWindowTitle(f"嘴砲輸入法 {VERSION_NAME}")
+            self.setWindowTitle(f"嘴炮輸入法 {VERSION_NAME}")
         else:
             self.setWindowTitle(f"VoiceType4TW {VERSION_NAME}")
         
@@ -441,7 +531,7 @@ class SettingsWindow(QMainWindow):
         
         # Credits and SNS at Bottom
         from paths import VERSION_NAME, BUILD_ID
-        credit_box = QLabel(f"{VERSION_NAME} | {BUILD_ID}\n主要開發者：吉米丘\n協助開發者：Gemini, Nebula")
+        credit_box = QLabel(f"{VERSION_NAME} | {BUILD_ID}\n主要開發者：吉米丘, CC58TW\n協助開發者：Gemini, Nebula")
         credit_box.setStyleSheet("color: #555; font-size: 10px; margin-left: 25px; line-height: 1.2;")
         sidebar_layout.addWidget(credit_box)
         
@@ -490,9 +580,9 @@ class SettingsWindow(QMainWindow):
         self.footer_widget = QWidget()
         footer = QHBoxLayout(self.footer_widget)
         footer.setContentsMargins(0, 20, 0, 0)
-        self.btn_save = QPushButton("儲存並套用變更")
+        self.btn_save = QPushButton("儲存設定")
         self.btn_save.clicked.connect(self._save_action)
-        self.btn_cancel = QPushButton("捨棄變更")
+        self.btn_cancel = QPushButton("放棄設定")
         self.btn_cancel.setObjectName("secondary")
         self.btn_cancel.clicked.connect(self.close)
         
@@ -525,8 +615,8 @@ class SettingsWindow(QMainWindow):
         layout.addWidget(self._page_section_header("☁️ 雲端同步 & NAS (Cross-Platform Sync)"))
         
         desc = QLabel(
-            "透過設定同步目錄，您可以在多台 Mac 或 PC 之間共用「靈魂情境」、「辭典」與「AI 記憶」。\n"
-            "建議選擇您的 Synology NAS 同步資料夾、iCloud 或 Google Drive 目錄。\n\n"
+            "透過設定同步目錄，您可以在多台 Mac 或 PC 之間共用「靈魂情境」、「詞彙」與「AI 記憶」。\n"
+            "建議選擇您的 NAS 同步資料夾、iCloud 或 Google Drive 目錄。\n\n"
             "※ 注意：本機「控制熱鍵」與硬體偏好設定仍會保持各機獨立，不會互相干擾。"
         )
         desc.setWordWrap(True)
@@ -600,7 +690,7 @@ class SettingsWindow(QMainWindow):
         
         dash_header.addStretch()
         
-        title_cn = QLabel("嘴砲輸入法")
+        title_cn = QLabel("嘴炮輸入法")
         win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "Taipei Sans TC Beta"
         title_cn.setStyleSheet(f"font-family: '{win_font}'; font-size: 32px; font-weight: bold; color: #ffffff;")
         dash_header.addWidget(title_cn)
@@ -811,7 +901,7 @@ class SettingsWindow(QMainWindow):
         layout.addWidget(self._page_section_header("🎙 語音辨識配置"))
         self.stt_engine = self._add_grid_row(layout, "核心引擎", QComboBox())
         engine_meta = {
-            "local_whisper": "Local Whisper (一般版，支援 CPU/GPU通吃)",
+            "local_whisper": "Local Whisper (RTX顯卡加速, 也支援 CPU/GPU)",
             "mlx_whisper":   "MLX Whisper (Apple 晶片光速加速版)",
             "groq":          "Groq Whisper (神級雲端超極速)",
             "gemini":        "Gemini (雲端 API)",
@@ -905,8 +995,8 @@ class SettingsWindow(QMainWindow):
         self.soul_tabs.addTab(base_tab, "🏠 基底靈魂")
 
         # 2. 情境瀏覽 (v2.7.32: 改名為性格模式)
-        scenario_tab = self._create_file_list_tab(SOUL_SCENARIO_DIR, "這裡存放不同場景的提示詞（性格模式），例如：社群貼文、商務回應。")
-        self.soul_tabs.addTab(scenario_tab, "🎭 性格模式")
+        #scenario_tab = self._create_file_list_tab(SOUL_SCENARIO_DIR, "這裡存放不同場景的提示詞（性格模式），例如：社群貼文、商務回應。") #咖啡版功能
+        #self.soul_tabs.addTab(scenario_tab, "🎭 性格模式") #咖啡版功能
 
         # 3. 格式瀏覽 (v2.7.32: 隱藏)
         # format_tab = self._create_file_list_tab(SOUL_FORMAT_DIR, "這裡決定輸出的格式。")
@@ -1116,16 +1206,72 @@ class SettingsWindow(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         
-        layout.addWidget(self._page_section_header("⌨️ 控制熱鍵錄製"))
+        layout.addWidget(self._page_section_header("⌨️ 設定錄音按鍵"))
         
         hotkey_grid = QFrame()
         grid_layout = QVBoxLayout(hotkey_grid)
         
+        row_ptt = QHBoxLayout()
         self.btn_ptt = HotkeyRecorderButton(self.config.get("hotkey_ptt", "alt_r"))
-        self._add_grid_row(grid_layout, "錄音按住 (PTT)", self.btn_ptt)
+        self.btn_ptt.setFixedHeight(32)
+        # v2.9.1: Fixed width so it's not too long and doesn't overlap
+        self.btn_ptt.setFixedWidth(160)
         
+        self.btn_test_rec = QPushButton("🚀 測試")
+        self.btn_test_rec.setToolTip("按住測試 PTT 收音")
+        self.btn_test_rec.setFixedWidth(85) # v2.9.1: Wider for label visibility
+        self.btn_test_rec.setFixedHeight(32)
+        self.btn_test_rec.setStyleSheet("background: #444; border-radius: 4px; font-size: 13px; font-weight: bold;")
+        self.btn_test_rec.pressed.connect(self.test_start.emit)
+        self.btn_test_rec.released.connect(self.test_stop.emit)
+        
+        lbl_ptt = QLabel("錄音按住 (PTT)")
+        lbl_ptt.setFixedWidth(120) 
+        row_ptt.addWidget(lbl_ptt)
+        row_ptt.addWidget(self.btn_ptt)
+        row_ptt.addWidget(self.btn_test_rec)
+        row_ptt.addStretch(1) # Ensure alignment
+        grid_layout.addLayout(row_ptt)
+
+        # v2.8.15: Re-add LLM Hotkey
+        row_llm = QHBoxLayout()
+        self.btn_llm = HotkeyRecorderButton(self.config.get("hotkey_llm", "f14"))
+        self.btn_llm.setFixedHeight(32)
+        self.btn_llm.setFixedWidth(160)
+        
+        self.btn_test_llm = QPushButton("🚀 測試")
+        self.btn_test_llm.setFixedWidth(85)
+        self.btn_test_llm.setFixedHeight(32)
+        self.btn_test_llm.setStyleSheet("background: #444; border-radius: 4px; font-size: 13px; font-weight: bold;")
+        self.btn_test_llm.clicked.connect(self.test_llm.emit)
+
+        lbl_llm = QLabel("潤飾模式 (LLM)")
+        lbl_llm.setFixedWidth(120)
+        row_llm.addWidget(lbl_llm)
+        row_llm.addWidget(self.btn_llm)
+        row_llm.addWidget(self.btn_test_llm)
+        row_llm.addStretch(1)
+        grid_layout.addLayout(row_llm)
+        
+        row_toggle = QHBoxLayout()
         self.btn_toggle = HotkeyRecorderButton(self.config.get("hotkey_toggle", "f13"))
-        self._add_grid_row(grid_layout, "錄音開關 (Toggle)", self.btn_toggle)
+        self.btn_toggle.setFixedHeight(32)
+        self.btn_toggle.setFixedWidth(160)
+        
+        self.btn_test_toggle = QPushButton("🚀 測試")
+        self.btn_test_toggle.setToolTip("點按測試 Toggle 收音")
+        self.btn_test_toggle.setFixedWidth(85) # v2.9.1: Wider
+        self.btn_test_toggle.setFixedHeight(32)
+        self.btn_test_toggle.setStyleSheet("background: #444; border-radius: 4px; font-size: 13px; font-weight: bold;")
+        self.btn_test_toggle.clicked.connect(self.test_toggle.emit)
+
+        lbl_toggle = QLabel("錄音開關 (Toggle)")
+        lbl_toggle.setFixedWidth(120) 
+        row_toggle.addWidget(lbl_toggle)
+        row_toggle.addWidget(self.btn_toggle)
+        row_toggle.addWidget(self.btn_test_toggle)
+        row_toggle.addStretch(1)
+        grid_layout.addLayout(row_toggle)
         
         layout.addWidget(hotkey_grid)
         
@@ -1145,22 +1291,22 @@ class SettingsWindow(QMainWindow):
         self.debug_mode = QCheckBox("啟用詳細日誌輸出 (Debug logging)")
         self.debug_mode.setChecked(self.config.get("debug_mode", False))
         layout.addWidget(self.debug_mode)
-        
-        self.debug_demo_mode = QCheckBox("情境模擬 Demo 版 (需API KEY連結雲端LLM) (Debug Scenario Demo Mode)")
-        self.debug_demo_mode.setChecked(self.config.get("is_demo", False))
-        layout.addWidget(self.debug_demo_mode)
-
-        self.output_prefix = QCheckBox("顯示模式名稱前綴 (需API KEY連結雲端LLM)  (Output with Mode Prefix)")
-        self.output_prefix.setChecked(self.config.get("output_prefix", False))
-        layout.addWidget(self.output_prefix)
-
+       
         self.separate_keystrike_log = QCheckBox("獨立記錄熱鍵事件 (Separate KeyStrike Log to keystrike.log)")
         self.separate_keystrike_log.setChecked(self.config.get("separate_keystrike_log", False))
-        layout.addWidget(self.separate_keystrike_log)
+        layout.addWidget(self.separate_keystrike_log) 
+        
+        self.debug_demo_mode = QCheckBox("情境模擬 Demo 版 (需API KEY連結雲端LLM) (Debug Scenario Demo Mode)") #咖啡版功能
+        self.debug_demo_mode.setChecked(self.config.get("is_demo", False)) #咖啡版功能
+        layout.addWidget(self.debug_demo_mode) #咖啡版功能
 
-        self.showcase_mode = QCheckBox("LLM 展示版 (需API KEY連結雲端LLM)  (LLM Showcase Mode: [STT] + [LLM])")
-        self.showcase_mode.setChecked(self.config.get("showcase_mode", False))
-        layout.addWidget(self.showcase_mode)
+        self.output_prefix = QCheckBox("顯示模式名稱前綴 (需API KEY連結雲端LLM)  (Output with Mode Prefix)") #咖啡版功能
+        self.output_prefix.setChecked(self.config.get("output_prefix", False)) #咖啡版功能
+        layout.addWidget(self.output_prefix) #咖啡版功能
+
+        self.showcase_mode = QCheckBox("LLM 展示版 (需API KEY連結雲端LLM)  (LLM Showcase Mode: [STT] + [LLM])") #咖啡版功能
+        self.showcase_mode.setChecked(self.config.get("showcase_mode", False)) #咖啡版功能
+        layout.addWidget(self.showcase_mode) #咖啡版功能
 
         layout.addWidget(self._page_section_header("🛠️ 診斷與修復"))
         
@@ -1275,7 +1421,18 @@ class SettingsWindow(QMainWindow):
     # --- Data and Logic ---
     def _load_data(self):
         if SOUL_BASE_PATH.exists():
-            self.soul_prompt.setPlainText(SOUL_BASE_PATH.read_text(encoding="utf-8"))
+            raw_bytes = SOUL_BASE_PATH.read_bytes()
+            content = ""
+            for enc in ["utf-8-sig", "utf-8", "big5", "utf-16", "gbk"]:
+                try:
+                    content = raw_bytes.decode(enc)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            if not content:
+                # Fallback directly to replace if all fail
+                content = raw_bytes.decode("utf-8", errors="replace")
+            self.soul_prompt.setPlainText(content)
         
         # 1. 語音辨識
         stt_val = self.config.get("stt_engine", "local_whisper")
@@ -1311,8 +1468,9 @@ class SettingsWindow(QMainWindow):
         self.magic_trigger.setText(self.config.get("magic_trigger", "嘿 VoiceType"))
         
         # 3. 系統設定 (Critical: fix UI overwriting disk with stale state)
-        self.btn_ptt.set_key(self.config.get("hotkey_ptt", "alt_r"))
-        self.btn_toggle.set_key(self.config.get("hotkey_toggle", "f13"))
+        self.btn_ptt.key_str = self.config.get("hotkey_ptt", "alt_r")
+        self.btn_toggle.key_str = self.config.get("hotkey_toggle", "f13")
+        self.btn_llm.key_str = self.config.get("hotkey_llm", "f14")
         
         self.auto_paste.setChecked(self.config.get("auto_paste", True))
         self.show_floating_button.setChecked(self.config.get("show_floating_button", True))
@@ -1370,37 +1528,19 @@ class SettingsWindow(QMainWindow):
             self.light_mic.set_status(True)
             log.info("[PERM] Windows: All permissions auto-granted.")
             return
+
+        from utils.permissions import check_accessibility, check_microphone
         
-        # 1. Accessibility — AXIsProcessTrusted 是 C 函數，必須用 ctypes
-        trusted = False
-        try:
-            import ctypes
-            lib = ctypes.cdll.LoadLibrary(
-                '/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices')
-            lib.AXIsProcessTrusted.restype = ctypes.c_bool
-            trusted = lib.AXIsProcessTrusted()
-            log.info(f"[PERM] Accessibility: {trusted}")
-        except Exception as e:
-            log.error(f"[PERM] Accessibility check FAILED: {e}")
-            trusted = False
+        # 1. Accessibility (also covers Input Monitoring for pynput)
+        trusted = check_accessibility()
         self.light_acc.set_status(trusted)
-
-        # 2. Input Monitoring（通常與輔助功能同步）
         self.light_input.set_status(trusted)
+        log.info(f"[PERM] Accessibility: {trusted}")
 
-        # 3. Microphone (macOS)
-        try:
-            import objc
-            # 使用 objc 動態載入 AVFoundation，此查詢方法不會觸發彈窗
-            objc.loadBundle('AVFoundation', bundle_path='/System/Library/Frameworks/AVFoundation.framework', module_globals=globals())
-            # 'soun' is the type for 'audio' in AVFoundation (AVMediaTypeAudio)
-            status = AVCaptureDevice.authorizationStatusForMediaType_('soun')
-            mic_ok = (status == 3) # 3 == AVAuthorizationStatusAuthorized
-            self.light_mic.set_status(mic_ok)
-            log.info(f"[PERM] Microphone Status: {status} (Authorized: {mic_ok})")
-        except Exception as e:
-            log.error(f"[PERM] Microphone check FAILED: {e}")
-            self.light_mic.set_status(False)
+        # 2. Microphone
+        mic_ok = check_microphone()
+        self.light_mic.set_status(mic_ok)
+        log.info(f"[PERM] Microphone Authorized: {mic_ok}")
 
     def _check_local_models(self):
         """檢查 Faster-Whisper 模型是否已下載到本機快取"""
@@ -1413,10 +1553,19 @@ class SettingsWindow(QMainWindow):
             cache_path = Path.home() / ".cache" / "huggingface" / "hub"
             if not cache_path.exists():
                 return False
-            # faster-whisper 命名規則：models--Systran--faster-whisper-<size>
-            folder_prefix = f"models--Systran--faster-whisper-{size}"
+            
+            # support both faster-whisper and mlx-community naming structures
+            # faster-whisper: models--Systran--faster-whisper-<size>
+            # mlx-community: models--mlx-community--whisper-<size>-mlx (where large is large-v3-mlx)
+            
+            mlx_size = "large-v3" if size == "large" else size
+            prefixes = [
+                f"models--Systran--faster-whisper-{size}",
+                f"models--mlx-community--whisper-{mlx_size}-mlx"
+            ]
+            
             for p in cache_path.iterdir():
-                if p.is_dir() and p.name.startswith(folder_prefix):
+                if p.is_dir() and any(p.name.startswith(pref) for pref in prefixes):
                     # 檢查是否有 snapshot
                     snap = p / "snapshots"
                     if snap.exists() and any(snap.iterdir()):
@@ -1556,6 +1705,9 @@ class SettingsWindow(QMainWindow):
         self.config["magic_trigger"] = self.magic_trigger.text().strip() or "嘿 VoiceType"
         self.config["hotkey_ptt"] = self.btn_ptt.key_str
         self.config["hotkey_toggle"] = self.btn_toggle.key_str
+        self.config["hotkey_llm"] = self.btn_llm.key_str
+        
+        log.info(f"[save] Writing UI hotkeys to config: PTT={self.config['hotkey_ptt']}, Toggle={self.config['hotkey_toggle']}, LLM={self.config['hotkey_llm']}")
         self.config["auto_paste"] = self.auto_paste.isChecked()
         self.config["completion_sound"] = self.completion_sound.isChecked()
         self.config["debug_mode"] = self.debug_mode.isChecked()
@@ -1571,7 +1723,7 @@ class SettingsWindow(QMainWindow):
 
         save_config(self.config)
         # v2.7.32: Windows 穩定性優先，提示手動重啟而非自動連鎖反應
-        QMessageBox.information(self, "嘴砲輸入法", "設定已儲存！\n\n為了確保「啟動防護」與「模組加載」完整生效，請務必手動『結束並重啟』本程式。")
+        QMessageBox.information(self, "嘴炮輸入法", "設定已儲存！\n\n為了確保「啟動防護」與「載入模組」完整生效，請務必手動『結束並重啟』本程式。")
         if self.on_save: self.on_save(self.config)
         self.close()
 

@@ -32,16 +32,17 @@ class VoiceTypeMenuBar:
         # templates = [f.stem for f in SOUL_TEMPLATE_DIR.glob("*.json")] if SOUL_TEMPLATE_DIR.exists() else []
 
         items = [
-            {'label': "VoiceType4TW", 'callback': None},
+            {'label': "嘴炮輸入法", 'callback': None},
             {'label': "關於", 'callback': lambda _: self._show_about()},
             {'label': "---", 'callback': None},
-            {'label': f"STT: {engine}", 'callback': None},
-            {'label': f"AI 助理模式 : {action_state}", 'callback': self._toggle_action_mode},
+            {'label': f"辨識引擎: {engine}", 'callback': None},
+            # {'label': f"AI 助理模式 : {action_state}", 'callback': self._toggle_action_mode}, #吉米暫時關閉
             {'label': "---", 'callback': None},
             {'label': f"AI 潤飾/翻譯 : {llm_state}", 'callback': self._toggle_llm},
             
             # Scenario Submenu
-            {'label': "🎭 靈魂情境", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)},
+            # {'label': "🎭 靈魂情境", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)}, #咖啡版功能
+            {'label': "🎭 底層靈魂", 'callback': None}, #免費版功能
             {'label': "快速翻譯", 'callback': None, 'submenu': [
                 {'label': "翻譯成 英文", 'callback': lambda _: self._translate_en(), 'checked': (self.config.get("translation_lang") == "en")},
                 {'label': "翻譯成 日文", 'callback': lambda _: self._translate_jp(), 'checked': (self.config.get("translation_lang") == "ja")},
@@ -58,7 +59,7 @@ class VoiceTypeMenuBar:
     def get_tray_menu_items(self) -> List[Dict]:
         """Builds the simplified menu structure for the System Tray."""
         return [
-            {'label': "VoiceType4TW", 'callback': None},
+            {'label': "嘴炮輸入法", 'callback': None},
             {'label': "關於", 'callback': lambda _: self._show_about()},
             {'label': "---", 'callback': None},
             {'label': "⚙️  偏好設定...", 'callback': lambda _: self._open_settings()},
@@ -94,12 +95,14 @@ class VoiceTypeMenuBar:
         return [{'label': t, 'callback': self._use_template} for t in sorted(templates)]
 
     def _toggle_action_mode(self, _):
-        latest = load_config()
-        enabled = not latest.get("action_mode", False)
-        latest["action_mode"] = enabled
-        save_config(latest)
-        self.config.clear()
-        self.config.update(latest)
+        # v2.8.4: Use internal config to avoid stale state if external reload is slow
+        enabled = not self.config.get("action_mode", False)
+        self.config["action_mode"] = enabled
+        save_config(self.config)
+        
+        print(f"[menu] Action Mode toggled to: {enabled}")
+        if hasattr(self, 'on_config_saved') and callable(self.on_config_saved):
+            self.on_config_saved()
         self.refresh_ui()
 
     def _set_scenario(self, sender):

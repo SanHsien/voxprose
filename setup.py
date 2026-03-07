@@ -1,4 +1,6 @@
 import sys
+import os
+import shutil
 from setuptools import setup
 
 # Increase recursion depth for complex dependency scanning in Python 3.12
@@ -7,42 +9,82 @@ sys.setrecursionlimit(5000)
 APP = ['main.py']
 DATA_FILES = [
     'assets',
-    'soul.md',       # 會在首次啟動時複製到 Library/Application Support 避免打包後唯讀
-    'config.json',   # 會在首次啟動時複製到 Library/Application Support 避免打包後唯讀
-    # 'memory',        # 不打包對話記憶
-    # 'vocab',         # 不打包個人詞庫
-    # 'stats'          # 不打包統計資料
+    ('soul/scenario', [
+        'soul/scenario/default.md',
+        'soul/scenario/情商大師.md',
+        'soul/scenario/商務回應.md',
+        'soul/scenario/社群貼文.md',
+    ]),
+    ('soul/format', [
+        'soul/format/email.md',
+        'soul/format/natural.md',
+        'soul/format/social_post.md',
+        'soul/format/formal_doc.md',
+        'soul/format/slides.md',
+    ]),
+    'assets/fonts',
 ]
 
-# Refined options to avoid RecursionError in modulegraph
-# Using includes instead of packages for core libs can sometimes help
+# ─── Site-packages path for namespace package workaround ───
+SITE_PACKAGES = '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages'
+
 OPTIONS = {
     'argv_emulation': False,
-    'arch': 'arm64',
+    'arch': 'universal2',
     'strip': False,      # 禁止 py2app strip dylib，避免截斷導致 codesign 失敗
     'iconfile': 'assets/icon.icns',
     'plist': {
-        'LSUIElement': False, # 暫時顯示 Dock 圖示以確保 TCC 權限攔截順利
-        'CFBundleName': "VoiceType4TW-Mac",
-        'CFBundleDisplayName': "VoiceType4TW-Mac",
-        'CFBundleIdentifier': "com.jimmy4tw.voicetype4tw-mac",
+        'LSUIElement': False,  # 顯示 Dock 圖示以確保 TCC 權限攔截順利
+        'CFBundleName': '嘴炮輸入法',
+        'CFBundleDisplayName': '嘴炮輸入法',
+        'CFBundleIdentifier': 'com.jimmy4tw.voicetype4tw-mac',
         'NSPrincipalClass': 'NSApplication',
-        'CFBundleVersion': "2.4.0",
-        'CFBundleShortVersionString': "2.4.0",
-        'NSMicrophoneUsageDescription': "VoiceType needs microphone access to transcribe your speech.",
-        'NSAccessibilityUsageDescription': "VoiceType needs accessibility access to listen for global hotkeys and inject text.",
-        'NSAppleEventsUsageDescription': "VoiceType needs to send events to other apps for text injection.",
+        'CFBundleVersion': '2.8.27-free',
+        'CFBundleShortVersionString': '2.8.27-free',
+        'NSMicrophoneUsageDescription': 'VoiceType4TW requires microphone access for speech recognition.',
+        'NSAccessibilityUsageDescription': '嘴炮輸入法需要輔助使用權限來監聽全域快捷鍵並自動貼上文字。',
+        'NSAppleEventsUsageDescription': '嘴炮輸入法需要透過 AppleEvents 與其他程式互動以完成文字注入。',
         'NSSupportsAutomaticGraphicsSwitching': True,
         'NSHighResolutionCapable': True,
     },
-    'packages': ['rumps', 'PyQt6', 'faster_whisper', 'pynput', 'pyperclip', 'sounddevice', '_sounddevice_data', 'httpx', 'certifi', 'objc', 'Quartz', 'mlx_whisper'],
-    'includes': ['numpy', 'mlx'],
-    'excludes': ['tkinter', 'unittest', 'torch'],
+    'packages': [
+        # UI
+        'rumps', 'PyQt6',
+        # STT (mlx excluded - namespace package, copied manually post-build)
+        'faster_whisper', 'mlx_whisper',
+        # Audio
+        'sounddevice', '_sounddevice_data',
+        # Network / LLM
+        'httpx', 'certifi',
+        # macOS Bridge
+        'objc', 'Quartz',
+        # Hotkey / Clipboard
+        'pynput', 'pyperclip',
+        # Image (Tray Icon)
+        'PIL',
+        # HuggingFace (model download at first launch)
+        'huggingface_hub', 'tokenizers',
+        # STT Math/Audio extensions
+        'scipy',
+    ],
+    'includes': [
+        'numpy',
+        'mlx', 'mlx.core', 'mlx.nn', 'mlx.nn.layers',
+        'mlx.optimizers', 'mlx.utils', 'mlx.extension',
+        'mlx._reprlib_fix', 'mlx._distributed_utils'
+    ],
+    'excludes': [
+        'tkinter', 'torch', 'tensorflow',
+        'matplotlib', 'pandas',
+        'IPython', 'jupyter', 'notebook',
+    ],
+    # Tell py2app where to find mlx namespace package
+    'site_packages': True,
 }
 
 setup(
     app=APP,
-    name="VoiceType4TW-Mac",
+    name='嘴炮輸入法',
     data_files=DATA_FILES,
     options={'py2app': OPTIONS},
     setup_requires=['py2app'],

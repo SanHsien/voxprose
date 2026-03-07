@@ -98,8 +98,9 @@ from ui.menu_bar import VoiceTypeMenuBar
 from ui.tray_manager import TrayManager, IS_WINDOWS
 from ui.floating_button import FloatingButton
 from actions.dispatcher import ActionDispatcher
+from utils.permissions import ensure_all_permissions  # v2.8.4: Proactive permission trigger
 from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, QObject, pyqtSignal
 
 from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR, SOUL_SNIPPET_DIR
 
@@ -120,12 +121,27 @@ DEFAULT_LLM_PROMPT = (
     "請觀察使用者最近使用的『人格靈魂 (Soul)』設定來微調風格。\n"
 )
 
+DEFAULT_ASSISTANT_PROMPT = (
+    "【核心任務】\n"
+    "你是一個全能的語音助理，負責回答使用者的問題或執行其指令。\n\n"
+    "【準則】\n"
+    "1. 簡潔有力：直接給出答案，避免冗長的開場白。\n"
+    "2. 語氣自然：像一個專業且友好的助理在對話。\n"
+    "3. 語言切換：如果使用者用英文提問，請用英文回答；若用中文則用繁體中文回答。\n"
+)
+
 
 # v2.7.32: Move SettingsWindow import to VoiceTypeApp.run to avoid top-level Side Effects on Windows
 
-class VoiceTypeApp:
+class VoiceTypeApp(QObject):
+    # v2.8.22: Signals for thread-safe UI updates
+    ui_signal = pyqtSignal(dict) # {"type": "prefix"|"state", "value": str}
+    
     def __init__(self):
+        super().__init__() # Initialize QObject base class
         self.config = load_config()
+        self._config_lock = threading.Lock()
+        self.ui_signal.connect(self._handle_ui_signal)
         self._models_ready = models_ready_preloaded
         self.stt = stt_preloaded
 
@@ -147,6 +163,7 @@ class VoiceTypeApp:
         self.recorder.on_start = self._on_record_start
         self.recorder.on_stop = self._on_record_stop
         self._is_manually_cancelled = False
+        self._original_llm_state = None  # v2.8.20: Track original llm_enabled state
         
         self.hotkey_listener = None
         self.menu_bar = None
@@ -154,9 +171,13 @@ class VoiceTypeApp:
         self.settings_window = None
         self.floating_btn = None
         self.action_dispatcher = ActionDispatcher(self.injector, self.indicator)
-        self._config_lock = threading.Lock()
 
     def run(self):
+        # v2.8.4: macOS Proactive Permission Trigger
+        # This will show 'Microphone' and 'System Events' permission dialogs on launching.
+        if platform.system() == "Darwin":
+            ensure_all_permissions()
+
         # ── macOS UI Customization (v2.8.2-stable Fix) ───────────
         if platform.system() == "Darwin":
             try:
@@ -166,12 +187,12 @@ class VoiceTypeApp:
                 
                 # 1. Update Process Name (Force Dock/Activity Mon display)
                 _proc_info = NSProcessInfo.processInfo()
-                _proc_info.setProcessName_("嘴砲輸入法")
+                _proc_info.setProcessName_("嘴炮輸入法")
                 
                 # 2. Set Info.plist Display Name (fallback)
                 _info = NSBundle.mainBundle().infoDictionary()
-                _info["CFBundleName"] = "嘴砲輸入法"
-                _info["CFBundleDisplayName"] = "嘴砲輸入法"
+                _info["CFBundleName"] = "嘴炮輸入法"
+                _info["CFBundleDisplayName"] = "嘴炮輸入法"
                 
                 # 2. Set Icon
                 _icon_file = Path(__file__).parent / "assets" / "icon.png"
@@ -192,6 +213,7 @@ class VoiceTypeApp:
             hotkey_configs=hotkeys,
             on_start=self._on_start,
             on_stop=self._on_stop,
+            config=self.config
         )
         self.hotkey_listener.start()
         print("[main] Config & Hotkeys reloaded.")
@@ -235,7 +257,7 @@ class VoiceTypeApp:
 
         print(f"[main] Tray initialized at {icon_path}")
         self.tray = TrayManager(
-            title="VoiceType4TW v2.8.0",
+            title="VoiceType4TW v2.8.4-Develop",
             icon_path=icon_path,
             menu_items=self.menu_bar.get_menu_items() if not IS_WINDOWS else self.menu_bar.get_tray_menu_items()
         )
@@ -247,6 +269,11 @@ class VoiceTypeApp:
         self.indicator._signals.show_settings.connect(self._show_settings)
         # Override settings opening logic to use the thread-safe signal
         self.menu_bar._open_settings = self.indicator.show_settings
+        
+        # v2.8.4: Connect diagnostic test button (PTT mode)
+        self.settings_window.test_start.connect(lambda: self._on_start("ptt"))
+        self.settings_window.test_stop.connect(lambda: self._on_stop("ptt"))
+        self.settings_window.test_toggle.connect(lambda: self._on_toggle_test())
 
         # Force show settings on launch for verification & visibility
         QTimer.singleShot(2000, self._show_settings)
@@ -312,34 +339,68 @@ class VoiceTypeApp:
             prefix = "AI"
             state = "ai_recording"
             
-        self.indicator.set_prefix(prefix)
+        self.ui_signal.emit({"type": "prefix", "value": prefix})
         self.indicator.set_label_suffix("")  # v2.8.2-stable: clear any stale error suffix
-        self.indicator.set_state(state)
-        self.indicator.show()
+        self.ui_signal.emit({"type": "state", "value": state})
+        self.ui_signal.emit({"type": "show", "value": None})
 
     def _on_record_stop(self, audio_data):
         print(f"[main] _on_record_stop called, audio_length: {len(audio_data) if audio_data else 0}")
         if self._is_manually_cancelled:
             print("[main] Record manually cancelled.")
-            self.indicator.hide()
+            self.ui_signal.emit({"type": "hide", "value": None})
             self._is_manually_cancelled = False
             return
             
         print("[main] Starting STT process thread...")
-        self.indicator.set_state("processing")
+        self.ui_signal.emit({"type": "state", "value": "processing"})
         threading.Thread(target=self._process_audio, args=(audio_data,), daemon=True).start()
+
+    def _handle_ui_signal(self, data):
+        """v2.8.22: Processes UI updates on the MAIN thread."""
+        t = data.get("type")
+        v = data.get("value")
+        if t == "prefix":
+            self.indicator.set_prefix(v)
+        elif t == "state":
+            self.indicator.set_state(v)
+        elif t == "suffix":
+            self.indicator.set_label_suffix(v)
+        elif t == "flash":
+            self.indicator.flash()
+        elif t == "hide":
+            self.indicator.hide()
+        elif t == "show":
+            self.indicator.show()
+
+    def _finish_process(self):
+        # UI Flash must be on main thread
+        self.ui_signal.emit({"type": "flash", "value": None})
+        self.ui_signal.emit({"type": "state", "value": "done"})
+        # 3秒後隱藏圖示
+        QTimer.singleShot(3000, lambda: self.ui_signal.emit({"type": "hide", "value": None}))
 
     def _on_start(self, mode):
         if not self._models_ready:
             print("[main] Models not ready yet.")
             return
+
+        # v2.8.20: Protect original state before temporary override
+        if self._original_llm_state is None:
+            self._original_llm_state = self.config.get("llm_enabled", False)
+
         if mode == "llm":
             self.config["llm_enabled"] = True
             
-        if self.config.get("llm_enabled", False):
-            self.indicator.set_prefix("AI")
+        is_assistant = self.config.get("action_mode", False)
+        llm_active = self.config.get("llm_enabled", False)
+
+        if is_assistant:
+            self.ui_signal.emit({"type": "prefix", "value": "助理"})
+        elif llm_active:
+            self.ui_signal.emit({"type": "prefix", "value": "AI"})
         else:
-            self.indicator.set_prefix("")
+            self.ui_signal.emit({"type": "prefix", "value": ""})
             
         self.recorder.start()
 
@@ -348,54 +409,55 @@ class VoiceTypeApp:
             self._is_manually_cancelled = True
         self.recorder.stop()
 
-    def _log_execution(self, text, final_text, is_llm_used, engine="N/A"):
-        """v2.8.2-stable: 追蹤執行狀態並寫入 debug.log"""
-        if not self.config.get("debug_mode", False):
-            return
-            
-        import datetime
-        from paths import APP_DATA_DIR
-        log_path = APP_DATA_DIR / "debug.log"
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        log_content = [
-            f"========== 執行紀錄: {now} ==========",
-            "【系統開關狀態】",
-            f"  - llm_enabled (常規潤飾): {self.config.get('llm_enabled', False)}",
-            f"  - showcase_mode (展示模式): {self.config.get('showcase_mode', False)}",
-            f"  - is_demo (除錯展示模式): {self.config.get('is_demo', False)}",
-            f"  - action_mode (助理模式): {self.config.get('action_mode', False)}",
-            f"  - 輸出前綴 (output_prefix): {self.config.get('output_prefix', False)}",
-            "【AI 引擎狀態】",
-            f"  - 使用的引擎: {engine}",
-            f"  - 是否實際呼叫 LLM: {is_llm_used}",
-            f"  - 當前性格/情境: {self.config.get('active_scenario', 'default')}",
-            "【文字結果】",
-            f"  - STT 原文: {text}",
-            f"  - 最終輸出: {final_text[:200].replace(chr(10), ' ')}",
-            "============================================="
-        ]
-        try:
-            with open(log_path, "a", encoding="utf-8") as f:
-                f.write("\n".join(log_content) + "\n\n")
-        except Exception as e:
-            print(f"[log] Error writing execution log: {e}")
+        if hasattr(self, 'hotkey_listener') and self.hotkey_listener:
+            self.hotkey_listener.reset_state()
 
     def _process_audio(self, audio_data):
         try:
             import time
             stt_start_time = time.time()
+            llm_duration = 0.0
+
+            # Capture the current LLM state right at the start before overriding clears out
+            llm_enabled = self.config.get("llm_enabled", False)
+            
+            # v2.8.26: Delay the restoration of original LLM state until processing begins
+            # to prevent race conditions where early restoration bypasses LLM
+            if self._original_llm_state is not None:
+                self.config["llm_enabled"] = self._original_llm_state
+                self._original_llm_state = None
+                print(f"[main] LLM state restored to: {self.config.get('llm_enabled')}")
             
             print("[process] STT starting...")
+            # VAD / Short Audio Preventer: Prevent hallucination on 0.5s or less accidental clicks
+            # Assuming PCM float32 at 16000Hz (16000 samples = 1 sec)
+            if audio_data is None or len(audio_data) < 8000:
+                print(f"[process] Audio too short ({len(audio_data) if audio_data else 0} samples). Ignored to prevent hallucination.")
+                self.indicator.hide()
+                return
+
             lang = self.config.get("translation_lang", "zh")
             stt_start_time = time.time()
             text = self.stt.transcribe(audio_data, language=lang)
             stt_duration = time.time() - stt_start_time
             print(f"[process] Raw text: {text} ({stt_duration:.2f}s)")
             
+            
             if not text or len(text.strip()) < 1:
                 self.indicator.hide()
                 return
+                
+            # Filter out common Whisper silent-hallucinations
+            hallucinations = [
+                "請不吝點讚", "訂閱", "分享", "打開小鈴鐺", "開啟小鈴鐺", "下期再見",
+                "感謝觀看", "謝謝觀看", "Thanks for watching", "Subtitles by",
+                "Amara.org"
+            ]
+            for h in hallucinations:
+                if h in text and len(text) < 45:
+                    print(f"[process] Hallucination filtered: {text}")
+                    self.indicator.hide()
+                    return
 
             is_llm_used = False
             engine = self.config.get("llm_engine", "ollama")
@@ -408,10 +470,10 @@ class VoiceTypeApp:
                     self._on_config_saved()
                     return
 
-            # --- 2. 展示模式與 LLM 處理 ---
+            # --- 2. 展示模式、潤飾模式與助理模式處理 ---
             is_demo = self.config.get("is_demo", False)
-            llm_enabled = self.config.get("llm_enabled", False)
             showcase_mode = self.config.get("showcase_mode", False)
+            action_mode = self.config.get("action_mode", False)
 
             final_text = text
             if is_demo and self.llm:
@@ -447,7 +509,7 @@ class VoiceTypeApp:
                 final_text = "\n\n".join(results)
                 print("[process] Demo Mode complete.")
 
-            elif (llm_enabled or showcase_mode) and self.llm:
+            elif (llm_enabled or showcase_mode or action_mode) and self.llm:
                 try:
                     # v2.8.2-stable: 檢查是否有 API Key (非 Ollama 時)
                     key_map = {
@@ -463,7 +525,9 @@ class VoiceTypeApp:
                             raise ValueError("API Key 未填")
 
                     print("[process] LLM processing...")
-                    prompt = self._build_llm_prompt(text)
+                    # v2.8.23: Use conversational prompt ONLY if in action mode AND NOT using a specific Soul
+                    use_assistant_prompt = action_mode and not showcase_mode
+                    prompt = self._build_llm_prompt(text, is_assistant=use_assistant_prompt)
                     
                     llm_start_time = time.time()
                     refined = self.llm.refine(text, prompt)
@@ -485,8 +549,8 @@ class VoiceTypeApp:
                 except Exception as e:
                     print(f"[process] LLM processing failed: {e}")
                     # 視覺化反饋
-                    self.indicator.set_state("error")
-                    self.indicator.set_label_suffix(str(e))
+                    self.ui_signal.emit({"type": "state", "value": "error"})
+                    self.ui_signal.emit({"type": "suffix", "value": str(e)})
                     final_text = text
 
             # --- 3. 標點轉換與格式過濾 ---
@@ -513,7 +577,7 @@ class VoiceTypeApp:
             final_text = full2half(final_text)
 
             # --- 紀錄執行狀態 ---
-            self._log_execution(text, final_text, is_llm_used, engine)
+            self._log_execution(text, final_text, is_llm_used, engine, stt_duration, llm_duration)
 
             # --- 4. 注入最終文字 (v2.8.0 B19: 已移除瀏覽器攔截) ---
             self.injector.inject(final_text)
@@ -536,7 +600,7 @@ class VoiceTypeApp:
             except Exception as e:
                 print(f"[stats] Local storage failed: {e}")
                 
-            self.indicator.set_state("done")
+            self.ui_signal.emit({"type": "state", "value": "done"})
             print("[process] DONE.")
             
         except Exception as e:
@@ -544,10 +608,10 @@ class VoiceTypeApp:
             err_msg = traceback.format_exc()
             log.error(f"[process] CRITICAL ERROR IN AUDIO THREAD:\n{err_msg}")
             print(f"[process] Error: {e}")
-            self.indicator.hide()
+            self.ui_signal.emit({"type": "hide", "value": None})
 
-    def _log_execution(self, text, final_text, is_llm_used, engine="N/A"):
-        """v2.8.2-stable: 追蹤執行流程並寫入 debug.log"""
+    def _log_execution(self, text, final_text, is_llm_used, engine="N/A", stt_duration=0.0, llm_duration=0.0):
+        """v2.8.14-dev: 追蹤執行流程並寫入 debug.log，包含處理時間"""
         if not self.config.get("debug_mode", False):
             return
             
@@ -568,8 +632,19 @@ class VoiceTypeApp:
             f"  - Translation: {self.config.get('translation_lang', 'zh')}",
             f"  - Input Length: {len(text)}",
             f"  - Output Length: {len(final_text)}",
-            "====================================\n"
+            f"[STT] {text} ( 處理時間：{stt_duration:.1f}秒 )",
+            ""
         ]
+        
+        if is_llm_used:
+            # if showcase_mode is enabled, the final_text already contains everything, so avoid double printing
+            if not self.config.get('showcase_mode', False):
+                label = self.config.get("active_scenario", "default")
+                if label == "default": 
+                    label = "底層靈魂"
+                log_content.append(f"[{label}] {final_text} ( 處理時間：{llm_duration:.1f}秒 )")
+        
+        log_content.append("====================================\n")
         
         try:
             with open(log_path, "a", encoding="utf-8") as f:
@@ -577,13 +652,21 @@ class VoiceTypeApp:
         except:
             pass
 
-    def _build_llm_prompt(self, text, is_refine=False):
+    def _build_llm_prompt(self, text, is_assistant=False):
         # v2.7.32 b7: 優化 Prompt 順序 - 規則優先，資料在後 (防止 LLM 輸出身份設定)
         parts = []
         
         # 1. 核心組合與基本 Prompt (指導方針)
-        base_prompt = self.config.get("llm_prompt") or DEFAULT_LLM_PROMPT
-        parts.append(f"〔指令規範〕\n{base_prompt}\n（請務必直接輸出潤飾後的結果，嚴禁任何解釋或自我介紹，若輸入內容太短則直接擴充）")
+        if is_assistant:
+            base_prompt = DEFAULT_ASSISTANT_PROMPT
+        else:
+            base_prompt = self.config.get("llm_prompt") or DEFAULT_LLM_PROMPT
+            
+        strict_rule = "【絕對死律：禁止輸出任何關於你自己的設定、性格描述或指令規則副本。】"
+        if not is_assistant:
+            strict_rule += "【禁止與使用者對話。禁止解釋。僅直接輸出改寫後的繁體中文結果。若內容無意義請輸出空字串。】"
+            
+        parts.append(f"〔指令規範〕\n{base_prompt}\n{strict_rule}")
 
         # 2. 載入基底靈魂 (Foundation)
         from paths import SOUL_BASE_PATH
@@ -685,6 +768,10 @@ class VoiceTypeApp:
         self.config["llm_enabled"] = enabled
         save_config(self.config)
         print(f"[main] LLM toggled to: {enabled}")
+        
+        # v2.8.4: Ensure MenuBar UI is refreshed when LLM is toggled
+        if self.menu_bar:
+            self.menu_bar.refresh_ui()
 
     def _on_set_translation(self, lang):
         self.config["translation_lang"] = lang
@@ -717,6 +804,7 @@ class VoiceTypeApp:
                         hotkey_configs=new_hotkeys,
                         on_start=self._on_start,
                         on_stop=self._on_stop,
+                        config=self.config
                     )
                     self.hotkey_listener.start()
             # Refresh tray menu if needed
@@ -724,13 +812,26 @@ class VoiceTypeApp:
                 self.menu_bar.config = self.config
                 self.menu_bar.refresh_ui()
                 
-            # Refresh LLM instance with new configuration (e.g., API key, model selection)
+            # Refresh LLM and STT instances with new configuration
             try:
                 from llm import get_llm
+                from stt import get_stt
                 self.llm = get_llm(self.config)
                 print(f"[main] LLM reloaded: {self.config.get('llm_engine')}")
+                
+                self.stt = get_stt(self.config)
+                # Run warmup in background to avoid freezing the main app thread
+                threading.Thread(target=self.stt.warmup, daemon=True).start()
+                print(f"[main] STT reloaded: {self.config.get('stt_engine')}")
             except Exception as e:
-                print(f"[main] Failed to reload LLM engine: {e}")
+                print(f"[main] Failed to reload engines: {e}")
+
+    def _on_toggle_test(self):
+        """Simulation of toggle hotkey press."""
+        if not self.recorder._recording:
+            self._on_start("toggle")
+        else:
+            self._on_stop("toggle")
 
 if __name__ == "__main__":
     app = VoiceTypeApp()
