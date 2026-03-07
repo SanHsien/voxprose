@@ -69,10 +69,19 @@
 
 ---
 
-## 🚀 未來開發建議
-1. **字型擴充**：若要更改介面字型，請確保 `.ttf` 放入 `assets/fonts/`。
-2. **多機同步**：目前已支援同步目錄設定，NAS 使用者建議直接將同步目錄指向 NAS Drive。
-3. **穩定性觀察**：目前版本為「穩定測試版 (App Stable Test Version)」，建議進行長時間掛機測試。
+---
+
+## 🏁 Windows 版本移植與打包計畫 (2026-03-08 新增)
+- **目標**: 實作 Windows 獨立執行檔 (.exe) 發布。
+- **關鍵技術修正**:
+  1. **CUDA 與 PyQt6 初始化衝突**: Windows 上必須**先載入 STT (CUDA)** 才能匯入 PyQt6，否則進程會無預警結束。
+  2. **系統托盤**: Windows 使用 `pystray` 替代 `rumps`。在 `main.py` 中已實作分流載入。
+  3. **自動化打包**: 已建立 `build_win.py`。
+- **後續 Agent 執行守則 (Windows 環境)**:
+  1. 在 PC 上安裝 Python 3.12。
+  2. 執行 `pip install -r requirements-win.txt`。
+  3. 執行 `python build_win.py` 進行打包。
+  4. 打包後若 STT 報錯，需檢查 `dist/VoiceType4TW/` 目錄下是否包含 `ctranslate2.dll` 與 `cudnn_*.dll` 等 NVIDIA 運行庫。
 
 ---
-*此記憶文件由 AI 於 2026-03-07 16:45 更新以支援 cc58tw 交接。*
+*此記憶文件由 AI 於 2026-03-08 更新，為明日 Windows 打包任務留存上下文。*
