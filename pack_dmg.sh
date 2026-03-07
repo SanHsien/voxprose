@@ -3,7 +3,7 @@
 # Configuration
 APP_NAME="嘴炮輸入法"
 VERSION="2.8.27-Coffee-Edition"
-DMG_NAME="${APP_NAME}_v\${VERSION}_macOS.dmg"
+DMG_NAME="${APP_NAME}_v${VERSION}_macOS.dmg"
 STAGING_DIR="dist/dmg_staging"
 VOL_NAME="${APP_NAME}"
 
