@@ -78,10 +78,17 @@
   2. **系統托盤**: Windows 使用 `pystray` 替代 `rumps`。在 `main.py` 中已實作分流載入。
   3. **自動化打包**: 已建立 `build_win.py`。
 - **後續 Agent 執行守則 (Windows 環境)**:
-  1. 在 PC 上安裝 Python 3.12。
-  2. 執行 `pip install -r requirements-win.txt`。
-  3. 執行 `python build_win.py` 進行打包。
-  4. 打包後若 STT 報錯，需檢查 `dist/VoiceType4TW/` 目錄下是否包含 `ctranslate2.dll` 與 `cudnn_*.dll` 等 NVIDIA 運行庫。
+  1. **取得代碼**：
+     - 如果 PC 上還沒有代碼：執行 `git clone https://github.com/jfamily4tw/pirates-team`。
+     - 如果 PC上已有舊版：進入該目錄執行 `git pull origin main`。
+     - *註：資料夾名稱不重要（可以是 VoiceType4TW 或 pirates-team），重點是 Git 遠端必須指向上述網址。*
+  2. **環境初始化**：
+     - 安裝 Python 3.12 (建議使用 official python.org 版本)。
+     - 在目錄內打開終端機 (PowerShell/CMD) 執行：`pip install -r requirements-win.txt`。
+  3. **構建與打包**：
+     - 執行 `python build_win.py`。
+  4. **修復 STT 運行庫**：
+     - 打包後若執行 `.exe` 提示缺少 DLL，需從 `venv/Lib/site-packages/ctranslate2` 或相關目錄複製 `cudnn_*.dll` 至 `dist/VoiceType4TW/`。
 
 ---
 *此記憶文件由 AI 於 2026-03-08 更新，為明日 Windows 打包任務留存上下文。*
