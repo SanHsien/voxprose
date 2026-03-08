@@ -995,8 +995,8 @@ class SettingsWindow(QMainWindow):
         self.soul_tabs.addTab(base_tab, "🏠 基底靈魂")
 
         # 2. 情境瀏覽 (v2.7.32: 改名為性格模式)
-        #scenario_tab = self._create_file_list_tab(SOUL_SCENARIO_DIR, "這裡存放不同場景的提示詞（性格模式），例如：社群貼文、商務回應。") #咖啡版功能
-        #self.soul_tabs.addTab(scenario_tab, "🎭 性格模式") #咖啡版功能
+        scenario_tab = self._create_file_list_tab(SOUL_SCENARIO_DIR, "這裡存放不同場景的提示詞（性格模式），例如：社群貼文、商務回應。") #咖啡版功能
+        self.soul_tabs.addTab(scenario_tab, "🎭 性格模式") #咖啡版功能
 
         # 3. 格式瀏覽 (v2.7.32: 隱藏)
         # format_tab = self._create_file_list_tab(SOUL_FORMAT_DIR, "這裡決定輸出的格式。")
