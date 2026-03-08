@@ -96,7 +96,7 @@ MEMORY_DIR = SYNC_BASE_DIR / "memory"
 STATS_DIR = SYNC_BASE_DIR / "stats"
 AI_PERMANENT_MEMORY_PATH = SYNC_BASE_DIR / "ai_permanent_memory.md"
 
-BUILD_ID = "BUILD-0308-I" 
+BUILD_ID = "BUILD-0308-J" 
 VERSION_NAME = "2.8.27 Coffee Edition"
 KEYSTRIKE_LOG_PATH = APP_DATA_DIR / "keystrike.log"
 

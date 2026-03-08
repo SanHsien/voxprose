@@ -576,6 +576,11 @@ class VoiceTypeApp(QObject):
             
             final_text = full2half(final_text)
 
+            # --- 4. 特殊標記處理 (如逐字稿換行) ---
+            if "[NEWLINE]" in final_text:
+                final_text = final_text.replace("[NEWLINE]", "\n")
+                print(f"[process] [NEWLINE] marker replaced with actual newline.")
+
             # --- 紀錄執行狀態 ---
             self._log_execution(text, final_text, is_llm_used, engine, stt_duration, llm_duration)
 
