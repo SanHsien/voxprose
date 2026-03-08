@@ -14,6 +14,7 @@ DATA_FILES = [
         'soul/scenario/情商大師.md',
         'soul/scenario/商務回應.md',
         'soul/scenario/社群貼文.md',
+        'soul/scenario/逐字稿.md',
     ]),
     ('soul/format', [
         'soul/format/email.md',
