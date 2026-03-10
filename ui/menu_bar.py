@@ -41,8 +41,8 @@ class VoiceTypeMenuBar:
             {'label': f"AI 潤飾/翻譯 : {llm_state}", 'callback': self._toggle_llm},
             
             # Scenario Submenu
-             {'label': "🎭 靈魂情境", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)}, #咖啡版功能
-            # {'label': "🎭 底層靈魂", 'callback': None}, #免費版功能
+            # {'label': "🎭 靈魂情境", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)}, #咖啡版功能
+             {'label': "🎭 底層靈魂", 'callback': None}, #免費版功能
             {'label': "快速翻譯", 'callback': None, 'submenu': [
                 {'label': "翻譯成 英文", 'callback': lambda _: self._translate_en(), 'checked': (self.config.get("translation_lang") == "en")},
                 {'label': "翻譯成 日文", 'callback': lambda _: self._translate_jp(), 'checked': (self.config.get("translation_lang") == "ja")},

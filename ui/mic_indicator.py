@@ -237,8 +237,32 @@ class MicIndicator:
             self._app = QApplication.instance()
             
         import platform
+        from PyQt6.QtGui import QFont, QPalette, QColor
+        
+        # ── 強制深色調色盤 (Fusion Dark Palette) ──
+        self._app.setStyle("Fusion")
+        dark_palette = QPalette()
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.Window, QColor(25, 25, 30))
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.WindowText, QColor(226, 228, 231))
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.Base, QColor(20, 20, 25))
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.AlternateBase, QColor(25, 25, 30))
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.ToolTipBase, Qt.GlobalColor.white)
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.ToolTipText, Qt.GlobalColor.white)
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.Text, QColor(226, 228, 231))
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.Button, QColor(25, 25, 30))
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.ButtonText, QColor(226, 228, 231))
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.BrightText, Qt.GlobalColor.red)
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.Link, QColor(124, 77, 255))
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.Highlight, QColor(124, 77, 255))
+        dark_palette.setColor(QPalette.ColorGroup.All, QPalette.ColorRole.HighlightedText, Qt.GlobalColor.white)
+        
+        # 針對 Disable 狀態微調
+        dark_palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, Qt.GlobalColor.darkGray)
+        dark_palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, Qt.GlobalColor.darkGray)
+        
+        self._app.setPalette(dark_palette)
+
         if platform.system() == "Windows":
-            from PyQt6.QtGui import QFont
             self._app.setFont(QFont("Microsoft JhengHei", 10))
             
         self._window = MicIndicatorWindow()

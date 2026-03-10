@@ -182,8 +182,13 @@ class VoiceTypeApp(QObject):
         if platform.system() == "Darwin":
             try:
                 # Use NSApplication.sharedApplication() to ensure NSApp is ready
-                from AppKit import NSApplication, NSImage, NSBundle, NSProcessInfo
+                from AppKit import NSApplication, NSImage, NSBundle, NSProcessInfo, NSAppearance, NSAppearanceNameDarkAqua
                 _shared_app = NSApplication.sharedApplication()
+                
+                # ── 強制深色外觀 (Force Dark Appearance) ──
+                # 這確保了即便系統在淺色模式，系統列選單與原生對話框仍維持深色
+                _dark_appearance = NSAppearance.appearanceNamed_(NSAppearanceNameDarkAqua)
+                _shared_app.setAppearance_(_dark_appearance)
                 
                 # 1. Update Process Name (Force Dock/Activity Mon display)
                 _proc_info = NSProcessInfo.processInfo()

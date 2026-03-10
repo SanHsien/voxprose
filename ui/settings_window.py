@@ -392,6 +392,9 @@ class SettingsWindow(QMainWindow):
                 background-color: #16191f;
                 border-right: 1px solid #252a33;
             }
+            QStackedWidget {
+                background-color: #0f1115;
+            }
             QListWidget#sidebar {
                 background: transparent;
                 border: none;
@@ -421,6 +424,14 @@ class SettingsWindow(QMainWindow):
                 color: #e2e4e7;
                 padding: 8px;
                 selection-background-color: #3d4452;
+            }
+            /* 強制選單彈出框也是深色 */
+            QAbstractItemView {
+                background-color: #1c1f26;
+                color: #e2e4e7;
+                border: 1px solid #2d333d;
+                selection-background-color: #3d4452;
+                outline: none;
             }
             QTreeWidget::item { padding: 4px; }
             QHeaderView::section {
