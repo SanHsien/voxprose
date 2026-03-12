@@ -100,4 +100,29 @@
      - 打包後若執行 `.exe` 提示缺少 DLL，需從 `venv/Lib/site-packages/ctranslate2` 或相關目錄複製 `cudnn_*.dll` 至 `dist/VoiceType4TW/`。
 
 ---
-*此記憶文件由 AI 於 2026-03-08 更新，為明日 Windows 打包任務留存上下文。*
+
+## 🧪 Windows 穩定性開發專項 (2026-03-12)
+
+### 1. STT Lab 實驗室成果
+- **目標**: 徹底解決 `dist` 打包後在 Windows 上的 Access Violation (0xC0000005) 崩潰。
+- **架構決策**: 採用 **「子進程隔離 (Subprocess Isolation)」** 方案。
+  - 主進程: PyQt6 GUI + 錄音。
+  - 子進程: `stt_worker.py` (執行 `faster-whisper`)。
+- **關鍵補丁**:
+  - `AllocConsole()`: 徹底解決 `--windowed` 模式下 C++ 引擎（ctranslate2）寫入控制台導致的 Access Violation。
+  - `tqdm` 猴子補丁: 徹底禁用 `tqdm` 監控執行緒。
+- **實驗紀錄 (Lab-10)**: 
+  - 放棄 `openai-whisper` (Lab-09) 的純 PyTorch 模式，因其在 Frozen 環境下會出現 Numpy 找不到的問題。
+  - 恢復使用 `faster-whisper` 並鎖定 DLL 路徑。
+
+### 2. Windows Python Stable Version (V72-PYTHON-STABLE)
+- **標記日期**: 2026-03-12 23:50
+- **狀態**: **[Python 版穩定運作中]**
+- **核心突破**:
+    - **「核級」tqdm 封殺庫**: 針對 Windows 下 `tqdm` 監控執行緒引起的 `Access Violation`，實作了全域 `threading.Thread.start` 勾子與 `tqdm._monitor.run` 覆蓋。此技術可徹底阻斷 `faster-whisper` 引發的隱形執行緒衝突。
+    - **非 Frozen 模式下的 AllocConsole**: 發現即便不是 `.exe` 模式，子進程若不分配控制台，C++ 核心也會因輸出控制代碼無效而崩潰。
+    - **辨識性能平衡**: 將 `OMP_NUM_THREADS` 鎖定為 `4`。在 CPU 下不僅快，且不會與 PyQt 進程過度爭搶資源。
+    - **日誌編碼加固**: Worker 日誌強制指定 `utf-8` 編碼，解決 Windows Mojibake。
+
+---
+*此記憶文件更新於 2026-03-12 23:50，符合新版 Global Rules 之雙層記憶規範。*

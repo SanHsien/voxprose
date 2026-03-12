@@ -16,10 +16,17 @@ def get_stt(config: dict) -> BaseSTT:
     elif engine == "openrouter":
         from .openrouter_stt import OpenRouterSTT
         return OpenRouterSTT(config)
-    elif engine == "gemini":
-        from .gemini_stt import GeminiSTT
-        return GeminiSTT(config)
     else:
-        from .local_whisper import LocalWhisperSTT
-        return LocalWhisperSTT(config)
+        # v2.8.27_V68: The Harsh Reality of Windows C++
+        # It has been definitively proven that loading CTranslate2 in the SAME
+        # process as a PyQt6 event loop will ALWAYS cause an Access Violation 
+        # (0xC0000005) upon model generation. 
+        # Therefore, we MUST keep SubprocessWhisperSTT exclusively for Windows.
+        if platform.system() == "Windows":
+            from .subprocess_whisper import SubprocessWhisperSTT
+            return SubprocessWhisperSTT(config)
+        else:
+            from .local_whisper import LocalWhisperSTT
+            return LocalWhisperSTT(config)
+
 

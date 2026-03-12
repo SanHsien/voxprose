@@ -23,7 +23,7 @@ def check_env_vars():
 
 def check_dependencies():
     print_header("Dependencies")
-    deps = ["PyQt6", "faster_whisper", "pystray", "PIL", "pynput", "pyperclip", "certifi"]
+    deps = ["PyQt6", "faster_whisper", "pystray", "PIL", "pyperclip", "certifi"]
     all_ok = True
     for dep in deps:
         try:

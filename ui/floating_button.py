@@ -3,6 +3,7 @@ import platform
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint
 from PyQt6.QtGui import QPainter, QColor, QPixmap, QGuiApplication
+from utils.resources import get_resource_path
 
 class FloatingButton(QWidget):
     clicked = pyqtSignal()
@@ -20,33 +21,35 @@ class FloatingButton(QWidget):
                  Qt.WindowType.Tool)
         self.setWindowFlags(flags)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(56, 56)
+        # v2.8.27_V15: Even more compact, matching menubar icon height (around 32-36px)
+        self.setFixedSize(36, 36)
         
         self._reposition()
         
     def _reposition(self):
-        screen = QGuiApplication.primaryScreen()
-        if screen:
-            avail = screen.availableGeometry()
-            # 放在右下角，預留一些邊距
-            self.move(avail.x() + avail.width() - 90, avail.y() + avail.height() - 120)
+        try:
+            screen = QGuiApplication.primaryScreen()
+            if screen:
+                avail = screen.availableGeometry()
+                # 放在右下角，預留一些邊距
+                self.move(avail.x() + avail.width() - 90, avail.y() + avail.height() - 120)
+        except: pass
             
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # 繪製半透明紫色背景圓形，配合使用者要求內縮 20 pixel (單邊 margin 10)
-        margin = 10
+        # v2.8.27_V15: R-angle background. Using 8px radius for a 36px box.
         painter.setBrush(QColor(124, 77, 255, 230))
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawEllipse(margin, margin, self.width() - margin * 2, self.height() - margin * 2)
+        painter.drawRoundedRect(0, 0, self.width(), self.height(), 8, 8)
         
         # 繪製 VoiceType Logo
         if self._icon_path:
             pixmap = QPixmap(self._icon_path)
             if not pixmap.isNull():
-                # 白色或圖示縮小置中
-                scaled_size = 32
+                # v2.8.27_V15: Icon fill nearly the whole box (scaled to 28px in 36px box)
+                scaled_size = 28
                 scaled = pixmap.scaled(scaled_size, scaled_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                 x = (self.width() - scaled.width()) // 2
                 y = (self.height() - scaled.height()) // 2
@@ -56,6 +59,9 @@ class FloatingButton(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_pos = event.globalPosition().toPoint()
             self._is_dragging = False
+        elif event.button() == Qt.MouseButton.RightButton:
+            # v2.8.27_V19: Right click immediately shows menu
+            self._show_menu()
             
     def mouseMoveEvent(self, event):
         if event.buttons() & Qt.MouseButton.LeftButton and self._drag_pos:
@@ -78,8 +84,9 @@ class FloatingButton(QWidget):
         from PyQt6.QtGui import QAction, QFont
         
         menu = QMenu(self)
-        menu.setStyleSheet("""
-            QMenu {
+        check_path = get_resource_path("assets/check.png").replace("\\", "/")
+        menu.setStyleSheet(f"""
+            QMenu {{
                 background-color: #2d2d37;
                 border: 1px solid rgba(255, 255, 255, 30);
                 border-radius: 8px;
@@ -87,30 +94,30 @@ class FloatingButton(QWidget):
                 font-family: 'Microsoft JhengHei';
                 font-size: 14px;
                 padding: 4px;
-            }
-            QMenu::item {
+            }}
+            QMenu::item {{
                 padding: 6px 24px;
                 border-radius: 4px;
-            }
-            QMenu::item:selected {
+            }}
+            QMenu::item:selected {{
                 background-color: #7c4dff;
                 color: white;
-            }
-            QMenu::separator {
+            }}
+            QMenu::separator {{
                 height: 1px;
                 background-color: rgba(255, 255, 255, 30);
                 margin: 4px 0;
-            }
-            QMenu::indicator {
+            }}
+            QMenu::indicator {{
                 width: 14px;
                 height: 14px;
                 margin-left: 6px;
-            }
-            QMenu::indicator:checked {
-                image: url(assets/check.png); /* Fallback to standard if asset missing */
+            }}
+            QMenu::indicator:checked {{
+                image: url("{check_path}");
                 background-color: #7c4dff;
                 border-radius: 3px;
-            }
+            }}
         """)
 
         def add_items(parent_menu, items):

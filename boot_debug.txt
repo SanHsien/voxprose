@@ -1,0 +1,3 @@
+Python starting...
+CWD: D:\playground\voicetype4tw-mac
+ENV: N/A

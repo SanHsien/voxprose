@@ -31,8 +31,22 @@ class AudioRecorder:
         self.on_stop: Optional[Callable[[bytes], None]] = None
 
 
+    def _callback(self, indata, frames, time_info, status):
+        """Standard PortAudio callback - avoids thread deadlocks on stop()."""
+        if not self._recording:
+            return
+            
+        with self._lock:
+            self._frames.append(indata.copy())
+            
+        if self.level_callback:
+            # RMS computation on audio thread (low cost)
+            rms = float(np.sqrt(np.mean(indata.astype(np.float32) ** 2))) / 32768.0
+            # Normalize to 0~1.0 range for UI
+            self.level_callback(min(rms * 10, 1.0))
+
     def start(self) -> None:
-        """Start recording audio."""
+        """Start recording audio via non-blocking callback."""
         with self._lock:
             if self._recording:
                 return
@@ -43,11 +57,10 @@ class AudioRecorder:
             samplerate=self.samplerate,
             channels=self.channels,
             dtype="int16",
+            callback=self._callback,
+            blocksize=int(self.samplerate * 0.05) # 50ms chunks
         )
         self._stream.start()
-        
-        self._poll_thread = threading.Thread(target=self._poll_audio, daemon=True)
-        self._poll_thread.start()
         
         if self.on_start:
             self.on_start()
@@ -78,16 +91,15 @@ class AudioRecorder:
                 break
 
     def stop(self) -> bytes:
-        """Stop recording and return WAV bytes."""
+        """Stop recording safely."""
         with self._lock:
+            if not self._recording:
+                return b""
             self._recording = False
             
-        if hasattr(self, '_poll_thread') and self._poll_thread.is_alive():
-            # Wait safely for the blocking read to finish (at most 0.1 ~ 0.2s) before closing the stream
-            self._poll_thread.join(timeout=0.5)
-
         if self._stream:
             try:
+                # Stop the callback gracefully first
                 self._stream.stop()
                 self._stream.close()
             except Exception:

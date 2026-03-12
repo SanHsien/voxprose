@@ -3,6 +3,7 @@ Cross-platform Menu Bar / System Tray manager.
 """
 from typing import Callable, List, Dict
 import platform
+import re
 from config import load_config, save_config
 
 class VoiceTypeMenuBar:
@@ -11,38 +12,36 @@ class VoiceTypeMenuBar:
     and handles state, delegating the actual rendering to TrayManager.
     """
     def __init__(self, config: dict, on_quit: Callable, on_toggle_llm: Callable,
-                 on_set_translation: Callable, on_config_saved: Callable = None):
+                 on_set_translation: Callable, on_show_settings: Callable = None, 
+                 on_config_saved: Callable = None):
         self.config = config
         self.on_quit = on_quit
         self.on_toggle_llm = on_toggle_llm
         self.on_set_translation = on_set_translation
+        self.on_show_settings = on_show_settings
         self.on_config_saved = on_config_saved
         self.tray = None # Set by main.py
         self.floating_btn = None # Set by main.py
+        self.on_set_template = None # Callbacks for template injection
 
     def get_menu_items(self) -> List[Dict]:
         """Builds the full nested list structure (used by Floating Button)."""
         llm_state = "ON" if self.config.get("llm_enabled") else "OFF"
-        action_state = "ON" if self.config.get("action_mode") else "OFF"
         engine = self.config.get("stt_engine", "local_whisper")
         
-        from paths import SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR
+        from paths import SOUL_SCENARIO_DIR
         scenarios = [f.stem for f in SOUL_SCENARIO_DIR.glob("*.md")] if SOUL_SCENARIO_DIR.exists() else []
-        # formats = [f.stem for f in SOUL_FORMAT_DIR.glob("*.md")] if SOUL_FORMAT_DIR.exists() else []
-        # templates = [f.stem for f in SOUL_TEMPLATE_DIR.glob("*.json")] if SOUL_TEMPLATE_DIR.exists() else []
 
         items = [
             {'label': "嘴炮輸入法", 'callback': None},
             {'label': "關於", 'callback': lambda _: self._show_about()},
             {'label': "---", 'callback': None},
             {'label': f"辨識引擎: {engine}", 'callback': None},
-            # {'label': f"AI 助理模式 : {action_state}", 'callback': self._toggle_action_mode}, #吉米暫時關閉
             {'label': "---", 'callback': None},
             {'label': f"AI 潤飾/翻譯 : {llm_state}", 'callback': self._toggle_llm},
             
             # Scenario Submenu
-            # {'label': "🎭 靈魂情境", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)}, #咖啡版功能
-             {'label': "🎭 底層靈魂", 'callback': None}, #免費版功能
+             {'label': "🎭 靈魂情境", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)},
             {'label': "快速翻譯", 'callback': None, 'submenu': [
                 {'label': "翻譯成 英文", 'callback': lambda _: self._translate_en(), 'checked': (self.config.get("translation_lang") == "en")},
                 {'label': "翻譯成 日文", 'callback': lambda _: self._translate_jp(), 'checked': (self.config.get("translation_lang") == "ja")},
@@ -72,8 +71,6 @@ class VoiceTypeMenuBar:
         items = [{'label': "預設 (基底靈魂)", 'callback': self._set_scenario, 'checked': (active == "default")}]
         for s in sorted(scenarios):
             if s == "default": continue
-            # v2.7.32: 移除名稱開頭的 Emoji 標記
-            import re
             clean_name = re.sub(r'^[\W_]+', '', s).strip()
             items.append({'label': clean_name, 'callback': self._set_scenario, 'checked': (active == s)})
         
@@ -81,26 +78,10 @@ class VoiceTypeMenuBar:
             items.append({'label': "(無其他靈魂)", 'callback': None})
         return items
 
-    def _build_format_menu(self, formats):
-        active = self.config.get("active_format", "natural")
-        items = [{'label': "📄 自然排版 (無格式支援)", 'callback': self._set_format, 'checked': (active == "natural")}]
-        for f in sorted(formats):
-            if f == "natural": continue
-            items.append({'label': f, 'callback': self._set_format, 'checked': (active == f)})
-        return items
-
-    def _build_template_menu(self, templates):
-        if not templates:
-            return [{'label': "(尚無儲存模板)", 'callback': None}]
-        return [{'label': t, 'callback': self._use_template} for t in sorted(templates)]
-
     def _toggle_action_mode(self, _):
-        # v2.8.4: Use internal config to avoid stale state if external reload is slow
         enabled = not self.config.get("action_mode", False)
         self.config["action_mode"] = enabled
         save_config(self.config)
-        
-        print(f"[menu] Action Mode toggled to: {enabled}")
         if hasattr(self, 'on_config_saved') and callable(self.on_config_saved):
             self.on_config_saved()
         self.refresh_ui()
@@ -108,33 +89,12 @@ class VoiceTypeMenuBar:
     def _set_scenario(self, sender):
         latest = load_config()
         name = self._get_sender_text(sender)
-        print(f"[menu] Scenario Selected: {name}")
-        import re
         internal_name = re.sub(r'^[\W_]+', '', name).strip()
         if "基底靈魂" in name: internal_name = "default"
         
         latest["active_scenario"] = internal_name
         save_config(latest)
-        self.config.clear()
         self.config.update(latest)
-        
-        if hasattr(self, 'on_config_saved') and callable(self.on_config_saved):
-            self.on_config_saved()
-        self.refresh_ui()
-
-    def _set_format(self, sender):
-        latest = load_config()
-        name = self._get_sender_text(sender)
-        print(f"[menu] Format Selected: {name}")
-        import re
-        internal_name = re.sub(r'^[\W_]+', '', name).strip()
-        if "自然排版" in name: internal_name = "natural"
-        
-        latest["active_format"] = internal_name
-        save_config(latest)
-        self.config.clear()
-        self.config.update(latest)
-        
         if hasattr(self, 'on_config_saved') and callable(self.on_config_saved):
             self.on_config_saved()
         self.refresh_ui()
@@ -147,7 +107,7 @@ class VoiceTypeMenuBar:
         if tpl_path.exists():
             with open(tpl_path, "r", encoding="utf-8") as f:
                 output_text = json.load(f).get("output", "")
-                if self.on_set_template:
+                if hasattr(self, 'on_set_template') and self.on_set_template:
                     self.on_set_template(output_text, name)
 
     def _toggle_llm(self, _):
@@ -159,13 +119,17 @@ class VoiceTypeMenuBar:
     def _translate_none(self): self.on_set_translation(None); self.refresh_ui()
 
     def _open_settings(self):
-        import subprocess, sys, os
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        launcher = os.path.join(script_dir, "open_settings.py")
-        subprocess.Popen([sys.executable, launcher], cwd=script_dir)
+        if self.on_show_settings:
+            self.on_show_settings()
+        else:
+            # Fallback for dev
+            import subprocess, sys, os
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            launcher = os.path.join(script_dir, "open_settings.py")
+            if os.path.exists(launcher):
+                subprocess.Popen([sys.executable, launcher], cwd=script_dir)
 
     def _show_about(self):
-        # This still requires PyQt6
         from ui.about_window import AboutDialog
         dialog = AboutDialog(is_dark=self.config.get("dark_mode", True))
         dialog.exec()
@@ -176,8 +140,6 @@ class VoiceTypeMenuBar:
 
     def refresh_ui(self):
         from PyQt6.QtCore import QTimer
-        # Use singleShot to defer UI update until the current menu event loop finishes,
-        # preventing Access Violation crashes on Windows when deleting the active QAction.
         QTimer.singleShot(0, self._deferred_refresh_ui)
 
     def _deferred_refresh_ui(self):
@@ -185,10 +147,7 @@ class VoiceTypeMenuBar:
         tray_items = self.get_tray_menu_items()
         
         if self.tray:
-            # v2.8.0 Restoration: On Mac, we don't have the floating button, 
-            # so the system tray MUST keep the full menu.
-            from ui.tray_manager import IS_WINDOWS
-            if not IS_WINDOWS:
+            if platform.system() != "Windows":
                 self.tray.update_menu(full_items)
             else:
                 self.tray.update_menu(tray_items)
@@ -208,11 +167,32 @@ class VoiceTypeMenuBar:
         if self.tray and hasattr(self.tray, 'set_icon'):
             self.tray.set_icon("🎙")
 
-    def _get_sender_text(self, sender):
-        """Helper to get text label from different tray item objects (rumps/pystray)."""
-        if hasattr(sender, 'title'): # rumps.MenuItem
-            return sender.title
-        if hasattr(sender, 'text'): # pystray.MenuItem
-            return sender.text
-        # If it's already a string or something else
-        return str(sender)
+    def _get_sender_text(self, sender) -> str:
+        """v2.8.27_V23: ULTRA-Robust extraction of text labels to prevent TypeError."""
+        if sender is None:
+            return ""
+        
+        raw_val = ""
+        try:
+            # 1. PyQt6 / QAction check
+            if hasattr(sender, "text"):
+                val = sender.text
+                if callable(val):
+                    raw_val = val()
+                else:
+                    raw_val = val
+            # 2. pystray check (label)
+            elif hasattr(sender, "text"):
+                raw_val = sender.text
+            # 3. String fallback
+            elif hasattr(sender, "title"): # rumps fallback
+                val = sender.title
+                raw_val = val() if callable(val) else val
+            elif isinstance(sender, str):
+                raw_val = sender
+        except Exception:
+            pass
+
+        if not isinstance(raw_val, (str, bytes)):
+            return str(raw_val) if raw_val is not None else ""
+        return str(raw_val)

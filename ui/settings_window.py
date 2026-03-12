@@ -116,6 +116,36 @@ CODE_TO_MAC_NAME = {
     106: "f16"
 }
 
+CODE_TO_WIN_NAME = {
+    16: "shift",
+    160: "shift_l (Shift 左)",
+    161: "shift_r (Shift 右)",
+    17: "ctrl",
+    162: "ctrl_l (Ctrl 左)",
+    163: "ctrl_r (Ctrl 右)",
+    18: "alt",
+    164: "alt_l (Alt 左)",
+    165: "alt_r (Alt 右)",
+    91: "win (Win左)",
+    92: "win (Win右)",
+    32: "space",
+    13: "enter",
+    27: "esc",
+    20: "caps_lock",
+    9: "tab",
+    8: "backspace",
+    46: "delete",
+    33: "page_up",
+    34: "page_down",
+    35: "end",
+    36: "home",
+    37: "left",
+    38: "up",
+    39: "right",
+    40: "down",
+    45: "insert"
+}
+
 def translate_key_string(key_str):
     import re
     if not key_str:
@@ -126,7 +156,11 @@ def translate_key_string(key_str):
         return key_str # fallback to literal if no code is present
         
     code = int(match.group(1))
-    main_name = CODE_TO_MAC_NAME.get(code, f"Key_{code}")
+    
+    if platform.system() == "Windows":
+        main_name = CODE_TO_WIN_NAME.get(code, f"Key {code}")
+    else:
+        main_name = CODE_TO_MAC_NAME.get(code, f"Key_{code}")
     
     parts = key_str.replace(f"(code:{code})", "").replace(f"code:{code}", "").split("+")
     mods = [p.strip() for p in parts if p.strip()]
@@ -197,6 +231,20 @@ class HotkeyRecorderButton(QPushButton):
             modifiers = event.modifiers()
             native_code = event.nativeVirtualKey()
             
+            # v2.8.27_V13: Request exact Left/Right modifier Virtual Keycode natively
+            if platform.system() == "Windows":
+                import ctypes
+                user32 = ctypes.windll.user32
+                if native_code == 18:
+                    if user32.GetAsyncKeyState(164) & 0x8000: native_code = 164
+                    elif user32.GetAsyncKeyState(165) & 0x8000: native_code = 165
+                elif native_code == 17:
+                    if user32.GetAsyncKeyState(162) & 0x8000: native_code = 162
+                    elif user32.GetAsyncKeyState(163) & 0x8000: native_code = 163
+                elif native_code == 16:
+                    if user32.GetAsyncKeyState(160) & 0x8000: native_code = 160
+                    elif user32.GetAsyncKeyState(161) & 0x8000: native_code = 161
+            
             log.info(f"[recorder] Captured QtKey={key}, NativeCode={native_code}")
             
             # Capture native modifiers for Fn key support
@@ -213,6 +261,7 @@ class HotkeyRecorderButton(QPushButton):
                 Qt.Key.Key_Alt: "alt",
                 Qt.Key.Key_Shift: "shift",
                 Qt.Key.Key_Meta: "cmd",
+                Qt.Key.Key_AltGr: "alt",
             }
             
             if key in SINGLE_MODIFIER_KEYS:
@@ -542,7 +591,7 @@ class SettingsWindow(QMainWindow):
         
         # Credits and SNS at Bottom
         from paths import VERSION_NAME, BUILD_ID
-        credit_box = QLabel(f"{VERSION_NAME} | {BUILD_ID}\n主要開發者：吉米丘, CC58TW\n協助開發者：Gemini, Nebula")
+        credit_box = QLabel(f"{VERSION_NAME} |\n{BUILD_ID}\n\n主要開發者：吉米丘, CC58TW\n協助開發者：Gemini, Nebula")
         credit_box.setStyleSheet("color: #555; font-size: 10px; margin-left: 25px; line-height: 1.2;")
         sidebar_layout.addWidget(credit_box)
         
@@ -728,20 +777,29 @@ class SettingsWindow(QMainWindow):
             lbl_p.setStyleSheet("font-weight: bold; color: #aaa; margin-bottom: 5px;")
             p_layout.addWidget(lbl_p)
             
-            # GPU / CUDA 偵測
+            # GPU / CUDA 偵測 (v2.8.27_V28: Robust check)
             gpu_text = "⏳ 偵測中..."
             cuda_color = "#888"
             try:
+                # 優先檢查是否已有全域載入的 STT 實例可用於查詢
+                # 我們可以透過 QApplication 獲取主 App 實例的高級方法
+                # 或者直接嘗試導入 (現在有 libiomp5md.dll 了應該安全)
                 import ctranslate2
-                cuda_count = ctranslate2.get_cuda_device_count()
-                if cuda_count > 0:
-                    gpu_text = f"✅ CUDA GPU × {cuda_count} (加速可用)"
-                    cuda_color = "#00e676"
-                else:
-                    gpu_text = "⚠️ 未偵測到 CUDA GPU (CPU 模式)"
+                try:
+                    cuda_count = ctranslate2.get_cuda_device_count()
+                    if cuda_count > 0:
+                        gpu_text = f"✅ CUDA GPU × {cuda_count} (加速可用)"
+                        cuda_color = "#00e676"
+                    else:
+                        gpu_text = "⚠️ 未偵測到 CUDA GPU (CPU 模式)"
+                        cuda_color = "#ffab40"
+                except Exception as _inner_e:
+                    log.warning(f"[ui] get_cuda_device_count failed: {_inner_e}")
+                    gpu_text = "⚠️ GPU 偵測組件異常"
                     cuda_color = "#ffab40"
-            except Exception:
-                gpu_text = "❌ 無法偵測 GPU"
+            except Exception as e:
+                log.error(f"[ui] ctranslate2 import error in dashboard: {e}")
+                gpu_text = "❌ 驅動組件遺失 (V28)"
                 cuda_color = "#ff5252"
             
             self.lbl_gpu = QLabel(gpu_text)
@@ -1335,6 +1393,10 @@ class SettingsWindow(QMainWindow):
         self.btn_run_self_check.clicked.connect(self._run_self_check)
         diag_grid.addWidget(self.btn_run_self_check, 0, 1)
 
+        if platform.system() == "Windows":
+            self.btn_mic_test.hide()
+            self.btn_run_self_check.hide()
+
         self.btn_view_logs = QPushButton("📄 檢視詳細日誌 (View Detail Logs)")
         self.btn_view_logs.setObjectName("secondary")
         self.btn_view_logs.clicked.connect(self._view_debug_log)
@@ -1344,6 +1406,11 @@ class SettingsWindow(QMainWindow):
         self.btn_view_keystrike.setObjectName("secondary")
         self.btn_view_keystrike.clicked.connect(self._view_keystrike_log)
         diag_grid.addWidget(self.btn_view_keystrike, 1, 1)
+
+        self.btn_open_folder = QPushButton("📂 開啟數據與模型目錄 (Open Data/Models)")
+        self.btn_open_folder.setObjectName("secondary")
+        self.btn_open_folder.clicked.connect(self._open_data_folder)
+        diag_grid.addWidget(self.btn_open_folder, 2, 0, 1, 2) # Span 2 columns
 
         layout.addLayout(diag_grid)
         
@@ -1776,6 +1843,18 @@ class SettingsWindow(QMainWindow):
                 subprocess.run(["open", str(KEYSTRIKE_LOG_PATH)])
         else:
             QMessageBox.information(self, "資訊", f"熱鍵日誌檔案尚未建立：\n{KEYSTRIKE_LOG_PATH}")
+
+    def _open_data_folder(self):
+        from paths import APP_DATA_DIR
+        if APP_DATA_DIR.exists():
+            import os, platform
+            if platform.system() == "Windows":
+                os.startfile(str(APP_DATA_DIR))
+            else:
+                import subprocess
+                subprocess.run(["open", str(APP_DATA_DIR)])
+        else:
+            QMessageBox.information(self, "資訊", f"數據目錄尚未建立：\n{APP_DATA_DIR}")
 
     def run(self):
         self.show()

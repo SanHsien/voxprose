@@ -4,11 +4,13 @@ Shows at the bottom-center of the screen (just above Dock).
 Displays an animated waveform bar and current state text.
 """
 import sys
+import os
 import threading
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QUrl
 from PyQt6.QtGui import QPainter, QColor, QPen, QFont, QFontMetrics, QCursor, QGuiApplication
 from PyQt6.QtMultimedia import QSoundEffect
+from utils.resources import get_resource_path
 
 
 class _Signals(QObject):
@@ -45,15 +47,11 @@ class MicIndicatorWindow(QWidget):
         
         # 音效器
         self._beep = QSoundEffect(self)
-        from pathlib import Path
-        import os
-        if os.environ.get("RESOURCEPATH"):
-            beep_path = Path(os.environ["RESOURCEPATH"]) / "assets" / "beep.wav"
-        else:
-            beep_path = Path(__file__).parent.parent / "assets" / "beep.wav"
         from PyQt6.QtCore import QUrl
-        self._beep.setSource(QUrl.fromLocalFile(str(beep_path.absolute())))
-        self._beep.setVolume(0.5)
+        beep_path = get_resource_path("assets/beep.wav")
+        if os.path.exists(beep_path):
+            self._beep.setSource(QUrl.fromLocalFile(beep_path))
+            self._beep.setVolume(0.5)
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
@@ -277,7 +275,7 @@ class MicIndicator:
         self._signals.hide_window.connect(self._window.hide)
         self._signals.flash.connect(self._window.trigger_flash)
         self._signals.play_beep.connect(self._window._beep.play)
-        self._signals.show_settings.connect(lambda: None) # Placeholder to be overridden in main.py
+        # 設置視窗回調由 VoiceTypeApp 連接
         self._ready.set()
 
     def show(self):

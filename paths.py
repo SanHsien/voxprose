@@ -45,13 +45,8 @@ def migrate_legacy_data():
                 except Exception as e:
                     print(f"[paths] Migration error for {item.name}: {e}")
 
-# Ensure the directory exists and migrate
-APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
-migrate_legacy_data()
-
-# v2.8.12-dev: Force create critical log files to prevent UI error
-(APP_DATA_DIR / "debug.log").touch(exist_ok=True)
-(APP_DATA_DIR / "keystrike.log").touch(exist_ok=True)
+# Pre-define APP_DATA_DIR logic only, do not perform IO at top level.
+# v2.8.27_V39: Side-effects moved to initialize_paths()
 
 # 📄 基於指標的同步系統 (Synchronized Path Redirection)
 # 儲存同步目錄的指標檔案 (此檔案永遠留於本機 AppData)
@@ -61,16 +56,21 @@ def get_sync_base_dir() -> Path:
     """獲取目前的數據基礎目錄，若有同步指標則重定向至雲端目錄"""
     if SYNC_POINTER_PATH.exists():
         try:
-            path_str = SYNC_POINTER_PATH.read_text(encoding="utf-8").strip()
+            # v2.8.27: Try UTF-8 first, then fallback to localized encoding for Windows robustness
+            try:
+                path_str = SYNC_POINTER_PATH.read_text(encoding="utf-8").strip()
+            except UnicodeDecodeError:
+                path_str = SYNC_POINTER_PATH.read_text(encoding="mbcs").strip() 
+                
             if path_str:
                 sync_path = Path(path_str)
-                if sync_path.exists() and sync_path.is_dir():
+                # Check if path is valid and not containing placeholder characters like '?'
+                if sync_path.exists() and sync_path.is_dir() and "?" not in str(sync_path):
                     return sync_path
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[paths] Sync pointer error: {e}")
     # 預設：本機 Documents 內的 VoiceType4TW_Sync
-    default_sync = Path("~/Documents/VoiceType4TW_Sync").expanduser()
-    default_sync.mkdir(parents=True, exist_ok=True)
+    default_sync = Path.home() / "Documents" / "VoiceType4TW_Sync"
     return default_sync
 
 # 核心同步目錄
@@ -96,8 +96,9 @@ MEMORY_DIR = SYNC_BASE_DIR / "memory"
 STATS_DIR = SYNC_BASE_DIR / "stats"
 AI_PERMANENT_MEMORY_PATH = SYNC_BASE_DIR / "ai_permanent_memory.md"
 
-BUILD_ID = "BUILD-0308-K" 
-VERSION_NAME = "2.8.27 Coffee Edition"
+APP_CONFIG_DIR = APP_DATA_DIR
+VERSION_NAME = "2.8.27 Coffee Edition (V69-ALLOC-CONSOLE)"
+BUILD_ID = "BUILD-0312-V69-ALLOC-CONSOLE"
 KEYSTRIKE_LOG_PATH = APP_DATA_DIR / "keystrike.log"
 
 # 舊版路徑 (用於遷移)
@@ -113,46 +114,68 @@ def get_data_dir(subfolder: str) -> Path:
 
 # Initial data migration
 def _initialize_data():
-    res_path = os.environ.get("RESOURCEPATH")
-    base_dir = Path(res_path) if res_path else Path(__file__).parent
-    
-    # 建立目錄
-    SOUL_DIR.mkdir(parents=True, exist_ok=True)
-    SOUL_SCENARIO_DIR.mkdir(parents=True, exist_ok=True)
-    SOUL_FORMAT_DIR.mkdir(parents=True, exist_ok=True)
-    SOUL_TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
-    SOUL_SNIPPET_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        res_path = os.environ.get("RESOURCEPATH")
+        base_dir = Path(res_path) if res_path else Path(__file__).parent
+        
+        # 建立目錄
+        SOUL_DIR.mkdir(parents=True, exist_ok=True)
+        SOUL_SCENARIO_DIR.mkdir(parents=True, exist_ok=True)
+        SOUL_FORMAT_DIR.mkdir(parents=True, exist_ok=True)
+        SOUL_TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
+        SOUL_SNIPPET_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 1. 舊版單一 soul.md 遷移至 soul/base.md
-    if OLD_SOUL_PATH.exists() and not SOUL_BASE_PATH.exists():
+        # 1. 舊版單一 soul.md 遷移至 soul/base.md
+        if OLD_SOUL_PATH.exists() and not SOUL_BASE_PATH.exists():
+            try:
+                shutil.move(str(OLD_SOUL_PATH), str(SOUL_BASE_PATH))
+            except Exception:
+                pass
+
+        # 2. 複製內建模板 (情境與格式)
+        def sync_defaults(sub_path, dest_dir):
+            if not dest_dir.exists(): return
+            if any(dest_dir.iterdir()):
+                return
+                
+            src_dir = base_dir / sub_path
+            if src_dir.exists():
+                for f in src_dir.glob("*.md"):
+                    dest_file = dest_dir / f.name
+                    if not dest_file.exists():
+                        try:
+                            shutil.copy2(f, dest_file)
+                        except Exception:
+                            pass
+
+        sync_defaults("soul/scenario", SOUL_SCENARIO_DIR)
+        sync_defaults("soul/format", SOUL_FORMAT_DIR)
+        
+        print(f"[paths] Data initialized. SYNC_BASE_DIR: {SYNC_BASE_DIR}")
+    except Exception as e:
+        print(f"[paths] CRITICAL: Data initialization failed: {e}")
+
+# v2.8.27_V39: Refactored to avoid redundant initialization in subprocesses.
+# ONLY call this from main.py if is_main_process is True.
+def initialize_paths():
+    try:
+        # Perform directory creation and migration here ONLY
+        APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        migrate_legacy_data()
+        
+        # Ensure critical logs exist
+        (APP_DATA_DIR / "debug.log").touch(exist_ok=True)
+        (APP_DATA_DIR / "keystrike.log").touch(exist_ok=True)
+        
+        # New base sync dir check
         try:
-            shutil.move(str(OLD_SOUL_PATH), str(SOUL_BASE_PATH))
-        except Exception:
+            get_sync_base_dir().mkdir(parents=True, exist_ok=True)
+        except:
             pass
-
-    # 2. 複製內建模板 (情境與格式)
-    def sync_defaults(sub_path, dest_dir):
-        # v2.8.2-stable: 如果目標目錄已經有檔案，則不執行自動補回，尊重使用者的刪除與修改
-        if any(dest_dir.iterdir()):
-            return
             
-        src_dir = base_dir / sub_path
-        if src_dir.exists():
-            for f in src_dir.glob("*.md"):
-                dest_file = dest_dir / f.name
-                if not dest_file.exists():
-                    try:
-                        shutil.copy2(f, dest_file)
-                    except Exception:
-                        pass
+        _initialize_data()
+    except Exception as e:
+        print(f"[paths] Skip initialization: {e}")
 
-    sync_defaults("soul/scenario", SOUL_SCENARIO_DIR)
-    sync_defaults("soul/format", SOUL_FORMAT_DIR)
-
-    # Template copy logic removed (handled by config.py defaults)
-    
-    # 複製內建模板 (如果有在 bundle 裡的話)
-    # 這裡暫時依賴 main.py 啟動時自動檢查
-    print(f"[paths] Data initialized. SYNC_BASE_DIR is mapped to: {SYNC_BASE_DIR}")
-    
-_initialize_data()
+# Note: Removed the automatic top-level call to _initialize_data()
+# _initialize_data() 

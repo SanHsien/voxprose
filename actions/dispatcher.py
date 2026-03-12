@@ -1,7 +1,7 @@
 import re
 from actions.builtins import get_weather, get_current_time, open_google_search, open_website, run_calculator
 
-class ActionDispatcher:
+class ActionManager:
     def __init__(self, injector, indicator):
         self.injector = injector
         self.indicator = indicator

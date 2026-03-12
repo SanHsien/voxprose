@@ -54,23 +54,41 @@ class TrayManager:
 
     def _start_windows(self):
         try:
-            from pystray import Icon, Menu, MenuItem
-            from PIL import Image
+            from PyQt6.QtWidgets import QSystemTrayIcon, QMenu, QApplication
+            from PyQt6.QtGui import QIcon, QAction
+            import logging
+            t_log = logging.getLogger("voicetype.tray")
             
-            if self.icon_path and os.path.exists(self.icon_path):
-                image = Image.open(self.icon_path)
-            else:
-                # Fallback to a plain 64x64 colored image if icon is missing
-                print(f"[tray] Warning: Icon not found at {self.icon_path}. Using fallback.")
-                image = Image.new('RGB', (64, 64), (124, 77, 255)) # Purple
+            t_log.info(f"[tray] Starting Windows Tray (QSystemTrayIcon) with icon: {self.icon_path}")
             
-            def create_menu():
-                return self._build_pystray_menu(self.menu_items)
+            app = QApplication.instance()
+            if not app:
+                t_log.error("[tray] Critical: QApplication not found. Tray cannot start.")
+                return
 
-            self._tray = Icon(self.title, image, self.title, menu=create_menu())
-            self._tray.run()
+            if not QSystemTrayIcon.isSystemTrayAvailable():
+                t_log.error("[tray] Critical: System tray is not available on this system.")
+                return
+            
+            icon = QIcon(self.icon_path)
+            self._tray = QSystemTrayIcon(icon, app)
+            self._tray.setToolTip(self.title)
+            
+            # Static menu construction
+            menu = self._build_qt_menu(self.menu_items)
+            self._tray.setContextMenu(menu)
+            
+            self._tray.show()
+            t_log.info("[tray] QSystemTrayIcon shown successfully.")
+            
+            # Store the menu to prevent it from being garbage collected
+            self._qt_menu = menu
+
         except Exception as e:
-            print(f"[tray] Error in Windows tray: {e}")
+            import traceback
+            msg = f"[tray] CRITICAL Windows QSystemTrayIcon error: {e}\n{traceback.format_exc()}"
+            print(msg)
+            logging.getLogger("voicetype").error(msg)
 
     def _start_macos(self, on_tick: Optional[Callable] = None):
         try:
@@ -132,35 +150,112 @@ class TrayManager:
     def _update_windows_menu(self):
         if self._tray:
             try:
-                self._tray.menu = self._build_pystray_menu(self.menu_items)
+                import logging
+                menu = self._build_qt_menu(self.menu_items)
+                self._tray.setContextMenu(menu)
+                self._qt_menu = menu  # Keep reference
+                logging.getLogger("voicetype.tray").debug("[tray] Windows QSystemTrayIcon menu updated.")
             except Exception as e:
                 print(f"[tray] Failed to update Windows tray menu: {e}")
+
+    def _build_qt_menu(self, items, parent=None):
+        from PyQt6.QtWidgets import QMenu
+        from PyQt6.QtGui import QAction
+        import logging
+        
+        menu = QMenu(parent)
+        for item in items:
+            label = item.get('label', '')
+            callback = item.get('callback')
+            checked = item.get('checked', None)
+            submenu = item.get('submenu')
+
+            if label == "---":
+                menu.addSeparator()
+                continue
+
+            if submenu:
+                sub_menu_obj = self._build_qt_menu(submenu, menu)
+                sub_menu_obj.setTitle(label)
+                menu.addMenu(sub_menu_obj)
+                continue
+
+            action = QAction(label, menu)
+            
+            if checked is not None:
+                action.setCheckable(True)
+                action.setChecked(bool(checked))
+                
+            if callback:
+                # Capture callback safely
+                def make_handler(cb, lbl=label):
+                    def safe_handler():
+                        try:
+                            logging.getLogger("voicetype.tray").debug(f"[tray] QAction clicked: {lbl}")
+                            # Qt signals don't pass the item itself natively in a way pystray does,
+                            # so we pass the action as the sender to match rumps sender object
+                            cb(action)
+                        except Exception as e:
+                            import traceback
+                            msg = f"[tray] Error in Qt callback for '{lbl}': {e}\n{traceback.format_exc()}"
+                            print(msg)
+                            logging.getLogger("voicetype.tray").error(msg)
+                    return safe_handler
+                
+                action.triggered.connect(make_handler(callback))
+                
+            menu.addAction(action)
+            
+        return menu
 
     def _build_pystray_menu(self, items):
         from pystray import Menu, MenuItem
         out_items = []
         for item in items:
             label = item.get('label', '')
-            callback = item.get('callback') or (lambda _: None)
+            callback = item.get('callback')
             checked = item.get('checked', None)
             submenu = item.get('submenu')
 
             if label == "---":
+                # v2.8.27: Strict usage of pystray.Menu.SEPARATOR. 
+                # Never use None, as it crashes pystray visibility checks.
                 out_items.append(Menu.SEPARATOR)
-            elif submenu:
+                continue
+
+            if submenu:
                 sub_menu_obj = self._build_pystray_menu(submenu)
                 out_items.append(MenuItem(label, sub_menu_obj))
-            else:
-                # Wrap callback to match rumps: callback(sender)
-                # pystray provides (icon, item), we pass item as sender
-                wrapped_cb = (lambda i, it, cb=callback: cb(it)) if callback else None
+                continue
+
+            # Callback wrapper: pystray passes (icon, item)
+            # We must capture 'callback' in the closure correctly
+            def make_handler(cb, lbl=label):
+                if not cb: return None
                 
-                if checked is not None:
-                    # pystray checked needs a callable or bool
-                    # We use a lambda to ensure it stays in sync with our state
-                    out_items.append(MenuItem(label, wrapped_cb, checked=lambda _: checked))
-                else:
-                    out_items.append(MenuItem(label, wrapped_cb))
+                def safe_handler(icon, item):
+                    try:
+                        import logging
+                        logging.getLogger("voicetype.tray").debug(f"[tray] Item clicked: {lbl}")
+                        cb(item)
+                    except Exception as e:
+                        import traceback
+                        msg = f"[tray] Error in callback for '{lbl}': {e}\n{traceback.format_exc()}"
+                        print(msg)
+                        logging.getLogger("voicetype.tray").error(msg)
+                
+                return safe_handler
+
+            handler = make_handler(callback)
+            
+            if checked is not None:
+                # 'checked' is a callable receiving 'item'
+                # We capture the current bool state
+                state = bool(checked)
+                out_items.append(MenuItem(label, handler, checked=lambda item, s=state: s))
+            else:
+                out_items.append(MenuItem(label, handler))
+                
         return Menu(*out_items)
 
     def _update_macos_menu(self):
@@ -179,6 +274,19 @@ class TrayManager:
             # TODO: Implementation for Windows pystray icon update (requires .ico files)
             pass
 
-    def flash(self):
-        # Placeholder for visual feedback
-        pass
+    def run(self):
+        """啟動事件循環 (Windows 為 Qt Loop, macOS 為 Rumps Loop)"""
+        if IS_WINDOWS:
+            self.start()
+            from PyQt6.QtWidgets import QApplication
+            import sys
+            app = QApplication.instance()
+            if app:
+                sys.exit(app.exec())
+            else:
+                # Fallback if app wasn't created yet
+                app = QApplication(sys.argv)
+                self.start() # Re-call to bind to new app instance
+                sys.exit(app.exec())
+        else:
+            self.start() # macOS start includes .run() loop

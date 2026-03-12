@@ -54,14 +54,20 @@ KEY_NAME_TO_CODE = {
 }
 
 # Modifiers masks for comparison
-import Quartz
-MOD_MASKS = {
-    "cmd": Quartz.kCGEventFlagMaskCommand,
-    "alt": Quartz.kCGEventFlagMaskAlternate,
-    "ctrl": Quartz.kCGEventFlagMaskControl,
-    "shift": Quartz.kCGEventFlagMaskShift,
-    "fn": Quartz.kCGEventFlagMaskSecondaryFn, # 0x800000
-}
+IS_MAC = platform.system() == "Darwin"
+MOD_MASKS = {}
+if IS_MAC:
+    try:
+        import Quartz
+        MOD_MASKS = {
+            "cmd": Quartz.kCGEventFlagMaskCommand,
+            "alt": Quartz.kCGEventFlagMaskAlternate,
+            "ctrl": Quartz.kCGEventFlagMaskControl,
+            "shift": Quartz.kCGEventFlagMaskShift,
+            "fn": Quartz.kCGEventFlagMaskSecondaryFn, # 0x800000
+        }
+    except ImportError:
+        pass
 
 import logging
 log = logging.getLogger("voicetype.hotkey")
@@ -157,27 +163,61 @@ class HotkeyListener:
         self._loop_thread = None
 
     def _start_windows(self):
-        # ... (Windows logic remains same or update if needed)
-        try:
-            from pynput import keyboard
-            
-            def on_press(key):
-                k_str = key_to_str(key)
-                self.log.debug(f"PRESSED: {k_str}")
-                # Simple single key support for now on Windows
-                for mode, cfg_key in self.configs.items():
-                    if cfg_key.lower() == k_str:
-                        self._handle_press(mode)
+        if self._loop_thread and self._loop_thread.is_alive():
+            return
+        self._loop_thread = threading.Thread(target=self._run_windows, daemon=True)
+        self._loop_thread.start()
 
-            def on_release(key):
-                k_str = key_to_str(key)
-                for mode, cfg_key in self.configs.items():
-                    if cfg_key.lower() == k_str:
-                        self._handle_release(mode)
+    def _run_windows(self):
+        import ctypes
+        import re
+        
+        user32 = ctypes.windll.user32
+        
+        # V68: Parse configurations to obtain exact Virtual Keys
+        parsed_configs = {}
+        for mode, cfg_key in self.configs.items():
+            match = re.search(r'code:(\d+)', cfg_key, re.IGNORECASE)
+            if match:
+                parsed_configs[mode] = int(match.group(1))
+            else:
+                # Fallback VK mappings for legacy string configs
+                key_map = {
+                    "alt": 0x12, "alt_l": 0xA4, "alt_r": 0xA5,
+                    "ctrl": 0x11, "ctrl_l": 0xA2, "ctrl_r": 0xA3,
+                    "shift": 0x10, "shift_l": 0xA0, "shift_r": 0xA1,
+                    "f1": 0x70, "f2": 0x71, "f3": 0x72, "f4": 0x73, "f5": 0x74, "f6": 0x75,
+                    "f7": 0x76, "f8": 0x77, "f9": 0x78, "f10": 0x79, "f11": 0x7A, "f12": 0x7B
+                }
+                parsed_configs[mode] = key_map.get(cfg_key.lower(), 0)
 
-            self._win_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
-            self._win_listener.start()
-        except ImportError: pass
+        self.log.info(f"[win_hotkey] Listener started. Parsed VKs: {parsed_configs}")
+        
+        # V68: Non-blocking pure Win32 API polling loop
+        # We poll every 15ms. This avoids all Low-Level Keyboard Hook (WH_KEYBOARD_LL) 
+        # conflicts with OpenMP/CUDA/ctranslate2 message loops!
+        while getattr(self, '_loop_thread', None) == threading.current_thread():
+            for mode, vk in parsed_configs.items():
+                if vk == 0: continue
+                
+                # GetAsyncKeyState returns 16-bit signed integer. 
+                # If the most significant bit is set, the key is down.
+                # (Return value < 0 in Python usually means high bit is set for short)
+                state = user32.GetAsyncKeyState(vk)
+                is_pressed = (state & 0x8000) != 0
+                
+                was_pressed = self._key_states.get(vk, False)
+                
+                if is_pressed and not was_pressed:
+                    self._key_states[vk] = True
+                    self.log.debug(f"[win_hotkey] PRESSED: vk={vk} mode={mode}")
+                    self._handle_press(mode)
+                elif not is_pressed and was_pressed:
+                    self._key_states[vk] = False
+                    self.log.debug(f"[win_hotkey] RELEASED: vk={vk} mode={mode}")
+                    self._handle_release(mode)
+                    
+            time.sleep(0.015)
 
     def _start_macos(self):
         if self._loop_thread and self._loop_thread.is_alive():
@@ -298,6 +338,17 @@ class HotkeyListener:
         if self._active_mode == mode:
             self._active_mode = None
             threading.Thread(target=self.on_stop, args=(mode,), daemon=True).start()
+            
+            # v2.8.27_V14: Prevent Windows from focusing the menu bar when Alt is released
+            if IS_WINDOWS:
+                try:
+                    import ctypes
+                    # Send a dummy event to "break" the Alt-menu sequence
+                    # VK_NONAME (0xFC) or VK_F24 (0x87)
+                    user32 = ctypes.windll.user32
+                    user32.keybd_event(0x87, 0, 0, 0) # F24 Down
+                    user32.keybd_event(0x87, 0, 2, 0) # F24 Up
+                except: pass
     def reset_state(self):
         """External call to sync state when recording is manipulated via UI."""
         self._active_mode = None

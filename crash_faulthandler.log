@@ -1,0 +1,293 @@
+Windows fatal exception: code 0xc0000374
+
+Thread 0x0000aaa0 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 909 in __init__
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1452 in __init__
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 42 in start
+  File "D:\playground\voicetype4tw-mac\main.py", line 463 in _on_start
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x0000ab20 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1169 in _wait_for_tstate_lock
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1153 in join
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 87 in stop
+  File "D:\playground\voicetype4tw-mac\main.py", line 468 in _on_stop
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x0000a9a8 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1208 in _raw_read
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1487 in read
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 64 in _poll_audio
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Current thread 0x00007798 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1162 in close
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 92 in stop
+  File "D:\playground\voicetype4tw-mac\main.py", line 468 in _on_stop
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x00001698 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 355 in wait
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 655 in wait
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 999 in start
+  File "D:\playground\voicetype4tw-mac\main.py", line 415 in _on_record_stop
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 99 in stop
+  File "D:\playground\voicetype4tw-mac\main.py", line 468 in _on_stop
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x00007690 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\urllib3\util\connection.py", line 73 in create_connection
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\urllib3\connection.py", line 204 in _new_conn
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\urllib3\connection.py", line 331 in connect
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1037 in send
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1093 in _send_output
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1333 in endheaders
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\urllib3\connection.py", line 500 in request
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\urllib3\connectionpool.py", line 493 in _make_request
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\urllib3\connectionpool.py", line 787 in urlopen
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\adapters.py", line 644 in send
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\sessions.py", line 703 in send
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\sessions.py", line 589 in request
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\api.py", line 59 in request
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\api.py", line 115 in post
+  File "D:\playground\voicetype4tw-mac\llm\ollama.py", line 21 in refine
+  File "D:\playground\voicetype4tw-mac\main.py", line 591 in _process_audio
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x00003dbc (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 359 in wait
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 655 in wait
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\tqdm\_monitor.py", line 60 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x0000483c (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\win32.py", line 190 in __iter__
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\win32.py", line 357 in _run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\__init__.py", line 212 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x000082e4 (most recent call first):
+  File "D:\playground\voicetype4tw-mac\main.py", line 352 in run
+  File "D:\playground\voicetype4tw-mac\main.py", line 904 in <module>
+Windows fatal exception: access violation
+
+Thread 0x00007490 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1208 in _raw_read
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1487 in read
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 64 in _poll_audio
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x0000ab20 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1169 in _wait_for_tstate_lock
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1153 in join
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 87 in stop
+  File "D:\playground\voicetype4tw-mac\main.py", line 468 in _on_stop
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Current thread 0x0000a9a8 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1208 in _raw_read
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1487 in read
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 64 in _poll_audio
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x00007798 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1162 in close
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 92 in stop
+  File "D:\playground\voicetype4tw-mac\main.py", line 468 in _on_stop
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x00007690 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\urllib3\util\connection.py", line 73 in create_connection
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\urllib3\connection.py", line 204 in _new_conn
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\urllib3\connection.py", line 331 in connect
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1037 in send
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1093 in _send_output
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1333 in endheaders
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\urllib3\connection.py", line 500 in request
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\urllib3\connectionpool.py", line 493 in _make_request
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\urllib3\connectionpool.py", line 787 in urlopen
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\adapters.py", line 644 in send
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\sessions.py", line 703 in send
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\sessions.py", line 589 in request
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\api.py", line 59 in request
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\requests\api.py", line 115 in post
+  File "D:\playground\voicetype4tw-mac\llm\ollama.py", line 21 in refine
+  File "D:\playground\voicetype4tw-mac\main.py", line 591 in _process_audio
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x00003dbc (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 359 in wait
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 655 in wait
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\tqdm\_monitor.py", line 60 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x0000483c (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\win32.py", line 190 in __iter__
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\win32.py", line 357 in _run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\__init__.py", line 212 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x000082e4 (most recent call first):
+  File "D:\playground\voicetype4tw-mac\main.py", line 352 in run
+  File "D:\playground\voicetype4tw-mac\main.py", line 904 in <module>
+Windows fatal exception: access violationWindows fatal exception: 
+
+access violation
+
+Thread 0x00009894 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1208 in _raw_read
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1487 in read
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 64 in _poll_audio
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x000087c4 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1169 in _wait_for_tstate_lock
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1153 in join
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 87 in stop
+  File "D:\playground\voicetype4tw-mac\main.py", line 468 in _on_stop
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x00009f04 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1208 in _raw_read
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1487 in read
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 64 in _poll_audio
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x000052bc (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1169 in _wait_for_tstate_lock
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1153 in join
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 87 in stop
+  File "D:\playground\voicetype4tw-mac\main.py", line 468 in _on_stop
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Current thread 0x000026d0 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1208 in _raw_read
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1487 in read
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 64 in _poll_audio
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x00009cb8 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 359 in wait
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 655 in wait
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\tqdm\_monitor.py", line 60 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x00005e60 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\win32.py", line 190 in __iter__
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\win32.py", line 357 in _run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\__init__.py", line 212 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x00003064 (most recent call first):
+  File "D:\playground\voicetype4tw-mac\main.py", line 352 in run
+  File "D:\playground\voicetype4tw-mac\main.py", line 904 in <module>
+Windows fatal exception: code 0xc0000374
+
+Current thread 0x0000ad5c (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1162 in close
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 92 in stop
+  File "D:\playground\voicetype4tw-mac\main.py", line 468 in _on_stop
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x0000af08 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\sounddevice.py", line 1162 in close
+  File "D:\playground\voicetype4tw-mac\audio\recorder.py", line 92 in stop
+  File "D:\playground\voicetype4tw-mac\main.py", line 468 in _on_stop
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x0000ac84 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\win32.py", line 190 in __iter__
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\win32.py", line 357 in _run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\__init__.py", line 212 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Thread 0x0000932c (most recent call first):
+  File "D:\playground\voicetype4tw-mac\main.py", line 352 in run
+  File "D:\playground\voicetype4tw-mac\main.py", line 904 in <module>
+Windows fatal exception: access violation
+
+Thread 0x0000a6d8 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\win32.py", line 190 in __iter__
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\win32.py", line 357 in _run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\pynput\_util\__init__.py", line 212 in run
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075 in _bootstrap_inner
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1032 in _bootstrap
+
+Current thread 0x00006e48 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\faster_whisper\transcribe.py", line 689 in __init__
+  File "D:\playground\voicetype4tw-mac\stt\local_whisper.py", line 13 in __init__
+  File "D:\playground\voicetype4tw-mac\stt\__init__.py", line 24 in get_stt
+  File "D:\playground\voicetype4tw-mac\main.py", line 114 in _do_preload
+  File "D:\playground\voicetype4tw-mac\main.py", line 791 in _do_preload_safe
+  File "D:\playground\voicetype4tw-mac\main.py", line 372 in run
+  File "D:\playground\voicetype4tw-mac\main.py", line 942 in <module>
+Windows fatal exception: access violation
+
+Current thread 0x00002e18 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\faster_whisper\transcribe.py", line 689 in __init__
+  File "D:\playground\voicetype4tw-mac\stt\local_whisper.py", line 13 in __init__
+  File "D:\playground\voicetype4tw-mac\stt\__init__.py", line 24 in get_stt
+  File "D:\playground\voicetype4tw-mac\main.py", line 114 in _do_preload
+  File "D:\playground\voicetype4tw-mac\main.py", line 279 in run
+  File "D:\playground\voicetype4tw-mac\main.py", line 955 in <module>
+Windows fatal exception: access violation
+
+Current thread 0x00001030 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\faster_whisper\transcribe.py", line 689 in __init__
+  File "D:\playground\voicetype4tw-mac\stt\local_whisper.py", line 13 in __init__
+  File "D:\playground\voicetype4tw-mac\stt\__init__.py", line 24 in get_stt
+  File "D:\playground\voicetype4tw-mac\main.py", line 114 in _do_preload
+  File "D:\playground\voicetype4tw-mac\main.py", line 279 in run
+  File "D:\playground\voicetype4tw-mac\main.py", line 955 in <module>
+Windows fatal exception: access violation
+
+Current thread 0x0000aea4 (most recent call first):
+  File "C:\Users\acyk\AppData\Local\Programs\Python\Python312\Lib\site-packages\faster_whisper\transcribe.py", line 689 in __init__
+  File "D:\playground\voicetype4tw-mac\stt\local_whisper.py", line 13 in __init__
+  File "D:\playground\voicetype4tw-mac\stt\__init__.py", line 24 in get_stt
+  File "D:\playground\voicetype4tw-mac\main.py", line 114 in _do_preload
+  File "D:\playground\voicetype4tw-mac\main.py", line 279 in run
+  File "D:\playground\voicetype4tw-mac\main.py", line 955 in <module>
