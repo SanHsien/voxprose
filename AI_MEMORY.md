@@ -102,4 +102,34 @@
      - 打包後若執行 `.exe` 提示缺少 DLL，需從 `venv/Lib/site-packages/ctranslate2` 或相關目錄複製 `cudnn_*.dll` 至 `dist/VoiceType4TW/`。
 
 ---
-*此記憶文件由 AI 於 2026-03-08 更新，為明日 Windows 打包任務留存上下文。*
+
+## 📦 DMG 打包經驗與地雷紀錄 (Lessons Learned)
+
+為了避免未來開發與打包時重複犯錯，以下記錄 v2.8.27 之前遇到的重大坑位：
+
+### 1. 二進位路徑相容性 (MLX & OpenSSL)
+- **現象**：打包後執行彈出 `Library not loaded: @rpath/libssl...`。
+- **原因**：`PyInstaller` 在封裝時未能正確重寫某些第三方 C 擴展的 `@rpath`。
+- **解法**：在 `setup.py` 或打包後手動檢查載入路徑。務必確保 `ffmpeg` 與 `OpenSSL` 在打包環境中是靜態連結或路徑明確。
+
+### 2. PyQt6 深色模式對抗
+- **現象**：系統在淺色模式下，即使 App 指定了深色樣式表，原生選單 (Context Menu) 仍會噴白。
+- **解法**：必須組合技：
+  - `QApplication.setStyle("Fusion")`
+  - 使用 `AppKit` 的 `NSAppearance` 強制設定為 `DarkAqua`。
+  - **切記**：這兩者缺一不可，否則 UI 質感會斷層。
+
+### 3. AppleScript 視窗座標偏移
+- **現象**：`pack_dmg.sh` 產出的 DMG 視窗內容每次位置都不一樣。
+- **解法**：在 AppleScript 執行時加入 `delay 2` 與 `update without registering applications`，確保 Finder 視窗完全渲染後再下達座標指令。
+
+### 4. STT 預熱不可省略
+- **現象**：打包後首次按錄音，UI 會凍結 5 秒。
+- **原因**：Metal 推理圖初始化。
+- **解法**：在程式啟動階段（隱藏視窗時）執行一次 1 秒的靜音 dummy 轉錄。
+
+### 5. 版本分流之混亂與預防
+- **現象**：不小心把 Coffee 版功能打包進 Free 版。
+- **防範建議**：
+  - 所有功能開關（Scenarios 數目等）必須由 `config.py` 或 `ui/menu_bar.py` 中的明確條件決定。
+  - **鐵律**：每次執行 `build_all.sh` 前，必須手動（或透過自動化腳本）檢查版本標籤。
