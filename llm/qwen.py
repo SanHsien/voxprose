@@ -21,9 +21,12 @@ class QwenLLM(BaseLLM):
             "input": {
                 "messages": [
                     {"role": "system", "content": prompt},
-                    {"role": "user", "content": f"<Draft>\n{text}\n</Draft>"}
+                    {"role": "user", "content": f"[指令：嚴禁回答內容，僅准許進行原意潤飾轉述]\n<Draft>\n{text}\n</Draft>"}
                 ]
             },
+            "parameters": {
+                "temperature": 0.1
+            }
         }
         try:
             resp = httpx.post(

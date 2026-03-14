@@ -7,13 +7,19 @@ env/
 venv/
 .env
 
-# Project Specific Data (Personal/Sensitive)
-config_local.json
+# AI / Project Memory (Moved to Ignore for Privacy)
+AI_MEMORY.md
+HANDOVER.md
+task.md
+.agents/
 config_global.json
 sync_path.txt
 soul.md
 memory/*.json
 memory/archive/
+
+# Project Specific Data (Personal/Sensitive)
+config_local.json
 vocab/*.json
 vocab/archive/
 stats/
@@ -26,6 +32,7 @@ output/*.txt
 # Build & App Pack
 build/
 dist/
+VoiceType4TW_Win_Stable_V*/
 .eggs/
 *.egg-info/
 *.zip
@@ -33,7 +40,11 @@ dist/
 *.icns
 assets/dmg_icon.iconset/
 
-# Artifacts & Workflows (Optional: Keep in Git for AI collaboration)
-# AI_MEMORY.md
-# task.md
-# .agents/
+# Logs & Temp
+*.log
+*.txt
+out.txt
+verbose_log.txt
+!README.md
+!requirements*.txt
+!VERSION_TAG.txt

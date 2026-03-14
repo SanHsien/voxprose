@@ -8,36 +8,11 @@ import time
 import io
 import traceback
 
-# v2.8.27_V70: THE ULTIMATE DEFENSE - threading.Thread.start Hook (Global)
-try:
-    _orig_thread_start = threading.Thread.start
-    def _hooked_thread_start(self, *args, **kwargs):
-        cls_name = str(self.__class__)
-        thread_name = str(getattr(self, "name", ""))
-        if "tqdm" in cls_name.lower() or "tqdm" in thread_name.lower():
-            return
-        return _orig_thread_start(self, *args, **kwargs)
-    threading.Thread.start = _hooked_thread_start
-except Exception: pass
-
-# Force tqdm mock and kill monitor EARLY
-os.environ["TQDM_DISABLE"] = "1"
-os.environ["TQDM_DISABLE_MONITOR"] = "1"
-try:
-    from unittest.mock import MagicMock
-    class MagicPackage(MagicMock):
-        def __getattr__(self, name): return self
-        def __call__(self, *args, **kwargs): return self
-    mock_tqdm = MagicPackage()
-    sys.modules['tqdm'] = mock_tqdm
-    sys.modules['tqdm.auto'] = mock_tqdm
-    sys.modules['tqdm.std'] = mock_tqdm
-    sys.modules['tqdm._monitor'] = mock_tqdm
-    sys.modules['tqdm.notebook'] = mock_tqdm
-    
-    import tqdm._monitor
-    tqdm._monitor.TqdmMonitor.run = lambda self: None
-except Exception: pass
+# v2.8.27_V73: Explicit model pre-download with progress (Clean Surgery)
+def _download_progress_callback(n, total, pipe, model_alias):
+    if total > 0:
+        pct = int((n / total) * 100)
+        pipe.send({"type": "progress", "value": pct, "detail": f"Downloading {model_alias}: {pct}%"})
 
 from .base import BaseSTT
 
@@ -70,6 +45,10 @@ def _stt_worker(pipe_conn: multiprocessing.connection.Connection, config: dict):
     log = logging.getLogger("voicetype-worker")
     log.info("--- Worker Startup ---")
 
+    # v2.8.27_V73: Register pipe for Tqdm progress reporting
+    global _worker_pipe_for_tqdm
+    _worker_pipe_for_tqdm = pipe_conn
+
     # v2.8.27_V69: The Missing Piece - AllocConsole is strictly required!
     # ctranslate2 (C++) will still crash with Access Violation in environments
     # without a valid console subsystem, EVEN IF fd 1 and 2 are NUL.
@@ -87,27 +66,61 @@ def _stt_worker(pipe_conn: multiprocessing.connection.Connection, config: dict):
             else:
                 log.info("[stt-worker] Using existing console.")
         except Exception as e:
-            log.warning(f"[stt-worker] AllocConsole attempted: {e}")
+            log.warning(f"[stt-worker] Console init issue: {e}")
 
-    # v2.8.27_V63: Critical environment setup for EXE subprocess stability
+    # v2.8.27_V77: NVIDIA DLL Path Discovery (The "Make GPU Just Work" Patch)
+    # MUST HAPPEN BEFORE IMPORTING faster_whisper or any torch/ctranslate2 components
+    if platform.system() == "Windows":
+        import ctypes
+        try:
+            # 1. First, inject paths from site-packages
+            import site
+            from pathlib import Path
+            package_dirs = site.getsitepackages()
+            for pdir in package_dirs:
+                nvidia_root = Path(pdir) / "nvidia"
+                if nvidia_root.exists():
+                    for bin_dir in nvidia_root.glob("**/bin"):
+                        if bin_dir.is_dir():
+                            log.info(f"[stt-worker] Adding DLL directory: {bin_dir}")
+                            os.add_dll_directory(str(bin_dir))
+            
+            # 2. Add current venv bin just in case
+            venv_bin = Path(sys.executable).parent
+            if (venv_bin / "cublas64_12.dll").exists():
+                os.add_dll_directory(str(venv_bin))
+                
+        except Exception as e_dll:
+            log.warning(f"[stt-worker] DLL injection issue: {e_dll}")
+
+    # v2.8.27_V63: Environmental Fixes
     os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
     os.environ["MKL_THREADING_LAYER"] = "SEQUENTIAL"
-    os.environ["OMP_NUM_THREADS"] = "4" # v2.8.27_V72: Increase for speed
-    os.environ["CT2_VERBOSE"] = "-1" 
-    os.environ["CT2_USE_EXPERIMENTAL_PACKED_GEMM"] = "0"
     
+    # Now safe to import
     from faster_whisper import WhisperModel
     import ctranslate2
     log.info(f"[stt-worker] CTranslate2 version: {ctranslate2.__version__}")
     
     model_size = config.get("whisper_model", "medium")
+    device = config.get("whisper_device", "auto")
+    compute_type = config.get("whisper_compute_type", "auto")
     
-    # v2.8.27_V69: With AllocConsole back, we can safely use GPU in frozen mode again.
-    # No more CPU fallback required!
-    import sys
-    device = "auto"
-    compute_type = "int8"
-    
+    # v2.8.27_V77: Hard Verification of CUDA DLLs BEFORE trying to load model
+    if device in ["auto", "cuda"]:
+        try:
+            import ctypes
+            # Try to actually load the library to be 100% sure
+            lib_name = "cublas64_12.dll"
+            log.info(f"[stt-worker] Testing {lib_name} availability via WinDLL...")
+            test_load = ctypes.WinDLL(lib_name)
+            log.info("[stt-worker] CUDA check: cublas64_12 found and loadable.")
+            del test_load
+        except Exception as e_cuda:
+            log.warning(f"[stt-worker] CUDA check FAILED: {e_cuda}. FORCING CPU FALLBACK.")
+            device = "cpu"
+            compute_type = "int8" # Safest for CPU
+
     model = None
     try:
         from pathlib import Path
@@ -115,23 +128,85 @@ def _stt_worker(pipe_conn: multiprocessing.connection.Connection, config: dict):
         Path(model_cache_dir).mkdir(parents=True, exist_ok=True)
         log.info(f"[stt-worker] Model cache dir: {model_cache_dir}")
         is_frozen = getattr(sys, 'frozen', False)
-        log.info(f"[stt-worker] Loading Whisper {model_size} (Device: {device}, Type: {compute_type}, Frozen: {is_frozen}) ...")
-
         
-        model = WhisperModel(model_size, device=device, compute_type=compute_type, cpu_threads=4, download_root=model_cache_dir)
-        log.info(f"[stt-worker] Model loaded successfully on {model.model.device}.")
-        pipe_conn.send({"type": "status", "ready": True})
-    except Exception as e:
-        log.error(f"[stt-worker] Model load failed:\n{traceback.format_exc()}")
+        # Mapping for faster-whisper models to HuggingFace Repos
+        repo_map = {
+            "tiny": "Systran/faster-whisper-tiny",
+            "base": "Systran/faster-whisper-base",
+            "small": "Systran/faster-whisper-small",
+            "medium": "Systran/faster-whisper-medium",
+            "large-v2": "Systran/faster-whisper-large-v2",
+            "large-v3": "Systran/faster-whisper-large-v3",
+            "large-v3-turbo": "deepdml/faster-whisper-large-v3-turbo-ct2"
+        }
+        repo_id = repo_map.get(model_size, f"Systran/faster-whisper-{model_size}")
+        
+        log.info(f"[stt-worker] Initializing {model_size} on {device}...")
         try:
-            log.info(f"[stt-worker] Falling back to CPU int8...")
-            model = WhisperModel(model_size, device="cpu", compute_type="int8", cpu_threads=4, download_root=model_cache_dir)
+            pipe_conn.send({"type": "progress", "value": 0, "detail": f"Loading {model_size}..."})
+            os.environ["TQDM_DISABLE"] = "1"
+            
+            # Use local_files_only if possible to speed up READY signal
+            model = WhisperModel(
+                model_size, 
+                device=device, 
+                compute_type=compute_type, 
+                cpu_threads=4, 
+                download_root=model_cache_dir,
+                local_files_only=False 
+            )
+            # v2.8.27_V77: Success path - send READY
+            pipe_conn.send({"type": "progress", "value": 100, "detail": "Model Ready."})
+            log.info(f"[stt-worker] Model loaded successfully on {model.model.device}.")
             pipe_conn.send({"type": "status", "ready": True})
-            log.info(f"[stt-worker] CPU fallback (int8) model loaded.")
-        except Exception as e2:
-            log.error(f"[stt-worker] FATAL ERROR:\n{traceback.format_exc()}")
-            pipe_conn.send({"type": "error", "message": str(e2)})
-            return
+
+        except Exception as e_load:
+            log.error(f"[stt-worker] WhisperModel initial load failed: {e_load}")
+            # Final desperate fallback to CPU
+            if device != "cpu":
+                log.info("[stt-worker] Attempting final emergency CPU fallback...")
+                device = "cpu"
+                compute_type = "int8"
+                model = WhisperModel(model_size, device="cpu", compute_type="int8", cpu_threads=4, download_root=model_cache_dir)
+                pipe_conn.send({"type": "status", "ready": True})
+            else:
+                raise e_load
+
+    except Exception as e:
+            log.error(f"[stt-worker] Model load/verify failed:\n{traceback.format_exc()}")
+            # v2.8.27_V73: Nuclear option - if model.bin is missing/corrupted, wipe the snapshot
+            try:
+                import shutil
+                msg = str(e).lower()
+                if "model.bin" in msg or "unable to open file" in msg:
+                    log.warning("[stt-worker] Corrupted model detected. Attempting to wipe snapshot for re-download...")
+                    # We look for the snapshot directory in the cache
+                    models_dir = Path(model_cache_dir)
+                    for snapshot in models_dir.glob("**/snapshots/*"):
+                        if snapshot.is_dir():
+                            log.info(f"[stt-worker] Deleting potentially corrupted snapshot: {snapshot}")
+                            shutil.rmtree(snapshot, ignore_errors=True)
+            except Exception as _wipe_e:
+                log.error(f"[stt-worker] Cleanup failed: {_wipe_e}")
+
+            try:
+                log.info(f"[stt-worker] Falling back to CPU int8...")
+                model = WhisperModel(model_size, device="cpu", compute_type="int8", cpu_threads=4, download_root=model_cache_dir)
+                
+                # Verify CPU fallback too, just in case
+                import numpy as np
+                model.transcribe(np.zeros(1600, dtype=np.float32), language="en")
+                
+                pipe_conn.send({"type": "status", "ready": True})
+                log.info(f"[stt-worker] CPU fallback (int8) model loaded.")
+            except Exception as e2:
+                log.error(f"[stt-worker] FATAL ERROR:\n{traceback.format_exc()}")
+                pipe_conn.send({"type": "error", "message": f"Fatal STT Error: {e2}"})
+                return
+    except Exception as e:
+        log.error(f"[stt-worker] Initialization failed:\n{traceback.format_exc()}")
+        pipe_conn.send({"type": "error", "message": str(e)})
+        return
 
     # 進入工作迴圈
     while True:
@@ -144,40 +219,52 @@ def _stt_worker(pipe_conn: multiprocessing.connection.Connection, config: dict):
                     break
                     
                 elif msg.get("type") == "transcribe":
-                    audio_bytes = msg.get("audio_bytes")
+                    # Consistently use "audio" as the key
+                    audio_raw = msg.get("audio")
                     language = msg.get("language", "zh")
-                    prompt = msg.get("prompt", "以下是繁體中文的語音內容：")
                     
-                    if not audio_bytes:
+                    if not audio_raw or len(audio_raw) < 100:
+                        log.warning(f"[stt-worker] Received empty or tiny audio ({len(audio_raw) if audio_raw else 0} bytes). Skipping.")
                         pipe_conn.send({"type": "result", "text": ""})
                         continue
 
-                    audio_io = io.BytesIO(audio_bytes)
+                    audio_len_kb = len(audio_raw) / 1024
+                    log.info(f"[stt-worker] Starting transcription (Size: {audio_len_kb:.1f} KB, Lang: {language})")
+                    
                     try:
+                        import numpy as np
+                        # Convert bytes to float32 numpy array (assuming 16-bit PCM 16kHz)
+                        audio_np = np.frombuffer(audio_raw, dtype=np.int16).astype(np.float32) / 32768.0
+                        
+                        start_time = time.time()
                         segments, info = model.transcribe(
-                            audio_io,
+                            audio_np, 
                             language=language,
-                            beam_size=1,
-                            vad_filter=True,
-                            initial_prompt=prompt,
+                            beam_size=5,
+                            initial_prompt="以下是繁體中文的語音內容："
                         )
+                        
                         text = "".join(seg.text for seg in segments).strip()
+                        trans_duration = time.time() - start_time
+                        
+                        log.info(f"[stt-worker] Result: '{text}' (Time: {trans_duration:.2f}s, Prob: {info.language_probability:.2f})")
                         pipe_conn.send({"type": "result", "text": text, "info": info.language})
-                        log.info(f"[stt-worker] Transcribed successfully: {text}")
                     except Exception as trans_e:
-                        log.error(f"[stt-worker] Transcription error: {trans_e}")
-                        traceback.print_exc()
+                        log.error(f"[stt-worker] Transcription error: {trans_e}\n{traceback.format_exc()}")
                         pipe_conn.send({"type": "error", "message": f"Transcribe failed: {trans_e}"})
 
                 elif msg.get("type") == "warmup":
-                    # Simple warmup
+                    # Corrected warmup for WhisperModel
                     try:
-                        # Dummy audio (1 second of silence at 16kHz)
-                        dummy_audio = b'\x00' * (16000 * 2) 
-                        model.generate_vad_segments(dummy_audio) # fast way to wake up OpenMP
+                        log.info("[stt-worker] Executing warmup...")
+                        import numpy as np
+                        dummy_audio = np.zeros(1600, dtype=np.float32)
+                        list(model.transcribe(dummy_audio, language="en"))
+                        log.info("[stt-worker] Warmup done.")
                         pipe_conn.send({"type": "warmup_done"})
-                    except Exception:
-                        pipe_conn.send({"type": "warmup_done"}) # Ignore errors in warmup
+                    except Exception as e:
+                        log.error(f"[stt-worker] Warmup failed: {e}")
+                        pipe_conn.send({"type": "warmup_done"})
                         
         except EOFError:
             log.info("[stt-worker] Pipe closed by parent. Exiting.")
@@ -241,6 +328,9 @@ class SubprocessWhisperSTT(BaseSTT):
                         self._result_queue.put(msg)
                     elif m_type == "result":
                         self._result_queue.put(msg)
+                    elif m_type == "progress":
+                        if hasattr(self, "on_progress") and self.on_progress:
+                            self.on_progress(msg.get("value", 0), msg.get("detail", ""))
                     elif m_type == "warmup_done":
                         print("[stt-mgr] Warmup complete.")
             except (EOFError, ConnectionResetError):
@@ -285,31 +375,40 @@ class SubprocessWhisperSTT(BaseSTT):
             with self._lock: # V33: 防止主程序的多個執行緒 (例如 warmup 和 record_stop) 搶奪 pipe
                 self._parent_conn.send({
                     "type": "transcribe",
-                    "audio_bytes": audio_bytes,
+                    "audio": audio_bytes, # Use "audio" to match worker's recv
                     "language": language,
                     "prompt": prompt
                 })
                 
-                # V43: 從 _result_queue 讀取，不再直接 poll Pipe
+                # V78: 實作訊息循環過濾機制，避免被中間的 progress/status 訊息干擾導致提前退出
                 import queue
                 try:
-                    msg = self._result_queue.get(timeout=60.0)
-                    if msg.get("type") == "result":
-                        text_result = msg.get("text", "")
-                        print(f"[stt-mgr] Received result ({msg.get('info', 'zh')}): {text_result}")
-                        return text_result
-                    elif msg.get("type") == "error":
-                        print(f"[stt-mgr] Worker reported error: {msg.get('message')}")
-                        return ""
+                    while True:
+                        msg = self._result_queue.get(timeout=30.0) 
+                        msg_type = msg.get("type")
+                        
+                        if msg_type == "result":
+                            text_result = msg.get("text", "")
+                            print(f"[stt-mgr] Received result ({msg.get('info', 'zh')}): {text_result}")
+                            return text_result
+                        elif msg_type == "error":
+                            raise RuntimeError(msg.get("message"))
+                        elif msg_type in ["progress", "status"]:
+                            # 忽略中間訊息，繼續等待結果
+                            continue
+                        else:
+                            print(f"[stt-mgr] Ignoring unknown IPC message: {msg_type}")
+                            
                 except queue.Empty:
                     if not self.worker_process.is_alive():
                         print("[stt-mgr] Worker died during transcription.")
+                        raise RuntimeError("STT Worker process died unexpectedly.")
                     else:
                         print("[stt-mgr] timeout waiting for transcription (Queue Empty).")
-                    return ""
+                        raise RuntimeError("STT Transcription timed out.")
         except Exception as e:
             print(f"[stt-mgr] IPC Error during transcribe: {e}")
-            return ""
+            raise RuntimeError(f"STT Transcription failed: {e}")
 
     def warmup(self):
         print("[stt-mgr] Sending warmup signal...")

@@ -14,7 +14,11 @@ class GeminiLLM(BaseLLM):
             return text
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
         payload = {
-            "contents": [{"parts": [{"text": f"{prompt}\n\n<Draft>\n{text}\n</Draft>"}]}]
+            "contents": [{"parts": [{"text": f"[指令：嚴禁回答內容，僅准許進行原意潤飾轉述]\n{prompt}\n\n<Draft>\n{text}\n</Draft>"}]}],
+            "generationConfig": {
+                "temperature": 0.1,
+                "maxOutputTokens": 1024
+            }
         }
         try:
             resp = httpx.post(url, json=payload, timeout=30)

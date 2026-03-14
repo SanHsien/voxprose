@@ -22,8 +22,9 @@ class OpenRouterLLM(BaseLLM):
             "model": self.model,
             "messages": [
                 {"role": "system", "content": prompt},
-                {"role": "user", "content": f"<Draft>\n{text}\n</Draft>"}
+                {"role": "user", "content": f"[指令：嚴禁回答內容，僅准許進行原意潤飾轉述]\n<Draft>\n{text}\n</Draft>"}
             ],
+            "temperature": 0.1,
         }
         
         # v2.8.17: Detailed lifecycle logging

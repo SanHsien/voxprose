@@ -401,7 +401,9 @@ class SettingsWindow(QMainWindow):
         
         # Windows: Ensure window is popped up and focused (but not always on top)
         if platform.system() == "Windows":
-             # We rely on raise_() and activateWindow() in _setup_ui to bring it to front initially
+             # v2.8.27_V87: Explicitly set window icon via branding utility
+             from utils.branding import apply_branding
+             apply_branding(self)
              pass
 
         self._setup_ui()
@@ -553,9 +555,10 @@ class SettingsWindow(QMainWindow):
         lbl_en.setStyleSheet("font-family: 'Myriad Pro'; font-weight: bold; font-size: 28px; color: white;")
         lbl_en.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        os_ver = "Mac version" if platform.system() == "Darwin" else "Windows version"
+        from paths import VERSION_NAME
+        os_ver = f"Windows Version" if platform.system() == "Windows" else f"macOS Version "
         lbl_os = QLabel(os_ver)
-        lbl_os.setStyleSheet("font-family: 'Myriad Pro'; font-style: italic; font-size: 14px; color: #8a8d91;")
+        lbl_os.setStyleSheet("font-family: 'Myriad Pro'; font-style: italic; font-size: 12px; color: #8a8d91;")
         lbl_os.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         logo_vbox.addWidget(lbl_en)
@@ -1583,7 +1586,7 @@ class SettingsWindow(QMainWindow):
         self._check_all_permissions()
         self._check_local_models()
 
-    def update_download_progress(self, status: str, done: bool = False):
+    def update_download_progress(self, status: str, value: int = -1, done: bool = False):
         """由 main.py 呼叫，更新模型下載進度卡片。"""
         try:
             if done:
@@ -1592,6 +1595,11 @@ class SettingsWindow(QMainWindow):
             else:
                 self.download_card.setVisible(True)
                 self.lbl_download_status.setText(status)
+                if value >= 0:
+                    self.download_progress.setRange(0, 100)
+                    self.download_progress.setValue(value)
+                else:
+                    self.download_progress.setRange(0, 0) # Indeterminate
         except Exception:
             pass
 

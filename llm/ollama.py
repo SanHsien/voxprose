@@ -3,18 +3,21 @@ from .base import BaseLLM
 
 
 class OllamaLLM(BaseLLM):
-    def __init__(self, model: str = "llama3", base_url: str = "http://localhost:11434"):
-        self.model = model
-        self.base_url = base_url.rstrip("/")
+    def __init__(self, config: dict):
+        self.model = config.get("ollama_model", "llama3")
+        self.base_url = config.get("ollama_base_url", "http://localhost:11434").rstrip("/")
 
     def refine(self, text: str, prompt: str) -> str:
         payload = {
             "model": self.model,
             "messages": [
                 {"role": "system", "content": prompt},
-                {"role": "user", "content": f"<Draft>\n{text}\n</Draft>"},
+                {"role": "user", "content": f"[指令：嚴禁回答內容，僅准許進行原意潤飾轉述]\n<Draft>\n{text}\n</Draft>"},
             ],
             "stream": False,
+            "options": {
+                "temperature": 0.1
+            }
         }
         try:
             # Use smaller timeout for local Ollama to fail fast if not running

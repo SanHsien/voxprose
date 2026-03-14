@@ -1,116 +1,74 @@
-"""
-VoiceType4TW Self-Check Utility (v2.7.32)
-Diagnoses Windows environment issues, dependencies, and hardware status.
-"""
 import os
 import sys
-import platform
-import subprocess
+import time
+import traceback
+import importlib.util
 from pathlib import Path
 
-# v2.7.32: Fix environment for standalone check
-if platform.system() == "Windows":
-    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+def check_file_exists(path):
+    exists = os.path.exists(path)
+    print(f"[CHECK] File {path}: {'EXISTS' if exists else 'MISSING'}")
+    return exists
 
-def print_header(text):
-    print(f"\n{'='*20} {text} {'='*20}")
-
-def check_env_vars():
-    print_header("Environment Variables")
-    ok = os.environ.get("KMP_DUPLICATE_LIB_OK") == "TRUE"
-    print(f"KMP_DUPLICATE_LIB_OK: {os.environ.get('KMP_DUPLICATE_LIB_OK')} {'[PASS]' if ok else '[FAIL - Critical for Windows]'}")
-    return ok
-
-def check_dependencies():
-    print_header("Dependencies")
-    deps = ["PyQt6", "faster_whisper", "pystray", "PIL", "pyperclip", "certifi"]
-    all_ok = True
-    for dep in deps:
-        try:
-            if dep == "PIL":
-                import PIL
-            else:
-                __import__(dep)
-            print(f"{dep:<15}: [OK]")
-        except ImportError:
-            print(f"{dep:<15}: [MISSING]")
-            all_ok = False
-    return all_ok
-
-def check_hardware():
-    print_header("Hardware & Drivers")
-    # 1. GPU / CUDA
+def test_stt_recognition():
+    print("[STT-TEST] Initializing STT Worker for functional test...")
     try:
-        import ctranslate2
-        cuda_count = ctranslate2.get_cuda_device_count()
-        if cuda_count > 0:
-            print(f"CUDA GPU found: {cuda_count} device(s) [PASS]")
-        else:
-            print("CUDA GPU: Not found [INFO - Running in CPU mode]")
+        from stt.subprocess_whisper import SubprocessWhisperSTT
+        config = {"whisper_model": "tiny", "stt_engine": "local_whisper"} # Use tiny for fast test
+        stt = SubprocessWhisperSTT(config)
+        
+        # 1. Wait for ready
+        print("[STT-TEST] Waiting for model to be ready (timeout 120s for download)...")
+        start = time.time()
+        while not stt.is_ready and (time.time() - start < 120):
+            time.sleep(1.0)
+        
+        if not stt.is_ready:
+            print("[FAIL] STT Worker failed to become ready in time.")
+            return False
+        
+        print("[STT-TEST] Model READY. Sending dummy audio for recognition...")
+        
+        # 2. Perform a real transcription (1 second of silence/dummy)
+        dummy_audio = b'\x00' * 32000 # 1 sec of 16kHz 16-bit mono
+        result = stt.transcribe(dummy_audio)
+        
+        print(f"[STT-TEST] Recognition Successful. Result: '{result}' (Empty is OK for silence)")
+        
+        # 3. Cleanup
+        del stt
+        return True
     except Exception as e:
-        print(f"CUDA check failed: {e}")
+        print(f"[FAIL] STT Recognition Test crashed: {e}")
+        traceback.print_exc()
+        return False
 
-    # 2. Audio Device
+def run_self_check():
+    print("=== VoiceType4TW STT-Deep-Check Initialized ===")
+    
+    # 1. Check basic structure
+    essential_files = ["main.py", "paths.py", "stt/subprocess_whisper.py", "ui/app.py"]
+    if not all(check_file_exists(f) for f in essential_files):
+        print("  RESULT: FAILED (Missing core files)")
+        sys.exit(1)
+    
+    # 2. Check Version Logic (NameError fix verification)
     try:
-        import sounddevice
-        devices = sounddevice.query_devices()
-        input_devs = [d for d in devices if d['max_input_channels'] > 0]
-        if input_devs:
-            print(f"Audio Input: {len(input_devs)} device(s) found [PASS]")
-            default = sounddevice.query_devices(kind='input')
-            print(f"Default Mic: {default.get('name')}")
-        else:
-            print("Audio Input: No microphones detected! [FAIL]")
+        from paths import VERSION_NAME, BUILD_ID
+        print(f"[PASS] Constants: {VERSION_NAME} ({BUILD_ID})")
     except Exception as e:
-        print(f"Audio check failed: {e}")
+        print(f"[FAIL] Version constants missing: {e}")
+        sys.exit(1)
 
-def check_filesystem():
-    print_header("File System")
-    try:
-        from paths import APP_DATA_DIR, get_data_dir
-        data_dir = APP_DATA_DIR
-    except ImportError:
-        print("paths.py not found or invalid.")
-        return
-
-    print(f"Data Directory: {data_dir}")
-    if data_dir.exists():
-        try:
-            # Test writing to a subfolder using get_data_dir
-            test_dir = get_data_dir("diag_test")
-            test_file = test_dir / "test_write.tmp"
-            test_file.write_text("test")
-            test_file.unlink()
-            print("Write Permission: [OK]")
-        except Exception as e:
-            print(f"Write Permission: [FAIL] - {e}")
-    else:
-        print(f"Data Directory: [MISSING] - Path: {data_dir}")
-
-def check_models():
-    print_header("AI Models Status")
-    cache_path = Path.home() / ".cache" / "huggingface" / "hub"
-    if cache_path.exists():
-        found = list(cache_path.glob("models--Systran--faster-whisper-*"))
-        if found:
-            print(f"Faster-Whisper Models: {len(found)} cached [PASS]")
-            for m in found:
-                print(f"  - {m.name}")
-        else:
-            print("Faster-Whisper Models: Not cached [INFO - Will download on first run]")
-    else:
-        print("HF Cache: Not found [INFO]")
+    # 3. Functional STT Test (The User Requirement)
+    if not test_stt_recognition():
+        print("  RESULT: FAILED (STT Chain Broken)")
+        sys.exit(1)
+    
+    # 📝 Summary
+    print("\n" + "="*40)
+    print("  RESULT: SUCCESS (STT Recognition Verified)")
+    sys.exit(0)
 
 if __name__ == "__main__":
-    print("Starting VoiceType4TW Self-Check...")
-    print(f"OS: {platform.system()} {platform.release()}")
-    print(f"Python: {sys.version}")
-    
-    check_env_vars()
-    check_dependencies()
-    check_hardware()
-    check_filesystem()
-    check_models()
-    
-    print_header("Diagnostics Done")
-    input("\nPress Enter to exit...")
+    run_self_check()

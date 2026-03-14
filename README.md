@@ -168,12 +168,15 @@ python3 diagnose_mic.py
 tccutil reset Microphone
 ```
 
-### Windows (v2.8.0 正式版)
-1. 下載本專案並進入目錄。
-2. 建議使用 Python 3.10+ 環境。
-3. 執行 `pip install -r requirements-win.txt` (支援 CUDA 加速)。
-4. 執行 `python main.py` 啟動。
+### Windows (v2.8.0+ 穩定版)
+1. 下載並解壓縮本專案。
+2. 確保已安裝 Python 3.10+。
+3. 雙擊執行 `setup_win.bat` 進行自動化環境佈署與依賴安裝。
+4. 之後只需雙擊 `run_voicetype.bat` 即可啟動程式。
 5. **首次使用建議**：點選右下角托盤 > 偏好設定 > `🔍 執行系統自我檢測`，確保 CUDA 與相關依賴完整。
+
+#### 💡 Windows 打包說明
+為了極致的穩定性與速度，我們推薦使用「Installer + venv」模式（即上述 `setup_win.bat` 流程），這比單一 EXE 封裝更不容易觸發防毒軟體誤報或 C++ 核心相容性問題。
 
 ---
 

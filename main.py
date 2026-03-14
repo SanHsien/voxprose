@@ -61,6 +61,13 @@ if __name__ == "__main__":
     if platform.system() == "Windows":
         multiprocessing.freeze_support()
         
+        # v2.8.27_V87: Modular Branding Initialization
+        try:
+            from utils.branding import init_windows_id
+            init_windows_id()
+        except Exception as e:
+            logging.getLogger("voicetype").warning(f"[main] Branding init failed: {e}")
+        
     # v2.8.27_V53: Force use certifi for SSL robustness in bundled environment
     try:
         os.environ['SSL_CERT_FILE'] = certifi.where()
@@ -68,7 +75,7 @@ if __name__ == "__main__":
     
     if is_main_process:
         try:
-            from paths import initialize_paths, APP_DATA_DIR
+            from paths import initialize_paths, APP_DATA_DIR, VERSION_NAME, BUILD_ID
             initialize_paths()
 
             # Enable faulthandler for main process crash logging
@@ -89,7 +96,16 @@ if __name__ == "__main__":
                     logging.StreamHandler()
                 ]
             )
-            logging.getLogger("voicetype").info("=== VoiceType4TW Main Process Log Initialized ===")
+            # v2.8.27_V73: Restore the "Flagship Banner" log style per user request
+            from datetime import datetime
+            banner_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            log_header = f"\n{'='*50}\n[START] {banner_time} {VERSION_NAME} ({BUILD_ID})\n{'='*50}"
+            logging.getLogger("voicetype").info(log_header)
+            logging.getLogger("voicetype").info(f"=== VoiceType4TW Starting === Log: {log_path} (Level: INFO)")
+            
+            # v2.8.27_V61: Record Keystrike location
+            from paths import KEYSTRIKE_LOG_PATH
+            logging.getLogger("voicetype").info(f"Keystrike logging routed to: {KEYSTRIKE_LOG_PATH}")
             
             from ui.app import VoiceTypeApp
             app = VoiceTypeApp()
