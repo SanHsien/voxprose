@@ -116,13 +116,44 @@
   - 恢復使用 `faster-whisper` 並鎖定 DLL 路徑。
 
 ### 2. Windows Python Stable Version (V72-PYTHON-STABLE)
-- **標記日期**: 2026-03-12 23:50
-- **狀態**: **[Python 版穩定運作中]**
-- **核心突破**:
-    - **「核級」tqdm 封殺庫**: 針對 Windows 下 `tqdm` 監控執行緒引起的 `Access Violation`，實作了全域 `threading.Thread.start` 勾子與 `tqdm._monitor.run` 覆蓋。此技術可徹底阻斷 `faster-whisper` 引發的隱形執行緒衝突。
-    - **非 Frozen 模式下的 AllocConsole**: 發現即便不是 `.exe` 模式，子進程若不分配控制台，C++ 核心也會因輸出控制代碼無效而崩潰。
-    - **辨識性能平衡**: 將 `OMP_NUM_THREADS` 鎖定為 `4`。在 CPU 下不僅快，且不會與 PyQt 進程過度爭搶資源。
-    - **日誌編碼加固**: Worker 日誌強制指定 `utf-8` 編碼，解決 Windows Mojibake。
+- **維護日期**: 2026-03-13 01:15
+- **狀態**: **[核心功能完成 / 部署環境待穩固]**
+- **今日進度深度分析**:
+    - **Inno Setup (ISS) 部署優化**:
+        - **旗標修復**: 修正了 `voicetype_installer.iss` 中的語法地雷。原本 `Source` 行使用了錯誤的 `ig` 旗標（正確應為 `ignoreversion`），導致編譯器拒絕運作。
+        - **語系適配**: 成功啟用 `chinesetraditional`。注意：ISS 本身必須安裝繁體中文語言包，且腳本內需取消 `compiler:Languages\ChineseTraditional.isl` 的註釋。
+        - **打包清理 (The Great Cleaning)**: 為了維持「旗艦感」，在 `Source: "*"` 實作了極其嚴格的 `Excludes` 清單。這包括所有 `test_*.py`、`main2.py`、`.git`、`venv`、以及含有開發敏感資訊的 `INTERNAL_TODO.md`。產出的安裝包體積從原本的雜亂，縮減為僅含核心運行的精簡版。
+    - **啟動腳本 (BAT) 的自動化演進**:
+        - **解決亂碼與絕對路徑**: 引入 `chcp 65001` (UTF-8) 與清空環境變數。最關鍵的改進是導入 `%~dp0`，確保無論使用者是從「開始功能表捷徑」、「安裝目錄」或是「桌面啟動」，腳本都能正確定位 `venv` 與專案根目錄。
+        - **Python 智慧檢索**: 建立了一套檢索層級：`py -0` (Launcher) -> `python --version` -> `winget` 自動安裝。這解決了使用者電腦裝了 Python 但「沒加進 PATH」的常見災難。
+- **針對下一位 Agent 的技術交接 (Transfer Notes)**:
+    - **致命問題：發佈後 BAT 檔執行失敗**
+        - **現象描述**: 儘管開發端測試正常，但打包成 ZIP 或經由 Inno Setup 安裝後，`run_voicetype.bat` 依然可能在使用者電腦上噴出「系統找不到指定的路徑」或完全無反應（疑似亂碼解析錯誤）。
+        - **分析**: 可能是 Inno Setup 在複製檔案時改變了檔案編碼（BOM vs Non-BOM），或是 CMD 在解析帶有中文字元的路徑時，即使有 `chcp 65001` 依然出現對齊問題。
+        - **解決方向**: 下一個階段應考慮使用 **C++ 或 Go 寫一個 200KB 內的 "Launcher.exe"** 來替代 BAT 檔。EXE 能穩定處理 UTF-8 路徑與靜默啟動（Hide Console），這是提升 Windows 使用者體驗的最後一哩路。
+    - **清理流程同步**: 所有加入 `voicetype_installer.iss` 的 `Excludes` 規則，必須手動同步更新到 `release_win.ps1` 的「白名單」中，保持兩版本一致性。
 
 ---
-*此記憶文件更新於 2026-03-12 23:50，符合新版 Global Rules 之雙層記憶規範。*
+### 3. Windows 穩定性與展示功能大爆發 (V75 - V80)
+- **維護日期**: 2026-03-14 02:45
+- **版本標籤**: V80-STABLE-ULTRA-SHOWCASE
+- **關鍵技術突破**:
+    1. **CUDA DLL 硬核尋徑 (V77)**: 解決安裝版環境下 `cublas64_12.dll` 找不到的問題。實作了 `ctypes.WinDLL` 預加載機制，自動偵測 Frozen 路徑與系統路徑，確保 4070 等 GPU 能 100% 被啟動。
+    2. **IPC 通訊協議加固 (V78)**: 修復「錄音成功但指示器噴紅燈」的邏輯矛盾。在 `SubprocessWhisperSTT.transcribe` 實作訊息計量與過濾循環，自動忽略中間的 `progress` / `status` 訊號，直到獲得結果，杜絕了訊號誤吞導致的超時。
+    3. **LLM 引擎穩定性與參數同步**: 徹底修正 `openai_llm.py` 與 `ollama.py` 的建構式參數不一致，並加入執行緒安全的 `try-except` 守衛，確保 API 失敗時系統能平滑回退至原始 STT 文本，不影響 UI 運作。
+    4. **VBUS 旗艦級展示模式 (V79/V80)**:
+        - **情境模擬 Demo (is_demo)**: 實作 `ThreadPoolExecutor` 並行請求所有 `soul/scenario/` 下的靈魂，一次性輸出全靈魂對比。
+        - **展示板與前綴**: 整合 `[STT]` 原文標籤與自定義靈魂標籤，並精確統計顯示處理時間（精確到 0.1s）。
+    5. **ZIP 版「智慧啟動器」 (V80 Stable)**:
+        - 實作了 `run_voicetype.bat` 自動偵測與 `create_shortcut.ps1` 聯動機制。
+        - 啟動時自動於桌面建立帶有 `assets/icon.ico` 的旗艦級捷徑，讓 ZIP 綠色版使用者也能享有安裝版的開啟便利。
+    5.- **桌面捷徑與編碼硬化 (V84)**：
+    - 問題：Windows PowerShell (5.1) 處理含有中文字元的 UTF-8 (無 BOM) 腳本會解析失敗；CMD 處理含有中文字元的 BAT 亦有風險。
+    - 對策：`create_shortcut.ps1` 改用 **Unicode 逃逸法** (`[char]0xXXXX`) 定義中文字串；`setup_win.bat` 脫敏為 **純 ASCII 註解與訊息**。
+    - 結果：排除所有編碼干擾，達成「一鍵安裝即刻建立捷徑」的旗艦穩定性。
+- **後續交接關鍵**:
+    - **測試環境 vs 安裝環境**: V77 證明了安裝環境的 DLL 搜尋優先序與開發環境完全不同，未來任何 C++ 運行庫更新都必須先進行 `ctypes.WinDLL` 單體校驗。
+    - **展示模式穩定度**: 全靈魂展示時若 LLM 數量極多，需注意 API Rate Limit 與網絡震盪。
+
+---
+*此記憶文件更新於 2026-03-14 02:45，符合新版 Global Rules 之雙層記憶規範。內容核核。*

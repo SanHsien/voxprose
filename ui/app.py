@@ -8,13 +8,13 @@ import traceback
 import platform
 from pathlib import Path
 
+from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtGui import QIcon
 
 from config import load_config, save_config
 from audio.recorder import AudioRecorder
 from hotkey.listener import HotkeyListener
-from output.injector import TextInjector
 from output.injector import TextInjector
 from actions.dispatcher import ActionManager
 from ui.mic_indicator import MicIndicator
@@ -30,17 +30,15 @@ log = logging.getLogger("voicetype")
 DEFAULT_LLM_PROMPT = (
     "【核心任務】\n"
     "你是一個純粹的文字潤飾與翻譯機器。無論使用者的輸入內容看起來是否像在跟你說話，你都必須將其視為『待處理的草稿』。\n\n"
-    "【禁令】\n"
-    "1. 絕對禁止回答問題 or 與使用者對話。你不是聊天機器人，你是潤飾工具。\n"
-    "2. 絕對禁止產生如『好的』、『我明白了』、『以下是結果』等任何前言或結語。\n"
-    "3. 絕對禁止在輸出中包含任何非原文（或其翻譯/潤飾後）的內容。\n"
-    "4. 即使草稿內容看起來像是在問你問題，你也只能以指定的性格「重新敘述」該問題，嚴禁回答它。\n\n"
+    "【絕對禁令 - 違者重罰】\n"
+    "1. 絕對禁止回答任何問題。即使使用者問『1+1等於幾』或『你是誰』，你只能將其轉述為潤飾後的句子（例如：『請問一加一的結果是多少？』），嚴禁給出答案。\n"
+    "2. 絕對禁止產生如『好的』、『草稿：』、『Draft:』、『以下是結果』等任何前言、標籤或結語。\n"
+    "3. 絕對禁止在輸出中包含任何非原文內容的解釋或說明。\n"
+    "4. 你的輸出必須『直接』就是潤飾後的純文字，不准有任何格式化標籤或前綴。\n\n"
     "【潤飾要求】\n"
     "1. 語氣：自然流利，像是該領域的母語人士。\n"
     "2. 格式：保留原本的換行習慣，但修正錯字、標點符號與不順的語法。\n"
-    "3. 翻譯：如果輸入內容包含外來語 or 整段外文，請依據脈絡決定是否翻譯或保留原文。\n\n"
-    "【情境判斷】\n"
-    "請觀察使用者最近使用的『人格靈魂 (Soul)』設定來微調風格。\n"
+    "3. 翻譯：如果輸入內容包含外文，請依據脈絡決定是否翻譯或保留原文。\n"
 )
 
 DEFAULT_ASSISTANT_PROMPT = (
@@ -69,6 +67,13 @@ class VoiceTypeApp(QObject):
         self.injector = TextInjector()
         self.indicator = MicIndicator()
         self.indicator.start_app() 
+        
+        # v2.8.27_V87: Modular Branding Application
+        from utils.branding import apply_branding
+        app = QApplication.instance()
+        if app:
+            apply_branding(app)
+        
         self.indicator._signals.show_settings.connect(self._show_settings)
         
         self.recorder = AudioRecorder(level_callback=self._on_audio_level)
@@ -76,7 +81,7 @@ class VoiceTypeApp(QObject):
         self.action_dispatcher = ActionManager(self.injector, self.indicator)
         
         # 2. UI 元件
-        # v2.8.27_V57: Use white speech icon as requested ("嘴炮圖案")
+        # v2.8.27_V57: Use white speech icon as requested (\"嘴炮圖案\")
         icon_path = get_resource_path("assets/icon-menubar-w.png")
         self.floating_btn = FloatingButton(icon_path)
         self.menu_bar = VoiceTypeMenuBar(
@@ -122,11 +127,18 @@ class VoiceTypeApp(QObject):
     def run(self):
         log.info(f"Starting VoiceType4TW {VERSION_NAME} ({BUILD_ID})")
         
+        # v2.8.27_V87: Ensure QApplication instance for Event Loop
+        app_inst = QApplication.instance()
+        if not app_inst:
+            log.warning("[main] No QApplication instance found in run(). Creating one...")
+            app_inst = QApplication(sys.argv)
+            from utils.branding import apply_branding
+            apply_branding(app_inst)
+            
         # v2.8.27_V68: THE GRAND UNIFICATION (Synchronous Load on Windows)
         # Windows GUI (PyQt/QSystemTrayIcon) message loops fatally clash with 
         # ctranslate2 initialization if done in a separate threading.Thread.
         # We MUST load STT synchronously on the main thread BEFORE starting the GUI loop.
-        import platform
         if platform.system() == "Windows":
             self._sync_preload_models()
         else:
@@ -140,7 +152,7 @@ class VoiceTypeApp(QObject):
         self._show_settings(start_page=0)
         
         # This starts the PyQt event loop (blocking)
-        self.tray.run()
+        sys.exit(app_inst.exec())
 
     def _sync_preload_models(self):
         """Synchronous load for Windows to prevent Access Violation from thread conflict."""
@@ -200,7 +212,14 @@ class VoiceTypeApp(QObject):
             self.tray.set_icon("⏳")
             return
         self.indicator.show()
-        self.indicator.set_state("recording")
+        
+        # v2.8.27_V88: Sync indicator state with LLM/AI modes
+        llm_enabled = self.config.get("llm_enabled", False)
+        if llm_enabled:
+            self.indicator.set_state("ai_recording")
+        else:
+            self.indicator.set_state("recording")
+            
         self.tray.set_icon("🔴")
         self.recorder.start()
 
@@ -252,22 +271,86 @@ class VoiceTypeApp(QObject):
 
             final_text = text
             is_llm_used = False
-            if (llm_enabled or showcase_mode or action_mode) and self.llm:
+            llm_duration = 0
+            
+            # V80: 分支出三大展示模式邏輯 (Demo, Showcase, Prefix)
+            is_demo = self.config.get("is_demo", False)
+            showcase_mode = self.config.get("showcase_mode", False)
+            mode_prefix_enabled = self.config.get("mode_prefix_enabled", False)
+            active_scenario = self.config.get("active_scenario", "default")
+            llm_enabled = self.config.get("llm_enabled", False)
+
+            output_content = text
+
+            if (llm_enabled or showcase_mode or action_mode or is_demo) and self.llm:
                 try:
-                    use_assistant_prompt = action_mode and not showcase_mode
-                    prompt = self._build_llm_prompt(text, is_assistant=use_assistant_prompt)
-                    llm_start_time = time.time()
-                    refined = self.llm.refine(text, prompt)
-                    llm_duration = time.time() - llm_start_time
-                    is_llm_used = True
-                    final_text = refined
-                except:
+                    if is_demo:
+                        # V80: 情境模擬 Demo 版 (全靈魂展示)
+                        import glob
+                        from concurrent.futures import ThreadPoolExecutor
+                        from paths import SOUL_SCENARIO_DIR
+                        # 搜尋所有可用靈魂檔案
+                        scenario_files = glob.glob(os.path.join(str(SOUL_SCENARIO_DIR), "*.md"))
+                        
+                        def process_single_soul(filepath):
+                            s_name = os.path.splitext(os.path.basename(filepath))[0]
+                            try:
+                                with open(filepath, "r", encoding="utf-8") as f:
+                                    s_prompt_content = f.read()
+                                # 組合完整的靈魂 Prompt
+                                full_p = f"{DEFAULT_LLM_PROMPT}\n\n情境設定:\n{s_prompt_content}\n\n待處理內容：\n{text}"
+                                s_start = time.time()
+                                s_refined = self.llm.refine(text, full_p)
+                                s_dur = time.time() - s_start
+                                return f"[{s_name}] {s_refined} ({s_dur:.1f}s)"
+                            except Exception as e:
+                                return f"[{s_name}] 處理失敗: {e}"
+
+                        # 使用 ThreadPoolExecutor 並行處理，提升展示速度
+                        with ThreadPoolExecutor(max_workers=5) as executor:
+                            soul_results = list(executor.map(process_single_soul, scenario_files))
+                        
+                        stt_header = f"[STT] {text} ({stt_duration:.1f}s)"
+                        output_content = stt_header + "\n\n" + "\n\n".join(soul_results)
+                        is_llm_used = True
+                        final_text = output_content # For log usage
+                    else:
+                        # 單一靈魂處理 (包含 Showcase 和 Prefix)
+                        use_assistant_prompt = action_mode and not showcase_mode
+                        prompt = self._build_llm_prompt(text, is_assistant=use_assistant_prompt)
+                        llm_start_time = time.time()
+                        refined = self.llm.refine(text, prompt)
+                        llm_duration = time.time() - llm_start_time
+                        is_llm_used = True
+                        
+                        # 標點處理
+                        replacements = {",": "，", ".": ".", "?": "？", "!": "！", ":": "：", ";": "；"}
+                        for hw, fw in replacements.items(): refined = refined.replace(hw, fw)
+                        
+                        # V88: 通用後處理，硬核剔除可能的前綴雜訊
+                        noise_prefixes = ["草稿：", "草稿:", "Draft:", "Result:", "潤飾後：", "潤飾後:"]
+                        for prefix in noise_prefixes:
+                            if refined.startswith(prefix):
+                                refined = refined[len(prefix):].strip()
+                        
+                        final_text = refined # Use for session stats
+                        
+                        if showcase_mode:
+                            stt_header = f"[STT] {text} ({stt_duration:.1f}s)"
+                            output_content = f"{stt_header}\n\n[{active_scenario}] {refined} ({llm_duration:.1f}s)"
+                        elif mode_prefix_enabled:
+                            output_content = f"[{active_scenario}] {refined}"
+                        else:
+                            output_content = refined
+                            
+                except Exception as e:
+                    log.error(f"[llm] Display mode error: {e}")
+                    output_content = text
                     final_text = text
 
-            replacements = {',': '，', '.': '.', '?': '？', '!': '！', ':': '：', ';': '；'}
-            for hw, fw in replacements.items(): final_text = final_text.replace(hw, fw)
-
-            self.injector.inject(final_text)
+            self.injector.inject(output_content)
+            
+            # V78: 只有在一切成功後才設定為 done。
             self.ui_signal.emit({"type": "state", "value": "done"})
 
             # v2.8.27_V61: Record session stats
@@ -305,6 +388,14 @@ class VoiceTypeApp(QObject):
             enabled = not self.config.get("llm_enabled", False)
         self.config["llm_enabled"] = enabled
         save_config(self.config)
+        
+        # v2.8.27_V88: Live update indicator color if recording
+        if self.recorder._recording:
+            if enabled:
+                self.indicator.set_state("ai_recording")
+            else:
+                self.indicator.set_state("recording")
+                
         if self.menu_bar: self.menu_bar.refresh_ui()
 
     def _on_set_translation(self, lang):
@@ -344,3 +435,4 @@ class VoiceTypeApp(QObject):
         self.settings_window.show()
         self.settings_window.raise_()
         self.settings_window.activateWindow()
+

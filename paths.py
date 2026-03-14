@@ -97,9 +97,8 @@ STATS_DIR = SYNC_BASE_DIR / "stats"
 AI_PERMANENT_MEMORY_PATH = SYNC_BASE_DIR / "ai_permanent_memory.md"
 
 APP_CONFIG_DIR = APP_DATA_DIR
-VERSION_NAME = "2.8.27 Coffee Edition (V69-ALLOC-CONSOLE)"
-BUILD_ID = "BUILD-0312-V69-ALLOC-CONSOLE"
-KEYSTRIKE_LOG_PATH = APP_DATA_DIR / "keystrike.log"
+VERSION_NAME = "V2.8.27 Windows Stable (V88-LLM-HARDENED)"
+BUILD_ID = "BUILD-2026-03-14-V88"
 
 # 舊版路徑 (用於遷移)
 OLD_SOUL_PATH = APP_DATA_DIR / "soul.md"
@@ -151,7 +150,9 @@ def _initialize_data():
         sync_defaults("soul/scenario", SOUL_SCENARIO_DIR)
         sync_defaults("soul/format", SOUL_FORMAT_DIR)
         
-        print(f"[paths] Data initialized. SYNC_BASE_DIR: {SYNC_BASE_DIR}")
+        # v2.8.27_V73: Privacy Filter for Sync Path Log
+        display_path = str(SYNC_BASE_DIR).replace(str(Path.home()), "~")
+        print(f"[paths] Data initialized. SYNC_BASE_DIR: {display_path}")
     except Exception as e:
         print(f"[paths] CRITICAL: Data initialization failed: {e}")
 
