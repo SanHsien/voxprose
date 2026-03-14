@@ -18,7 +18,7 @@ ZIP 咖啡版：為了感謝 Buy me a coffee的朋友，所以這個版本不只
 
 👉下載連結：
 [嘴炮輸入法 免費版 Mac Version](https://portaly.cc/jimmy4tw/product/AcZCAt5kVqhnmLFYCYIY) | [嘴炮輸入法 咖啡版 Mac Version](https://portaly.cc/jimmy4tw/product/9lXTA2fYnspWugYuUvAL)
-[嘴炮輸入法 咖啡版 Windows Version](https://hi.jimmy4.tw/product/Ow5uKOdcHzgsyxMc8XE6)
+| [嘴炮輸入法 咖啡版 Windows Version](https://hi.jimmy4.tw/product/Ow5uKOdcHzgsyxMc8XE6)
 
 ---
 
