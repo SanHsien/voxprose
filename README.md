@@ -153,33 +153,11 @@ ZIP 咖啡版：為了感謝 Buy me a coffee的朋友，所以這個版本不只
 
 ---
 
----
-
-## 💻 各平台快速安裝
-
-### macOS (Apple Silicon / Intel)
-打開終端機，貼上這行指令：
-```bash
-curl -fsSL https://raw.githubusercontent.com/jfamily4tw/voicetype4tw-mac/main/install.sh | bash
-```
-
-#### 🔍 麥克風權限與無聲診斷
-
-![麥克風權限與無聲診斷](assets/mictest-01.png)
-
-若安裝後錄音「沒有聲音」或「權限無法取得」，請在終端機執行診斷腳本：
-```bash
-python3 diagnose_mic.py
-```
-若顯示授權正常但仍無聲，請執行修復指令並重啟：
-```bash
-tccutil reset Microphone
-```
-
 ### Windows (v2.8.27 咖啡版)
-此分支分享
 
-ZIP安裝版下載後，解壓縮到你想要放置的位置，記得不要放在要求系統管理員的目錄下面
+![批次安裝](assets/batch-install.jpg)
+
+ZIP安裝版下載後，解壓縮到你想要放置的位置，記得不要放在要求系統管理員權限的目錄下面（或是你手動給權限）
 
 安裝所需軟體與模型，點擊 setup_win.bat
 
@@ -233,7 +211,7 @@ python main.py
 
 ## 系統需求
 
-- **Windows** 10/11 (Python 3.10+，推薦搭配 NVIDIA GPU 以使用 CUDA 加速)。會另開github  分支    
+- **Windows** 10/11 (Python 3.10+，推薦搭配 NVIDIA GPU 以使用 CUDA 加速)。    
 - **記憶體**: 建議 16GB 以上。
 
 ---
