@@ -182,7 +182,7 @@ tccutil reset Microphone
 ```
 
 ### Windows (v2.8.27 正式版)
-另開分支分享
+另開分支分享 https://github.com/jfamily4tw/voicetype4tw-mac/blob/win-stable/README.md
 
 ---
 
