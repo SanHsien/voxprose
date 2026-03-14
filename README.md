@@ -1,9 +1,26 @@
-# VoiceType4TW 嘴炮輸入法 (v2.8.0 旗艦版)
+# VoiceType4TW 嘴炮輸入法 (v2.8.27 PC版V90)
 
-主要開發者：吉米丘  
+主要開發者：吉米丘 , CC58TW 
 協助開發者：Gemini、Nebula (Google AI)
 
-全方位本地語音輸入工具，按下快捷鍵即刻開講，AI 自動幫你潤飾、翻譯並精準輸入到任何視窗。
+吉米與女兒CC58TW全新開發的嘴炮輸入法，讓你出一張嘴就能打字的輸入法
+
+免費版歡迎大家測試使用，GitHub開源的Python版，想自己抓下來研究、裝在電腦裡都OK
+
+
+目前有mac有三個版本：
+
+Github版：原始碼全部開源，想玩的自己去下載安裝，完全免費，但無法提供繼續支援，需要麻煩各位高手自己研究解決
+
+![DMG免學程式版](assets/macOSv2.8.27.K.DMG.png)
+
+DMG 免費版：打包成DMG直接下載，拖入左邊的應用程式，再依照安裝說明或是我提供的影片來繞過Apple的限制就可以使用，有語音辨識STT，也有底層靈魂可以設定，與咖啡版差別在於沒有多個靈魂可以選擇注入，👉 [下載連結](https://portaly.cc/jimmy4tw/product/AcZCAt5kVqhnmLFYCYIY)
+
+![DMG免費版](assets/macOS-DMG-free.png)
+
+DMG 咖啡版：為了感謝 Buy me a coffee的朋友，所以這個版本不只有底層靈魂可以注入，還可以有多個靈魂可以自行定義後選擇注入，👉 [下載連結](https://portaly.cc/jimmy4tw/product/9lXTA2fYnspWugYuUvAL)
+
+![DMG咖啡版](assets/macOS-DMG-Coffee.png) 
 
 ---
 
@@ -16,14 +33,14 @@
 
 ## 為什麼做這套工具
 
-![Dashboard](assets/screenshot-01.png)
+![Dashboard](assets/screenshot-pc-01.jpg)
 
 靈感來自TypeLess這類語音輸入工具，但因為授權限制與雲端依賴，我就想：能不能做一套「完全可以在本地端自己掌握」的語音輸入工具  
 於是就結合Apple Silicon的本地Whisper能力，再加上Gemini、Nebula等AI夥伴，一起打造出這套專為Mac打造的VoiceType4TW，也就是嘴炮輸入法
 
 ---
 
-![辨識AI](assets/screenshot-02.png)
+![辨識AI](assets/screenshot-pc-02.jpg)
 
 ## 功能特色
 
@@ -57,7 +74,7 @@
 
 ## ✨ 靈魂治理：三層疊加系統
 
-![靈魂治理](assets/screenshot-03.png)
+![靈魂治理](assets/screenshot-pc-03.jpg)
 
 這套系統最核心的特色在於您可以自由調配 AI 的「靈魂組成」：
 
@@ -71,7 +88,7 @@
 
 ## 詞彙記憶
 
-![詞彙記憶](assets/screenshot-04.png)
+![詞彙記憶](assets/screenshot-pc-04.jpg)
 
 因為吉米常常需要輸入一些專有名詞，或者是客戶的品牌名稱，所以我在這個地方設計了一個詞彙新增的功能，可以手動輸入我們想要辨識的專有名詞
 
@@ -88,31 +105,27 @@
 
 ![翻譯功能](assets/screenshot-menubar.jpg)
 
-## 魔術語指令 Magic Commands
+## 連同靈魂情境一起翻譯
 
-你可以直接用語音啟動或關閉翻譯模式，螢幕會有閃光與音效提示目前狀態，或是在系統列上快速切換
+我設定了翻成英文、翻成日文與恢復原狀等三個選項
 
-### 啟動翻譯
+這些翻譯可以疊加在上面靈魂注入後的結果，所以可以選擇扮演哪個靈魂，然後用什麼語言輸出
 
-說出以下類型指令，即會切換為翻譯模式，並將後續內容翻譯成指定語言：
 
-- 「把下面這段話翻譯成英文」  
-- 「以下內容翻譯成日文」  
-- 「把內容翻譯成德文」  
 
-### 恢復正常模式
+![雲端同步](assets/screenshot-pc-07.jpg)
 
-想回到一般語音輸入模式時，可以說：
+## 自定同步資料夾
 
-- 「恢復正常」  
-- 「取消翻譯」  
-- 「回到正常模式」  
+因為我常常需要在Mac跟PC的之間切換，所以我希望我的記憶跟常用的這些詞彙可以共用，因此我設計了雲端目錄夾同步的一個概念。
+
+只要你把它設定在你的同步的目錄，不管你是用iCloud、是用Google Drive、是用NAS來做同步都可以。
 
 ---
 
 ## 數據統計
 
-![數據統計](assets/screenshot-05.png)
+![數據統計](assets/screenshot-pc-05.jpg)
 
 這套系統會記錄你輸入了多少語音，語音總長度是多少，然後再除以一般人平均每分鐘的打字字數，總結出幫你省下多少時間的統計。
 
@@ -122,7 +135,7 @@
 
 ## 系統設定
 
-![系統設定](assets/screenshot-06.png)
+![系統設定](assets/screenshot-pc-06.jpg)
 
 設定成要按哪個按鈕來觸發語音輸入法的設定頁面。在這個地方可以設定按住錄音 (PTT) 或 單擊開關 (Toggle) 的運作方式。
 
@@ -168,15 +181,18 @@ python3 diagnose_mic.py
 tccutil reset Microphone
 ```
 
-### Windows (v2.8.0+ 穩定版)
-1. 下載並解壓縮本專案。
-2. 確保已安裝 Python 3.10+。
-3. 雙擊執行 `setup_win.bat` 進行自動化環境佈署與依賴安裝。
-4. 之後只需雙擊 `run_voicetype.bat` 即可啟動程式。
-5. **首次使用建議**：點選右下角托盤 > 偏好設定 > `🔍 執行系統自我檢測`，確保 CUDA 與相關依賴完整。
+### Windows (v2.8.27 咖啡版)
+此分支分享
 
-#### 💡 Windows 打包說明
-為了極致的穩定性與速度，我們推薦使用「Installer + venv」模式（即上述 `setup_win.bat` 流程），這比單一 EXE 封裝更不容易觸發防毒軟體誤報或 C++ 核心相容性問題。
+ZIP安裝版下載後，解壓縮到你想要放置的位置，記得不要放在要求系統管理員的目錄下面
+
+安裝所需軟體與模型，點擊 setup_win.bat
+
+安裝完成之後，桌面點擊「嘴炮輸入法」執行
+
+或是安裝目錄下執行
+run_voicetype4tw.bat
+
 
 ---
 
@@ -200,8 +216,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-> ⚠️ 首次執行時，macOS 會詢問你是否允許「終端機」使用麥克風與輔助使用權限，請務必允許。  
-> 路徑：系統設定 → 隱私權與安全性 → 麥克風 / 輔助使用
 
 ---
 
@@ -224,23 +238,21 @@ python main.py
 
 ## 系統需求
 
-- **macOS** 12+ (Apple Silicon 推薦，可用 MLX/CoreML 加速)。
-- **Windows** 10/11 (Python 3.10+，推薦搭配 NVIDIA GPU 以使用 CUDA 加速)。
+- **Windows** 10/11 (Python 3.10+，推薦搭配 NVIDIA GPU 以使用 CUDA 加速)。會另開github  分支    
 - **記憶體**: 建議 16GB 以上。
 
 ---
 
 ## 支援與回饋
 
-<img src="assets/donate-linepay.jpg" alt="歡迎抖內" width="200" />
 
 如果你覺得嘴炮輸入法對你有幫助，歡迎：
 
 - 在GitHub按顆星支持  
 - 分享給身邊常需要打字、開會做紀錄、寫文件的朋友  
-- 請吉米喝杯咖啡、小額贊助，支持持續開發  
+- [請吉米喝杯咖啡、小額贊助，支持持續開發](https://hi.jimmy4.tw/support)
 
-有任何功能建議、Bug回報、或想一起共創的點子，都可以：
+有任何功能建議、或想一起共創的點子，都可以：
 
 - 直接在GitHub開Issue  
 - 透過吉米的SNS管道來找我聊聊  
