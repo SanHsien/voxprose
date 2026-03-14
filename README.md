@@ -12,7 +12,7 @@
 
 Github版：原始碼全部開源，想玩的自己去下載安裝，完全免費，但無法提供繼續支援，需要麻煩各位高手自己研究解決
 
-![批次安裝](asscets/batch-install.jpg)
+![批次安裝](assets/batch-install.jpg)
 
 ZIP 咖啡版：為了感謝 Buy me a coffee的朋友，所以這個版本不只有底層靈魂可以注入，還可以有多個靈魂可以自行定義後選擇注入，直接下載點擊setup_win.bat就可以安裝到好👉 [下載連結](#)
 
