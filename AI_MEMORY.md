@@ -1,13 +1,13 @@
-# 🧠 VoiceType4TW macOS 開發記憶 (2026-03-06 穩定測試版更新)
+# 🧠 VoiceType4TW macOS 開發記憶 (2026-03-14 v2.8.27 Mac版更新)
 
 ## 📍 專案當前狀態
-- **版本**: v2.8.27 (Stable)
-- **狀態**: **[正式穩定版]** - 全域深色模式適配、Coffee/Free 雙版本發佈。
+- **版本**: v2.8.27 (Mac版)
+- **狀態**: **[正式穩定版]** - 由吉米與女兒 CC58TW 共同開發，提供 GitHub、Free、Coffee 三種發佈模式。
 - **核心功能**: 
   - 全域強制深色模式 (Lock Dark Appearance & Fusion Style)。
   - 系統列圖示 (Tray Icon) 支援 macOS Template 模式（隨系統換色）。
-  - 自動化打包流程：一鍵產出 Coffee 版與 Free 版 DMG。
-  - 修復 MLX 與 OpenSSL 在封裝內部的二進位路徑相容性。
+  - 自動化打包流程：產出 GitHub/Free/Coffee 不同權限的 DMG 分發包。
+  - 修正關於視窗 (About Window) 開發者資訊，加入 CC58TW。
   - 支援全鍵盤熱鍵與硬體碼 (NativeCode) 錄製。
 
 ## 🗄 重要路徑
@@ -63,13 +63,15 @@
   - **系統層級**：透過 `AppKit` 調用 `setAppearance_("DarkAqua")`，鎖定原生選單外觀。
   - **DMG 層級**：建立帶有背景圖與應用程式捷徑連結的正規 DMG 封裝。
 
-### 7. Coffee / Free 雙版本發佈機制
-- **區分核心**：透過 `ui/menu_bar.py` 與 `setup.py` 的版本標籤實作功能分流。
-- **自動化**：`build_all.sh` 配合 `pack_dmg.sh` 支援環境清理、補丁修復與最終打包。
+### 7. Coffee / Free / GitHub 雙軌發佈機制
+- **區分核心**：透過 `ui/menu_bar.py` 與 `setup.py` 的標籤實作功能分流 (GitHub版完全開源、Free版底層靈魂、Coffee版多重靈魂)。
+- **自動化**：`build_all.sh` 配合 `pack_dmg.sh` 支援不同權限版本的封面圖與 DMG 封裝。
 
 ---
 
-## 👥 開發交接與環境遷移 (cc58tw)
+## 👥 主要開發團隊
+- **吉米丘**：創始人與架構師。
+- **CC58TW**：主要開發者與產品設計。
 - **接手開發者代號**: `cc58tw`
 - **遷移目標**: 在新電腦上完整復原開發環境（Python 3.12 + PyQt6 + Metal/MLX）。
 - **關鍵注意事項**:

@@ -1,9 +1,26 @@
-# VoiceType4TW 嘴炮輸入法 (v2.8.0 旗艦版)
+# VoiceType4TW 嘴炮輸入法 (v2.8.27 Mac版)
 
-主要開發者：吉米丘  
+主要開發者：吉米丘 , CC58TW 
 協助開發者：Gemini、Nebula (Google AI)
 
-全方位本地語音輸入工具，按下快捷鍵即刻開講，AI 自動幫你潤飾、翻譯並精準輸入到任何視窗。
+吉米與女兒CC58TW全新開發的嘴炮輸入法，讓你出一張嘴就能打字的輸入法
+
+免費版歡迎大家測試使用，GitHub開源的Python版，想自己抓下來研究、裝在電腦裡都OK
+
+
+目前有mac有三個版本：
+
+Github版：原始碼全部開源，想玩的自己去下載安裝，完全免費，但無法提供繼續支援，需要麻煩各位高手自己研究解決
+
+[DMG免學程式版] (assets/macOSv2.8.27.K.DMG.png)
+
+DMG 免費版：打包成DMG直接下載，拖入左邊的應用程式，再依照安裝說明或是我提供的影片來繞過Apple的限制就可以使用，有語音辨識STT，也有底層靈魂可以設定，與咖啡版差別在於沒有多個靈魂可以選擇注入，👉 [下載連結：](https://portaly.cc/jimmy4tw/product/AcZCAt5kVqhnmLFYCYIY)
+
+[DMG免費版] (assets/macOS-DMG-free.png)
+
+DMG 咖啡版：為了感謝 Buy me a coffee的朋友，所以這個版本不只有底層靈魂可以注入，還可以有多個靈魂可以自行定義後選擇注入，👉 [下載連結：](https://portaly.cc/jimmy4tw/product/9lXTA2fYnspWugYuUvAL)
+
+[DMG咖啡版] (assets/macOS-DMG-Coffee.png) 
 
 ---
 
@@ -168,12 +185,8 @@ python3 diagnose_mic.py
 tccutil reset Microphone
 ```
 
-### Windows (v2.8.0 正式版)
-1. 下載本專案並進入目錄。
-2. 建議使用 Python 3.10+ 環境。
-3. 執行 `pip install -r requirements-win.txt` (支援 CUDA 加速)。
-4. 執行 `python main.py` 啟動。
-5. **首次使用建議**：點選右下角托盤 > 偏好設定 > `🔍 執行系統自我檢測`，確保 CUDA 與相關依賴完整。
+### Windows (v2.8.27 正式版)
+另開分支分享
 
 ---
 
@@ -222,22 +235,21 @@ python main.py
 ## 系統需求
 
 - **macOS** 12+ (Apple Silicon 推薦，可用 MLX/CoreML 加速)。
-- **Windows** 10/11 (Python 3.10+，推薦搭配 NVIDIA GPU 以使用 CUDA 加速)。
+- **Windows** 10/11 (Python 3.10+，推薦搭配 NVIDIA GPU 以使用 CUDA 加速)。會另開github  分支    
 - **記憶體**: 建議 16GB 以上。
 
 ---
 
 ## 支援與回饋
 
-<img src="assets/donate-linepay.jpg" alt="歡迎抖內" width="200" />
 
 如果你覺得嘴炮輸入法對你有幫助，歡迎：
 
 - 在GitHub按顆星支持  
 - 分享給身邊常需要打字、開會做紀錄、寫文件的朋友  
-- 請吉米喝杯咖啡、小額贊助，支持持續開發  
+- [請吉米喝杯咖啡、小額贊助，支持持續開發](https://hi.jimmy4.tw/support)
 
-有任何功能建議、Bug回報、或想一起共創的點子，都可以：
+有任何功能建議、或想一起共創的點子，都可以：
 
 - 直接在GitHub開Issue  
 - 透過吉米的SNS管道來找我聊聊  
