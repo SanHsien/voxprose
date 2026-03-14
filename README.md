@@ -12,15 +12,15 @@
 
 Github版：原始碼全部開源，想玩的自己去下載安裝，完全免費，但無法提供繼續支援，需要麻煩各位高手自己研究解決
 
-[DMG免學程式版] (assets/macOSv2.8.27.K.DMG.png)
+![DMG免學程式版](assets/macOSv2.8.27.K.DMG.png)
 
-DMG 免費版：打包成DMG直接下載，拖入左邊的應用程式，再依照安裝說明或是我提供的影片來繞過Apple的限制就可以使用，有語音辨識STT，也有底層靈魂可以設定，與咖啡版差別在於沒有多個靈魂可以選擇注入，👉 [下載連結：](https://portaly.cc/jimmy4tw/product/AcZCAt5kVqhnmLFYCYIY)
+DMG 免費版：打包成DMG直接下載，拖入左邊的應用程式，再依照安裝說明或是我提供的影片來繞過Apple的限制就可以使用，有語音辨識STT，也有底層靈魂可以設定，與咖啡版差別在於沒有多個靈魂可以選擇注入，👉 [下載連結](https://portaly.cc/jimmy4tw/product/AcZCAt5kVqhnmLFYCYIY)
 
-[DMG免費版] (assets/macOS-DMG-free.png)
+![DMG免費版](assets/macOS-DMG-free.png)
 
-DMG 咖啡版：為了感謝 Buy me a coffee的朋友，所以這個版本不只有底層靈魂可以注入，還可以有多個靈魂可以自行定義後選擇注入，👉 [下載連結：](https://portaly.cc/jimmy4tw/product/9lXTA2fYnspWugYuUvAL)
+DMG 咖啡版：為了感謝 Buy me a coffee的朋友，所以這個版本不只有底層靈魂可以注入，還可以有多個靈魂可以自行定義後選擇注入，👉 [下載連結](https://portaly.cc/jimmy4tw/product/9lXTA2fYnspWugYuUvAL)
 
-[DMG咖啡版] (assets/macOS-DMG-Coffee.png) 
+![DMG咖啡版](assets/macOS-DMG-Coffee.png) 
 
 ---
 
