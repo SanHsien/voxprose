@@ -214,3 +214,50 @@ Dashboard→home, 辨識AI→mic, 靈魂設定→auto_awesome
 ---
 
 *此記憶文件由 AI 於 2026-03-20 更新，標記 v2.9.2 Titanium UI 全面改版里程碑。*
+
+---
+
+### 📅 2026-03-20 收工整理 — v2.9.6 stable 功能完成 & DMG 打包
+
+#### 🔧 功能新增
+
+**1. 詞彙模糊修正（vocab/manager.py）**
+- 新增 `_edit_distance_1()` + `apply_vocab_correction()` — 滑動視窗 edit-distance-1 比對
+- 解決同音異字問題（嘴炮 ↔ 嘴砲），Whisper 輸出後立即修正（step 0.5，LLM 前後皆執行）
+- LLM prompt 也注入詞彙強制修正指引（step 5）
+
+**2. 長期記憶注入（memory/manager.py + main.py）**
+- `get_context_for_llm()` 原本有定義但**從未被呼叫**，現在整合至 `_build_llm_prompt()` step 6
+- 由 `memory_enabled` config 控制開關
+- 新增 `purge_and_summarize()`：手動壓縮所有 entries → digest（top-15 詞彙 + 5 代表語句），原始資料歸檔保留
+- UI 增加「壓縮本週記憶」按鈕 + 記憶注入 toggle（位於 purge 列前）
+
+**3. AI 學習清單 — 刪除功能**
+- 新增「刪除」按鈕，呼叫 `vocab.manager.remove_learned_word()`
+- 清單高度固定 148px（約 6 筆），騰出空間給長期記憶區塊
+
+**4. 同步燈號改綠**
+- 同步狀態 ACTIVE 燈改為 `#00e676`（綠色），與模型狀態燈一致
+- 使用 RichText `<span>` 實現雙色文字
+
+#### 🐛 Icon 系統 Bug 修正
+
+| 問題 | 根因 | 修正 |
+|------|------|------|
+| `ms_icon_pixmap()` 輸出空白 | `setDevicePixelRatio(3)` 後 QPainter 使用 logical 座標，QRect 不能用 px_size | 改用 `QRect(0,0,size,size)` + `setPixelSize(size-2)` |
+| 頁面 icon 顯示錯誤字元 | 全域 QSS `QLabel { font-family }` 覆蓋 `setFont()` | inline `setStyleSheet()` 加入 `font-family` |
+| Bundle 內字型找不到 | `__file__` 解析至 `lib/python3.12/`，非 Resources | 改用 `os.environ.get("RESOURCEPATH")`（py2app 設定） |
+
+#### 📦 版本標記 & 打包
+
+| 項目 | 值 |
+|------|-----|
+| BUILD_ID | `BUILD-2960-STABLE` |
+| Coffee Edition DMG | `嘴炮輸入法_v2.9.6-Coffee-Edition_macOS.dmg` |
+| Free Edition DMG | `嘴炮輸入法_v2.9.6-Free-Edition_macOS.dmg` |
+| Git commit | `b9f997b` |
+| 目前 paths.py EDITION | `coffee`（預設） |
+
+---
+
+*此記憶文件由 AI 於 2026-03-20 更新，標記 v2.9.6 stable 里程碑。*
