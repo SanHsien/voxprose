@@ -17,55 +17,43 @@ class VoiceTypeMenuBar:
         self.on_toggle_llm = on_toggle_llm
         self.on_set_translation = on_set_translation
         self.on_config_saved = on_config_saved
-        self.tray = None # Set by main.py
-        self.floating_btn = None # Set by main.py
+        self.tray = None  # Set by main.py
 
     def get_menu_items(self) -> List[Dict]:
-        """Builds the full nested list structure (used by Floating Button)."""
+        """Builds the full menu structure for the macOS menu bar."""
+        from paths import EDITION, SOUL_SCENARIO_DIR
         llm_state = "ON" if self.config.get("llm_enabled") else "OFF"
-        action_state = "ON" if self.config.get("action_mode") else "OFF"
-        engine = self.config.get("stt_engine", "local_whisper")
-        
-        from paths import SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR
-        scenarios = [f.stem for f in SOUL_SCENARIO_DIR.glob("*.md")] if SOUL_SCENARIO_DIR.exists() else []
-        # formats = [f.stem for f in SOUL_FORMAT_DIR.glob("*.md")] if SOUL_FORMAT_DIR.exists() else []
-        # templates = [f.stem for f in SOUL_TEMPLATE_DIR.glob("*.json")] if SOUL_TEMPLATE_DIR.exists() else []
+        engine = self.config.get("stt_engine", "mlx_whisper")
 
         items = [
             {'label': "嘴炮輸入法", 'callback': None},
             {'label': "關於", 'callback': lambda _: self._show_about()},
             {'label': "---", 'callback': None},
             {'label': f"辨識引擎: {engine}", 'callback': None},
-            # {'label': f"AI 助理模式 : {action_state}", 'callback': self._toggle_action_mode}, #吉米暫時關閉
             {'label': "---", 'callback': None},
             {'label': f"AI 潤飾/翻譯 : {llm_state}", 'callback': self._toggle_llm},
-            
-            # Scenario Submenu
-            # {'label': "🎭 靈魂情境", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)}, #咖啡版功能
-             {'label': "🎭 底層靈魂", 'callback': None}, #免費版功能
+        ]
+
+        # 版本功能分流
+        if EDITION == "coffee":
+            scenarios = [f.stem for f in SOUL_SCENARIO_DIR.glob("*.md")] if SOUL_SCENARIO_DIR.exists() else []
+            items.append({'label': "🎭 靈魂情境", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)})
+        else:
+            # Free 版：僅顯示底層靈魂（不可切換）
+            items.append({'label': "🎭 底層靈魂", 'callback': None})
+
+        items += [
             {'label': "快速翻譯", 'callback': None, 'submenu': [
                 {'label': "翻譯成 英文", 'callback': lambda _: self._translate_en(), 'checked': (self.config.get("translation_lang") == "en")},
                 {'label': "翻譯成 日文", 'callback': lambda _: self._translate_jp(), 'checked': (self.config.get("translation_lang") == "ja")},
                 {'label': "恢復正常模式", 'callback': lambda _: self._translate_none(), 'checked': (self.config.get("translation_lang") is None)},
             ]},
-            
             {'label': "---", 'callback': None},
             {'label': "⚙️  偏好設定...", 'callback': lambda _: self._open_settings()},
             {'label': "---", 'callback': None},
             {'label': "結束", 'callback': lambda _: self._quit()},
         ]
         return items
-
-    def get_tray_menu_items(self) -> List[Dict]:
-        """Builds the simplified menu structure for the System Tray."""
-        return [
-            {'label': "嘴炮輸入法", 'callback': None},
-            {'label': "關於", 'callback': lambda _: self._show_about()},
-            {'label': "---", 'callback': None},
-            {'label': "⚙️  偏好設定...", 'callback': lambda _: self._open_settings()},
-            {'label': "---", 'callback': None},
-            {'label': "結束", 'callback': lambda _: self._quit()},
-        ]
 
     def _build_scenario_menu(self, scenarios):
         active = self.config.get("active_scenario", "default")
@@ -182,19 +170,8 @@ class VoiceTypeMenuBar:
 
     def _deferred_refresh_ui(self):
         full_items = self.get_menu_items()
-        tray_items = self.get_tray_menu_items()
-        
         if self.tray:
-            # v2.8.0 Restoration: On Mac, we don't have the floating button, 
-            # so the system tray MUST keep the full menu.
-            from ui.tray_manager import IS_WINDOWS
-            if not IS_WINDOWS:
-                self.tray.update_menu(full_items)
-            else:
-                self.tray.update_menu(tray_items)
-                
-        if getattr(self, 'floating_btn', None):
-            self.floating_btn.set_menu_items(full_items)
+            self.tray.update_menu(full_items)
 
     def set_recording(self):
         if self.tray and hasattr(self.tray, 'set_icon'): 

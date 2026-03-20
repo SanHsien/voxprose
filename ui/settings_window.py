@@ -21,7 +21,7 @@ from config import load_config, save_config
 from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR, BUILD_ID
 
 log = logging.getLogger("voicetype.ui")
-STT_ENGINES = ["local_whisper", "groq", "gemini", "openrouter"] if platform.system() == "Windows" else ["local_whisper", "mlx_whisper", "groq", "gemini", "openrouter"]
+STT_ENGINES = ["mlx_whisper", "groq", "gemini", "openrouter"]
 LLM_ENGINES = ["ollama", "openai", "claude", "openrouter", "gemini", "deepseek", "qwen"]
 WHISPER_MODELS = ["tiny", "base", "small", "medium", "large"]
 TRIGGER_MODES = ["push_to_talk", "toggle"]
@@ -872,13 +872,19 @@ class SettingsWindow(QMainWindow):
         dl_layout.addWidget(self.lbl_download_status)
         
         self.download_progress = QProgressBar()
-        self.download_progress.setRange(0, 0)  # 不確定進度 → 跑馬燈模式
-        self.download_progress.setFixedHeight(8)
+        self.download_progress.setRange(0, 100)
+        self.download_progress.setValue(0)
+        self.download_progress.setFixedHeight(10)
+        self.download_progress.setTextVisible(False)
         self.download_progress.setStyleSheet("""
-            QProgressBar { background: #1c1f26; border: 1px solid #2d333d; border-radius: 4px; }
-            QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #7c4dff, stop:1 #00e5ff); border-radius: 4px; }
+            QProgressBar { background: #1c1f26; border: 1px solid #2d333d; border-radius: 5px; }
+            QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #7c4dff, stop:1 #00e5ff); border-radius: 5px; }
         """)
         dl_layout.addWidget(self.download_progress)
+        self.lbl_download_pct = QLabel("0%")
+        self.lbl_download_pct.setStyleSheet("color: #666; font-size: 11px;")
+        self.lbl_download_pct.setAlignment(Qt.AlignmentFlag.AlignRight)
+        dl_layout.addWidget(self.lbl_download_pct)
         
         self.lbl_download_detail = QLabel("首次啟動需要下載 AI 模型，請確保網路暢通。")
         self.lbl_download_detail.setStyleSheet("color: #666; font-size: 11px;")
@@ -1516,15 +1522,27 @@ class SettingsWindow(QMainWindow):
         self._check_all_permissions()
         self._check_local_models()
 
-    def update_download_progress(self, status: str, done: bool = False):
-        """由 main.py 呼叫，更新模型下載進度卡片。"""
+    def update_download_progress(self, status: str, pct: int = -1, done: bool = False):
+        """由 main.py 呼叫，更新模型下載進度卡片。
+        pct = 0-100 實際進度, -1 = 不確定（跑馬燈）, done=True 隱藏卡片。
+        """
         try:
             if done:
                 self.download_card.setVisible(False)
-                self._check_local_models()  # 刷新模型綠燈
+                self._check_local_models()
+                return
+
+            self.download_card.setVisible(True)
+            self.lbl_download_status.setText(status)
+
+            if pct < 0:
+                # 不確定進度 → 跑馬燈
+                self.download_progress.setRange(0, 0)
+                self.lbl_download_pct.setText("⏳")
             else:
-                self.download_card.setVisible(True)
-                self.lbl_download_status.setText(status)
+                self.download_progress.setRange(0, 100)
+                self.download_progress.setValue(pct)
+                self.lbl_download_pct.setText(f"{pct}%")
         except Exception:
             pass
 

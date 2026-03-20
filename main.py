@@ -1,28 +1,8 @@
 """
-VoiceType Windows — main entry point (v2.8.0).
-Wires up all modules and starts the application with enhanced stability.
+嘴炮輸入法 (VoiceType4TW) macOS — main entry point (v2.9.0).
 """
 import os
 import sys
-import platform
-import multiprocessing
-
-# 1. THE VERY FIRST THING: Fix OpenMP duplicate library issue on Windows (common with faster-whisper/numpy)
-if platform.system() == "Windows":
-    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-    os.environ["HF_HUB_OFFLINE"] = "1" # Prevent blocking on network during startup
-    multiprocessing.freeze_support()
-
-# 2. Fix Pystray/Pillow deadlock on Windows by pre-initializing PIL in main thread
-# Also mute PIL logging to avoid startup delays or noise
-try:
-    import logging
-    logging.getLogger("PIL").setLevel(logging.CRITICAL)
-    from PIL import Image
-    Image.init()
-except Exception as e:
-    print(f"[main] PIL pre-init warning: {e}")
-
 import threading
 import time
 import certifi
@@ -58,45 +38,12 @@ log.info(f"=== VoiceType4TW Starting === Log: {_log_file} (Level: {logging.getLe
 
 from config import load_config, save_config
 
-# PRELOAD STT BEFORE ANY PYQT IMPORTS ON WINDOWS TO PREVENT CUDA/UI CRASHES
-stt_preloaded = None
-llm_preloaded = None
-models_ready_preloaded = False
-if platform.system() == "Windows":
-    print("[main] Pre-loading STT model on Windows BEFORE Qt UI (takes ~10s)...")
-    try:
-        from stt import get_stt
-        pre_config = load_config()
-        stt_preloaded = get_stt(pre_config)
-        from llm import get_llm
-        llm_preloaded = get_llm(pre_config)
-        models_ready_preloaded = True
-        print("[main] STT and LLM Pre-loaded. Now initializing UI...")
-        
-        # v2.7.32 b14: Configure keystrike log level & flow
-        ks_logger = logging.getLogger("voicetype.hotkey")
-        if _early_config.get("separate_keystrike_log", False):
-            from paths import KEYSTRIKE_LOG_PATH
-            ks_logger.propagate = False # Stop sending to debug.log
-            ks_handler = logging.FileHandler(str(KEYSTRIKE_LOG_PATH), mode='a', encoding='utf-8')
-            ks_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-            ks_logger.addHandler(ks_handler)
-            ks_logger.setLevel(logging.DEBUG) # Always DEBUG if separate file is requested
-            log.info(f"Keystrike logging routed to: {KEYSTRIKE_LOG_PATH}")
-        else:
-            # If not separate, respect the global debug_mode for keystrike logs too
-            ks_logger.setLevel(_log_level)
-            ks_logger.propagate = True
-    except Exception as e:
-        print(f"[main] Failed to preload Models: {e}")
-
 from audio.recorder import AudioRecorder
 from hotkey.listener import HotkeyListener
 from output.injector import TextInjector
 from ui.mic_indicator import MicIndicator
 from ui.menu_bar import VoiceTypeMenuBar
-from ui.tray_manager import TrayManager, IS_WINDOWS
-from ui.floating_button import FloatingButton
+from ui.tray_manager import TrayManager
 from actions.dispatcher import ActionDispatcher
 from utils.permissions import ensure_all_permissions  # v2.8.4: Proactive permission trigger
 from PyQt6.QtGui import QIcon
@@ -131,19 +78,18 @@ DEFAULT_ASSISTANT_PROMPT = (
 )
 
 
-# v2.7.32: Move SettingsWindow import to VoiceTypeApp.run to avoid top-level Side Effects on Windows
-
 class VoiceTypeApp(QObject):
-    # v2.8.22: Signals for thread-safe UI updates
-    ui_signal = pyqtSignal(dict) # {"type": "prefix"|"state", "value": str}
+    ui_signal = pyqtSignal(dict)           # {"type": "prefix"|"state", "value": str}
+    download_signal = pyqtSignal(str, int) # (msg, pct)  pct=-1 表示不確定進度
     
     def __init__(self):
         super().__init__() # Initialize QObject base class
         self.config = load_config()
         self._config_lock = threading.Lock()
         self.ui_signal.connect(self._handle_ui_signal)
-        self._models_ready = models_ready_preloaded
-        self.stt = stt_preloaded
+        self.download_signal.connect(self._handle_download_signal)
+        self._models_ready = False
+        self.stt = None
 
         self.indicator = MicIndicator()
         # Ensure indicator is initialized
@@ -157,7 +103,7 @@ class VoiceTypeApp(QObject):
         )
         
         self.injector = TextInjector()
-        self.llm = llm_preloaded if platform.system() == "Windows" else None
+        self.llm = None
         
         # 綁定錄音事件
         self.recorder.on_start = self._on_record_start
@@ -169,18 +115,13 @@ class VoiceTypeApp(QObject):
         self.menu_bar = None
         self.tray = None
         self.settings_window = None
-        self.floating_btn = None
         self.action_dispatcher = ActionDispatcher(self.injector, self.indicator)
 
     def run(self):
-        # v2.8.4: macOS Proactive Permission Trigger
-        # This will show 'Microphone' and 'System Events' permission dialogs on launching.
-        if platform.system() == "Darwin":
-            ensure_all_permissions()
+        ensure_all_permissions()
 
-        # ── macOS UI Customization (v2.8.2-stable Fix) ───────────
-        if platform.system() == "Darwin":
-            try:
+        # ── macOS UI Customization ────────────────────────────────
+        try:
                 # Use NSApplication.sharedApplication() to ensure NSApp is ready
                 from AppKit import NSApplication, NSImage, NSBundle, NSProcessInfo, NSAppearance, NSAppearanceNameDarkAqua
                 _shared_app = NSApplication.sharedApplication()
@@ -205,8 +146,8 @@ class VoiceTypeApp(QObject):
                     _image = NSImage.alloc().initByReferencingFile_(str(_icon_file))
                     _shared_app.setApplicationIconImage_(_image)
                     print(f"[main] macOS UI (Name & Icon) updated via sharedApplication")
-            except Exception as _e:
-                print(f"[main] Failed to set macOS UI customizations in run(): {_e}")
+        except Exception as _e:
+            print(f"[main] Failed to set macOS UI customizations: {_e}")
 
         # 1. Setup Hotkeys
         hotkeys = {
@@ -230,7 +171,7 @@ class VoiceTypeApp(QObject):
         
         self.recorder.on_stop = self._on_record_stop
         self._is_manually_cancelled = False
-        # 2. Async model loading for macOS (Windows already loaded)
+        # 2. Async model loading
         if not self._models_ready:
             self.indicator.set_state("loading")
             self.indicator.show()
@@ -255,20 +196,13 @@ class VoiceTypeApp(QObject):
         if not os.path.exists(icon_path):
              icon_path = None
 
-        if IS_WINDOWS and self.config.get("show_floating_button", True):
-            self.floating_btn = FloatingButton(icon_path)
-            self.floating_btn.set_menu_items(self.menu_bar.get_menu_items())
-            self.floating_btn.show()
-
         print(f"[main] Tray initialized at {icon_path}")
         self.tray = TrayManager(
-            title="VoiceType4TW v2.8.4-Develop",
+            title="嘴炮輸入法",
             icon_path=icon_path,
-            menu_items=self.menu_bar.get_menu_items() if not IS_WINDOWS else self.menu_bar.get_tray_menu_items()
+            menu_items=self.menu_bar.get_menu_items(),
         )
         self.menu_bar.tray = self.tray
-        if IS_WINDOWS:
-            self.menu_bar.floating_btn = self.floating_btn
         
         # Connect thread-safe signal for settings
         self.indicator._signals.show_settings.connect(self._show_settings)
@@ -282,7 +216,7 @@ class VoiceTypeApp(QObject):
 
         # Force show settings on launch for verification & visibility
         QTimer.singleShot(2000, self._show_settings)
-        print(f"[main] GUI loops establishing on {platform.system()}...")
+        print("[main] GUI loops establishing on macOS...")
         
         # Prevent Qt from auto-quitting if all windows are hidden (crucial for tray apps)
         from PyQt6.QtWidgets import QApplication
@@ -290,27 +224,16 @@ class VoiceTypeApp(QObject):
             QApplication.instance().setQuitOnLastWindowClosed(False)
 
         try:
-            # In all cases, Tray should run in a separate thread if possible, 
-            # but on Windows we definitely need Tray in a thread to keep Qt responsive.
-            if IS_WINDOWS:
-                tray_thread = threading.Thread(target=self.tray.start, daemon=True)
-                tray_thread.start()
-                # Start Qt loop
-                ret = self.indicator._app.exec()
-                print(f"[main] Qt loop exited with code: {ret}")
-                sys.exit(ret)
-            else:
-                # macOS: rumps usually wants the main thread
-                def drive_qt_events():
-                    try:
-                        # Only drive events if app is still alive and ticker not stopped
-                        from PyQt6.QtWidgets import QApplication
-                        app = QApplication.instance()
-                        if app and self.tray and getattr(self.tray._tray, '_stop_ticker', False) == False:
-                            app.processEvents()
-                    except:
-                        pass
-                self.tray.start(on_tick=drive_qt_events)
+            # macOS: rumps wants the main thread; drive Qt events via rumps timer
+            def drive_qt_events():
+                try:
+                    from PyQt6.QtWidgets import QApplication
+                    app = QApplication.instance()
+                    if app and self.tray and not getattr(self.tray._tray, '_stop_ticker', False):
+                        app.processEvents()
+                except Exception:
+                    pass
+            self.tray.start(on_tick=drive_qt_events)
         except Exception as e:
             print(f"[main] FATAL ERROR in execution loop: {e}")
             import traceback
@@ -711,24 +634,38 @@ class VoiceTypeApp(QObject):
         
         return "\n\n".join(parts)
 
+    def _handle_download_signal(self, msg: str, pct: int):
+        """主執行緒：將下載進度更新到設定視窗。"""
+        if self.settings_window:
+            self.settings_window.update_download_progress(msg, pct=pct)
+
     def _load_models_async(self):
-        """背景執行緒：專門負責載入耗時的 STT 和 LLM 模型"""
+        """背景執行緒：下載模型 → 預熱 Metal → 載入 LLM。"""
         print("[main] Starting background model loading...")
         try:
             from stt import get_stt
             from llm import get_llm
+
             print("[main] Initializing STT engine...")
             self.stt = get_stt(self.config)
-            # v2.8.0 Stability: Warm up STT to pre-load model and init Metal GPU
+
+            # 1. 下載模型（含進度回報）
+            if hasattr(self.stt, 'download_model'):
+                def on_download_progress(pct, msg):
+                    self.download_signal.emit(msg, pct)
+                self.stt.download_model(progress_callback=on_download_progress)
+
+            # 2. 預熱 Metal
+            self.download_signal.emit("正在初始化 Metal 加速...", -1)
             self.stt.warmup()
-            
-            print("[main] Initializing LLM engine...")
+
+            # 3. 載入 LLM
+            self.download_signal.emit("正在載入 AI 引擎...", -1)
             self.llm = get_llm(self.config)
             self.llm.warmup()
-            
+
             self._models_ready = True
-            print("[main] === Models are READY. Ready for transcription === ")
-            # 載入完成後隱藏載入提示
+            print("[main] === Models are READY. ===")
             self.indicator.hide()
             self._notify_settings_download_done()
         except Exception as e:
@@ -756,17 +693,17 @@ class VoiceTypeApp(QObject):
     def _on_quit(self):
         print("[main] Shutting down...")
         try:
-            if self.tray: 
+            if self.tray:
                 self.tray.stop_ticker()
-            
-            # v2.8.0 Fix: Avoid joining threads while quitting as it hangs the terminal
-            if self.hotkey_listener: 
+            if self.hotkey_listener:
                 self.hotkey_listener.stop()
-        except:
+            # 釋放 MLX Metal 快取
+            if hasattr(self.stt, '_clear_metal_cache'):
+                self.stt._clear_metal_cache()
+        except Exception:
             pass
-            
-        print("[main] Clean exit (Force).")
-        # Ensure we actually exit the process immediately
+
+        print("[main] Clean exit.")
         os._exit(0)
 
     def _on_toggle_llm(self, enabled=None):

@@ -1,17 +1,14 @@
 import os
 from pathlib import Path
 
-# Get user home directory and create standard app support directory
 HOME = Path.home()
-import platform
-IS_WINDOWS = platform.system() == "Windows"
 
-if IS_WINDOWS:
-    # Windows: %APPDATA%/VoiceType4TW
-    APP_DATA_DIR = Path(os.environ.get("APPDATA", str(HOME / "AppData" / "Roaming"))) / "VoiceType4TW"
-else:
-    # macOS: ~/Library/Application Support/VoiceType4TW
-    APP_DATA_DIR = HOME / "Library" / "Application Support" / "VoiceType4TW"
+# macOS: ~/Library/Application Support/VoiceType4TW
+APP_DATA_DIR = HOME / "Library" / "Application Support" / "VoiceType4TW"
+
+# ── 版本分流：free | coffee ──────────────────────────────────────
+# 打包不同版本時只需修改此一行
+EDITION = "coffee"  # "free" | "coffee"
 
 # v2.9.1: Legacy Migration Logic
 def migrate_legacy_data():
@@ -96,8 +93,8 @@ MEMORY_DIR = SYNC_BASE_DIR / "memory"
 STATS_DIR = SYNC_BASE_DIR / "stats"
 AI_PERMANENT_MEMORY_PATH = SYNC_BASE_DIR / "ai_permanent_memory.md"
 
-BUILD_ID = "BUILD-0308-K" 
-VERSION_NAME = "2.8.27 Coffee Edition"
+BUILD_ID = "BUILD-2900-A"
+VERSION_NAME = f"2.9.0 {'Coffee' if EDITION == 'coffee' else 'Free'} Edition"
 KEYSTRIKE_LOG_PATH = APP_DATA_DIR / "keystrike.log"
 
 # 舊版路徑 (用於遷移)

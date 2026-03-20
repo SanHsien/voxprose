@@ -40,8 +40,8 @@ OPTIONS = {
         'CFBundleDisplayName': '嘴炮輸入法',
         'CFBundleIdentifier': 'com.jimmy4tw.voicetype4tw-mac',
         'NSPrincipalClass': 'NSApplication',
-        'CFBundleVersion': '2.8.27-free',
-        'CFBundleShortVersionString': '2.8.27-free',
+        'CFBundleVersion': '2.9.0',
+        'CFBundleShortVersionString': '2.9.0',
         'NSMicrophoneUsageDescription': 'VoiceType4TW requires microphone access for speech recognition.',
         'NSAccessibilityUsageDescription': '嘴炮輸入法需要輔助使用權限來監聽全域快捷鍵並自動貼上文字。',
         'NSAppleEventsUsageDescription': '嘴炮輸入法需要透過 AppleEvents 與其他程式互動以完成文字注入。',
@@ -52,7 +52,7 @@ OPTIONS = {
         # UI
         'rumps', 'PyQt6',
         # STT (mlx excluded - namespace package, copied manually post-build)
-        'faster_whisper', 'mlx_whisper',
+        'mlx_whisper',
         # Audio
         'sounddevice', '_sounddevice_data',
         # Network / LLM

@@ -4,8 +4,14 @@ from pathlib import Path
 
 def get_site_packages_path():
     import site
-    paths = site.getsitepackages()
-    for p in paths:
+    # 優先查詢目前 Python 的 site-packages
+    candidates = list(site.getsitepackages())
+    # 加入 python3.12 framework 路徑（打包時可能用不同的 python 執行此腳本）
+    candidates += [
+        "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages",
+        "/usr/local/lib/python3.12/site-packages",
+    ]
+    for p in candidates:
         if (Path(p) / "mlx").exists():
             return Path(p)
     return None

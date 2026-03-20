@@ -2,7 +2,7 @@
 
 # Configuration
 APP_NAME="嘴炮輸入法"
-VERSION="2.8.27-Free-Edition"
+VERSION="2.9.0-Coffee-Edition"
 DMG_NAME="${APP_NAME}_v${VERSION}_macOS.dmg"
 STAGING_DIR="dist/dmg_staging"
 VOL_NAME="${APP_NAME}"
@@ -46,7 +46,7 @@ fi
 
 # v2.8.19: Apply dylib fixes to the STAGING app bundle
 echo "[DMG] Applying post-build bundle fixes to staging area..."
-python3 post_build_fix.py "$STAGING_DIR/${APP_NAME}.app"
+python3.12 post_build_fix.py "$STAGING_DIR/${APP_NAME}.app"
 
 echo "[DMG] Creating initial disk image..."
 TEMP_DMG="dist/pack_temp.dmg"
@@ -111,7 +111,7 @@ DMG_FILE="dist/$DMG_NAME"
 ICON_SOURCE="assets/DMG-box.png"
 if [ -f "$ICON_SOURCE" ] && [ -f "$DMG_FILE" ]; then
     echo "[DMG] Setting custom icon to DMG file..."
-    python3 set_dmg_icon.py "$DMG_FILE" "$ICON_SOURCE"
+    python3.12 set_dmg_icon.py "$DMG_FILE" "$ICON_SOURCE"
 fi
 
 echo "[DMG] Done: dist/$DMG_NAME"

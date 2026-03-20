@@ -1,22 +1,28 @@
-# 🧠 VoiceType4TW macOS 開發記憶 (2026-03-14 v2.8.27 Mac版更新)
+# 🧠 VoiceType4TW macOS 開發記憶 (2026-03-19 v2.9.0 Mac純化版)
 
-## 📍 專案當前狀態
-- **版本**: v2.8.27 (Mac版)
-- **狀態**: **[正式穩定版]** - 由吉米與女兒 CC58TW 共同開發，提供 GitHub、Free、Coffee 三種發佈模式。
-- **核心功能**: 
-  - 全域強制深色模式 (Lock Dark Appearance & Fusion Style)。
-  - 系統列圖示 (Tray Icon) 支援 macOS Template 模式（隨系統換色）。
-  - 自動化打包流程：產出 GitHub/Free/Coffee 不同權限的 DMG 分發包。
-  - 修正關於視窗 (About Window) 開發者資訊，加入 CC58TW。
-  - 支援全鍵盤熱鍵與硬體碼 (NativeCode) 錄製。
+- [2026-03-19] **Mac v2.9.0 發布**：Mac 專屬純化版，移除所有 Windows 殘碼，加入 EDITION 版本開關，修復記憶體洩漏，新增模型下載進度條，MLX dylib 正確打包。
+- [2026-03-14] **Mac v2.8.27 旗艦標竿版發布**：成功建立 `v2.8.27-mac-stable` 標籤，同步 GitHub Release，並更新團隊成員 **CC58TW**。
 
 ## 🗄 重要路徑
-| 路徑類型 | 路徑                                                    |
+| 路徑類型 | 路徑 |
 |------|-------------------------------------------------------|
-| App 資料 | `~/Library/Application Support/VoiceType4TW/`         |
+| App 資料 | `~/Library/Application Support/VoiceType4TW/` |
 | debug log | `~/Library/Application Support/VoiceType4TW/debug.log` |
 | sync_path.txt | `~/Library/Application Support/VoiceType4TW/sync_path.txt` |
-| 打包輸出 | `/Volumes/JDATA/playground/voicetype-mac/dist/`      |
+| 打包輸出 | `/Volumes/JDATA/playground/voicetype-mac/dist/` |
+
+## ⚙️ 打包指令
+```bash
+# 完整打包（清舊檔 + py2app + DMG）
+rm -rf build dist && bash build_all.sh
+
+# 只重打 DMG（.app 已存在時用）
+hdiutil detach "/Volumes/嘴炮輸入法" -force 2>/dev/null || true
+rm -f dist/pack_temp.dmg dist/*.dmg
+bash pack_dmg.sh
+```
+- **務必用 `python3.12`** 執行，不能用系統預設 python3（ServBay 是 3.14，套件裝在 3.12）
+- `build_all.sh` 與 `pack_dmg.sh` 已統一改為 `python3.12`
 
 ## 🔑 MacOS Keycode 對照表
 | 按鍵名稱 | Keycode | 備註 |
@@ -30,106 +36,105 @@
 
 ---
 
-## 🛠 關鍵技術突破紀錄 (v2.8.23 - v2.8.27)
+## 🛠 關鍵技術突破紀錄 (v2.8.23 - v2.9.0)
 
 ### 1. 硬體優先熱鍵錄製 (v2.8.24)
-- **問題**：使用者鍵盤輸出名稱與系統預設命名不符（如右 Ctrl 輸出 code 54），導致儲存後 `listener.py` 抓不到事件。
-- **解法**：重構 `SettingsWindow` 錄製器。錄製時直接捕捉 `NativeCode` 並儲存為 `(code:XX)` 格式。監聽器 `HotkeyListener` 優先匹配代碼，徹底解決「錄得到、存得進、但按不出」的顽疾。
+- **問題**：使用者鍵盤輸出名稱與系統預設命名不符，導致儲存後 `listener.py` 抓不到事件。
+- **解法**：錄製時直接捕捉 `NativeCode` 並儲存為 `(code:XX)` 格式，監聽器優先匹配代碼。
 
-### 2. PyQt6 錄製器崩潰件修復 (v2.8.25)
-- **問題**：錄製熱鍵時噴出 `AttributeError: type object 'Key' has no attribute 'Key_Fn'`。
-- **根因**：PyQt6 在新版中移除了 `Qt.Key.Key_Fn`。只要按下鍵盤，判斷式就會爆炸導致後續儲存流程中斷。
+### 2. PyQt6 錄製器崩潰修復 (v2.8.25)
+- **問題**：`AttributeError: type object 'Key' has no attribute 'Key_Fn'`
 - **解法**：從錄製器檢查字典中拔除 `Key_Fn` 屬性。
 
 ### 3. MLX Whisper 光速啟動 (v2.8.24)
-- **問題**：第一次錄音會卡住 5 秒進行 Metal 推理初始化。
-- **解法**：在 `stt/mlx_whisper.py` 實作 dummy 轉錄。啟動時送入 1 秒的靜音陣列 (`np.zeros(16000)`)，預熱顯示卡推理圖。
+- **解法**：啟動時送入 1 秒靜音陣列 (`np.zeros(16000)`) 做 dummy 轉錄，預熱 Metal 推理圖。
 
 ### 4. 潤飾模式非同步時序修復 (v2.8.26)
-- **問題**：按下潤飾熱鍵（強制開啟 LLM）講話，結果只有 STT 輸出。
-- **根因**：`_on_stop` (放開按鍵時) 立即將 `llm_enabled` 恢復為原本的 False，但此時 STT 還在背景處理音訊。兩秒後讀取到的開關已變回 False。
-- **解法**：將狀態恢復邏輯從 `_on_stop` 移至 `_process_audio` 開頭，並在處理開始前立刻鎖定當下的開關變數。
+- **根因**：`_on_stop` 立即恢復 `llm_enabled`，但 STT 還在背景跑。
+- **解法**：將狀態恢復邏輯移至 `_process_audio` 開頭。
 
 ### 5. Whisper 幻覺過濾 (v2.8.27)
-- **問題**：誤觸按鈕（短暫音訊）會讓 Whisper 噴出「點讚、訂閱、下期再見」。
-- **解法**：
-  - **長度門檻**：小於 0.5 秒 (8000 samples) 的音訊直接丟棄。
-  - **關鍵字過濾**：建立幻覺關鍵字清單，長度在 45 字內包含「點讚、分享、小鈴鐺」等字眼時直接攔截不輸出。
+- 小於 0.5 秒 (8000 samples) 直接丟棄。
+- 關鍵字過濾：長度在 45 字內含「點讚、分享、小鈴鐺」等字眼直接攔截。
 
-### 6. 全域強制深色模式與 UI 加固 (v2.8.27-Stable)
-- **問題**：系統處於「淺色模式」時，設定視窗背景、下拉選單噴白，影響品牌一致性。
-- **解法**：
-  - **Qt 層級**：使用 `setStyle("Fusion")` 並鎖定 `QPalette` 的深色調。
-  - **系統層級**：透過 `AppKit` 調用 `setAppearance_("DarkAqua")`，鎖定原生選單外觀。
-  - **DMG 層級**：建立帶有背景圖與應用程式捷徑連結的正規 DMG 封裝。
+### 6. 全域強制深色模式 (v2.8.27)
+- `QApplication.setStyle("Fusion")` + `AppKit NSAppearance DarkAqua` 組合技，缺一不可。
 
-### 7. Coffee / Free / GitHub 雙軌發佈機制
-- **區分核心**：透過 `ui/menu_bar.py` 與 `setup.py` 的標籤實作功能分流 (GitHub版完全開源、Free版底層靈魂、Coffee版多重靈魂)。
-- **自動化**：`build_all.sh` 配合 `pack_dmg.sh` 支援不同權限版本的封面圖與 DMG 封裝。
+### 7. EDITION 版本開關 (v2.9.0)
+- **位置**：`paths.py` 第一行 `EDITION = "coffee"`
+- **切換方式**：改成 `"free"` 即為免費版，`VERSION_NAME` 自動跟著變
+- **功能分流**：Coffee 版顯示「🎭 靈魂情境」完整子選單；Free 版只顯示「🎭 底層靈魂」
+
+### 8. 記憶體洩漏修復 (v2.9.0)
+- **根因**：MLX Metal 快取無限成長，Python GC 不會自動清理。
+- **解法**（`stt/mlx_whisper.py`）：
+  - 每 10 次轉錄自動執行 `mx.metal.clear_cache()` + `gc.collect()`
+  - 退出時主動清理（`_on_quit` 呼叫 `_clear_metal_cache()`）
+- **參數**：`_CACHE_CLEAR_INTERVAL = 10`（可視狀況調整）
+
+### 9. 模型下載進度條 (v2.9.0)
+- **舊做法**：`setRange(0,0)` 跑馬燈，無實際進度。
+- **新做法**：
+  - `stt/mlx_whisper.py` 加入 `download_model(progress_callback)` — 用 `list_repo_files` + `hf_hub_download` 逐檔追蹤
+  - `main.py` 新增 `download_signal = pyqtSignal(str, int)` 串接進度到 UI
+  - `ui/settings_window.py` 的 `update_download_progress(status, pct, done)` 支援 0-100 真實百分比，pct=-1 切回跑馬燈
+- **流程**：下載(0-100%) → 初始化 Metal(跑馬燈) → 載入 LLM(跑馬燈) → 完成隱藏
+
+### 10. MLX dylib 打包修復 (v2.9.0)
+- **問題**：`post_build_fix.py` 用錯 Python（ServBay python3 而非 python3.12），`site.getsitepackages()` 找不到 mlx。
+- **解法**：
+  - `post_build_fix.py` 的 `get_site_packages_path()` 加入 python3.12 framework 路徑作為 fallback
+  - `pack_dmg.sh` 所有 `python3` 呼叫改為 `python3.12`
+- **MLX 路徑**：`/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/mlx`
 
 ---
+
+## 📦 DMG 打包地雷紀錄 (Lessons Learned)
+
+### 1. hdiutil convert failed — 資源暫時無法取用
+- **原因**：Finder 或前一次打包殘留的掛載點還在佔用。
+- **解法**：`hdiutil detach "/Volumes/嘴炮輸入法" -force` 再重試。
+
+### 2. MLX dylib 沒打進 bundle
+- **症狀**：`[Post-Build Fix] Could not find site-packages containing 'mlx'`
+- **根因**：`post_build_fix.py` 是用系統 python3 跑的，但 mlx 裝在 python3.12。
+- **解法**：見上方「技術突破 #10」。
+
+### 3. PyQt6 深色模式對抗
+- `QApplication.setStyle("Fusion")` + `AppKit NSAppearance DarkAqua` 組合技，缺一不可。
+
+### 4. STT 預熱不可省略
+- 首次按錄音會凍結 5 秒，必須在啟動時做 dummy 轉錄預熱 Metal。
+
+### 5. AppleScript 視窗座標偏移
+- 加入 `delay 2` 與 `update without registering applications` 確保 Finder 渲染完再下座標。
+
+### 6. EDITION 版本混入
+- **防範**：所有版本功能開關統一讀 `paths.py` 的 `EDITION`，打包前只改這一個字。
+
+---
+
+## 🖥️ 系統需求（v2.9.0 起）
+- **Apple Silicon Mac**（M1 或以上）— Intel Mac 不支援 MLX
+- **macOS 13 Ventura 或更新版本**
+- 安裝說明需明確標示，Intel 用戶無法使用
 
 ## 👥 主要開發團隊
 - **吉米丘**：創始人與架構師。
 - **CC58TW**：主要開發者與產品設計。
-- **接手開發者代號**: `cc58tw`
-- **遷移目標**: 在新電腦上完整復原開發環境（Python 3.12 + PyQt6 + Metal/MLX）。
-- **關鍵注意事項**:
-  - 務必將 `~/.gemini/antigravity/brain/e5c8abbf-7d63-4e11-9d65-b8e8933129b1` 目錄完整備份並移動到新電腦對應位置，AI 才能繼承目前的開發邏輯與進度。
-  - 新機器需安裝 `ffmpeg` 與 Xcode Command Line Tools 以支援 `mlx`。
+- **開發環境**：Python 3.12（`/usr/local/bin/python3.12`）+ PyQt6 + Metal/MLX
 
 ---
 
----
-
-## 🏁 Windows 版本移植與打包計畫 (2026-03-08 新增)
-- **目標**: 實作 Windows 獨立執行檔 (.exe) 發布。
-- **關鍵技術修正**:
-  1. **CUDA 與 PyQt6 初始化衝突**: Windows 上必須**先載入 STT (CUDA)** 才能匯入 PyQt6，否則進程會無預警結束。
-  2. **系統托盤**: Windows 使用 `pystray` 替代 `rumps`。在 `main.py` 中已實作分流載入。
-  3. **自動化打包**: 已建立 `build_win.py`。
-- **後續 Agent 執行守則 (Windows 環境)**:
-  1. **取得代碼**：
-     - 如果 PC 上還沒有代碼：執行 `git clone https://github.com/jfamily4tw/pirates-team`。
-     - 如果 PC上已有舊版：進入該目錄執行 `git pull origin main`。
-     - *註：資料夾名稱不重要（可以是 VoiceType4TW 或 pirates-team），重點是 Git 遠端必須指向上述網址。*
-  2. **環境初始化**：
-     - 安裝 Python 3.12 (建議使用 official python.org 版本)。
-     - 在目錄內打開終端機 (PowerShell/CMD) 執行：`pip install -r requirements-win.txt`。
-  3. **構建與打包**：
-     - 執行 `python build_win.py`。
-  4. **修復 STT 運行庫**：
-     - 打包後若執行 `.exe` 提示缺少 DLL，需從 `venv/Lib/site-packages/ctranslate2` 或相關目錄複製 `cudnn_*.dll` 至 `dist/VoiceType4TW/`。
+### 📅 2026-03-19 收工整理
+- **完成**：v2.9.0 Mac 純化版開發與打包
+  - 移除 Windows 殘碼（build_win.py, requirements-win.txt, ui/floating_button.py 等）
+  - EDITION 版本開關統一化
+  - 記憶體洩漏修復（Metal cache clear）
+  - 模型下載進度條（真實百分比）
+  - MLX dylib 正確打包進 DMG
+- **發布**：`dist/嘴炮輸入法_v2.9.0-Coffee-Edition_macOS.dmg`（542MB）
+- **待觀察**：測試者回饋後決定是否調整 `_CACHE_CLEAR_INTERVAL`
 
 ---
-
-## 📦 DMG 打包經驗與地雷紀錄 (Lessons Learned)
-
-為了避免未來開發與打包時重複犯錯，以下記錄 v2.8.27 之前遇到的重大坑位：
-
-### 1. 二進位路徑相容性 (MLX & OpenSSL)
-- **現象**：打包後執行彈出 `Library not loaded: @rpath/libssl...`。
-- **原因**：`PyInstaller` 在封裝時未能正確重寫某些第三方 C 擴展的 `@rpath`。
-- **解法**：在 `setup.py` 或打包後手動檢查載入路徑。務必確保 `ffmpeg` 與 `OpenSSL` 在打包環境中是靜態連結或路徑明確。
-
-### 2. PyQt6 深色模式對抗
-- **現象**：系統在淺色模式下，即使 App 指定了深色樣式表，原生選單 (Context Menu) 仍會噴白。
-- **解法**：必須組合技：
-  - `QApplication.setStyle("Fusion")`
-  - 使用 `AppKit` 的 `NSAppearance` 強制設定為 `DarkAqua`。
-  - **切記**：這兩者缺一不可，否則 UI 質感會斷層。
-
-### 3. AppleScript 視窗座標偏移
-- **現象**：`pack_dmg.sh` 產出的 DMG 視窗內容每次位置都不一樣。
-- **解法**：在 AppleScript 執行時加入 `delay 2` 與 `update without registering applications`，確保 Finder 視窗完全渲染後再下達座標指令。
-
-### 4. STT 預熱不可省略
-- **現象**：打包後首次按錄音，UI 會凍結 5 秒。
-- **原因**：Metal 推理圖初始化。
-- **解法**：在程式啟動階段（隱藏視窗時）執行一次 1 秒的靜音 dummy 轉錄。
-
-### 5. 版本分流之混亂與預防
-- **現象**：不小心把 Coffee 版功能打包進 Free 版。
-- **防範建議**：
-  - 所有功能開關（Scenarios 數目等）必須由 `config.py` 或 `ui/menu_bar.py` 中的明確條件決定。
-  - **鐵律**：每次執行 `build_all.sh` 前，必須手動（或透過自動化腳本）檢查版本標籤。
+*此記憶文件由 AI 於 2026-03-19 更新，標記 v2.9.0 Mac 純化版里程碑。*

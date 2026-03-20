@@ -37,3 +37,5 @@ assets/dmg_icon.iconset/
 # AI_MEMORY.md
 # task.md
 # .agents/
+.spectra/
+openspec/.vector-search.db*

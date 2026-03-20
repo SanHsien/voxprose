@@ -24,5 +24,10 @@
 ### 2. 多螢幕位置記憶 (Positional Memory)
 - **目標**：讓 Indicator 不只是「跟隨滑鼠」，還能記錄使用者在不同螢幕上的「偏好停靠位置」。
 
+### 3. 記憶體占用優化 (Memory Usage Optimization)
+- **現狀**：[2026-03-15] 發現占用達 6.59 GB。
+- **原因**：使用者啟用了 `whisper-large-v3-mlx` 模型。
+- **計划**：先觀察幾天。若持續困擾，考慮強制優化 `main.py` 的模型釋放邏輯，或建議切換回 `medium`。
+
 ---
 *上次更新日期：2026-03-03 (Synchronized from PC session)*

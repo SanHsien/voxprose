@@ -1,12 +1,9 @@
 from .base import BaseSTT
 
-# Lazy imports: 各引擎只在 build_stt() 選中時才 import，
-# 避免在 Windows 上缺少 groq / mlx 等 macOS 專屬模組而崩潰。
+# Lazy imports: 各引擎只在選中時才 import，避免未安裝的套件造成啟動失敗。
 
 def get_stt(config: dict) -> BaseSTT:
-    import platform
-    default_engine = "mlx_whisper" if platform.system() == "Darwin" else "local_whisper"
-    engine = config.get("stt_engine", default_engine)
+    engine = config.get("stt_engine", "mlx_whisper")
     if engine == "mlx_whisper":
         from .mlx_whisper import MLXWhisperSTT
         return MLXWhisperSTT(config)
