@@ -42,14 +42,16 @@ DEFAULT_CONFIG = {
     # 其他
     "auto_paste": True,
     "magic_trigger": "嘿 VoiceType",
+    # UI
+    "ui_skin": "titanium",
 }
 # 🗝️ 本地設定白名單 (不進行雲端同步的項目)
 LOCAL_KEYS = {
-    "hotkey_ptt", "hotkey_toggle", "hotkey_llm", "hotkey", 
+    "hotkey_ptt", "hotkey_toggle", "hotkey_llm", "hotkey",
     "trigger_mode", "show_floating_button", "completion_sound",
-    "debug_mode", "is_demo", "output_prefix", 
+    "debug_mode", "is_demo", "output_prefix",
     "separate_keystrike_log", "showcase_mode",
-    "stt_engine", "whisper_model"
+    "stt_engine", "whisper_model", "ui_skin"
 }
 
 from paths import GLOBAL_CONFIG_PATH, LOCAL_CONFIG_PATH, APP_DATA_DIR

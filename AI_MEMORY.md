@@ -137,4 +137,80 @@ bash pack_dmg.sh
 - **待觀察**：測試者回饋後決定是否調整 `_CACHE_CLEAR_INTERVAL`
 
 ---
-*此記憶文件由 AI 於 2026-03-19 更新，標記 v2.9.0 Mac 純化版里程碑。*
+
+### 📅 2026-03-20 收工整理 — v2.9.2 Titanium UI 全面改版
+
+#### 🎨 改版目標
+將 `ui/settings_window.py` 所有頁面改寫為 Titanium Minimalism 風格（極簡鈦金）。用 Material Symbols Outlined 單色 icon 替換所有 emoji。
+
+---
+
+#### 🖼 頁面改版清單
+
+**1. 詞彙 & 記憶 (`_create_vocab_mem_page`)**
+- 左欄：搜尋框 + 詞彙列表 + 新增對話框按鈕 + 刪除按鈕（`_add_vocab_dialog` 用 QInputDialog）
+- 右欄：AI學習清單 card + 長期記憶快照 card
+
+**2. 數據統計 (`_create_stats_page`)**
+- 標頭 + 重新整理按鈕
+- 兩個摘要大字卡（今日辨識次數、累計省下時間、共辨識字數、今日字數）
+- QTreeWidget 5 欄位 session 紀錄表格
+- **重要**：stats 頁面用 `lbl_stats_*` 命名（`lbl_stats_today_count` 等）與 Dashboard 的 `lbl_today_count` 區分，`_refresh_stats()` 用 `hasattr` 同時更新兩組
+
+**3. 系統設定 (`_create_general_page`)**
+- 熱鍵區：每列一行（label 130px + HotkeyRecorderButton stretch + 測試按鈕 54px/11px 字型），`_hotkey_row()` 回傳 `QHBoxLayout`，用 `addLayout()` 加入
+- 診斷區：`_diag_card()` 用 `QPushButton` 為容器 + 內部透明 QWidget，`resizeEvent` lambda 同步尺寸
+- 偏好設定：4 個 ToggleSwitch 排 2×2 QGridLayout，`border: none`（無邊框）
+- 進階設定：`ui_skin_combo` 隱藏保留（`hide()`，config 仍正常存讀）；3 個選項：`debug_demo_mode`、`output_prefix`、`showcase_mode`
+- `separate_keystrike_log` 合併進 `debug_mode`，不再是獨立 toggle
+
+**4. 雲端同步 (`_create_sync_page`)**
+- 上排兩欄：同步狀態卡（路徑顯示 + 連結/取消按鈕 + ACTIVE/LOCAL badge）+ 安全性提醒卡（shield icon box）
+- 下排 3 個功能說明卡：靈魂情境、詞彙同步、AI記憶
+
+---
+
+#### 🔤 Material Symbols Icon 系統
+
+**字體檔**：`assets/fonts/MaterialSymbolsOutlined.ttf`（10MB variable font）
+
+**核心發現與修復**：
+
+| 問題 | 根因 | 解法 |
+|------|------|------|
+| 圖示顯示為文字（如 "home"） | Qt 預設不套用 OpenType ligature | 改用直接 Unicode codepoint（如 `\ue9b2`） |
+| 全頁 QLabel icon 全部空白 | 全域 QSS `QLabel { font-family: 'PingFang TC' }` 蓋掉 `setFont()` | 在 `setStyleSheet()` 內加 `font-family: 'Material Symbols Outlined'` |
+| `ms_icon_pixmap()` 輸出全黑空白 | `setDevicePixelRatio(3)` 後 QPainter 用 logical 座標（0~size），畫 `QRect(0,0,px_size,px_size)` 超出邊界 | 改畫 `QRect(0,0,size,size)` + `font.setPixelSize(size-2)` |
+| Sidebar icon 低解析度 | pixmap 以 1× 實體尺寸渲染 | 建立 3× 實體像素 QPixmap（`px_size = size * 3`），`setDevicePixelRatio(3)` |
+| 字體載入後 family 名稱不確定 | variable font 可能以不同名稱註冊 | `_load_ms_font()` 讀回 `applicationFontFamilies(font_id)[0]` 更新全域 `_MS_FONT_FAMILY` |
+
+**Codepoints 對照（共 22 個）**：
+```
+home→e9b2, mic→e31d, settings→e8b8, bar_chart→e26b, auto_awesome→e65f
+menu_book→ea19, cloud_sync→eb5a, keyboard→e312, build→f8cd, tune→e429
+shield→e9e0, lock_open→e898, visibility→e8f4, mic_external_on→ef5a
+health_and_safety→e1d5, history→e8b3, terminal→eb8e, psychology→ea4a
+balance→eaf6, bolt→ea0b, manage_accounts→f02e, smart_toy→f06c
+```
+
+**Sidebar 選單 icon 對照**：
+```
+Dashboard→home, 辨識AI→mic, 靈魂設定→auto_awesome
+詞彙記憶→menu_book, 雲端同步→cloud_sync, 數據統計→bar_chart, 系統設定→settings
+```
+
+---
+
+#### 🎨 UI 細節決策
+
+| 項目 | 決策 |
+|------|------|
+| 介面外觀／skin 選單 | **隱藏**（`ui_skin_combo.hide()`），config 仍保存。等新 skin 加入再開放 |
+| danger 按鈕邊框 | 改為 `s['bg_input_border']`（#2a2a2e 灰），文字保持粉紅 |
+| 偏好 toggle 格子 | 無邊框（`border: none`），背景 `s['bg_input']` |
+| StatusChip 置中 | 所有 `addWidget` 加 `alignment=Qt.AlignmentFlag.AlignHCenter` |
+| ModelStatusLight 置中 | 移除 `addStretch()`，layout/top_row/desc 全部 `AlignHCenter` |
+
+---
+
+*此記憶文件由 AI 於 2026-03-20 更新，標記 v2.9.2 Titanium UI 全面改版里程碑。*

@@ -37,10 +37,10 @@ class VoiceTypeMenuBar:
         # 版本功能分流
         if EDITION == "coffee":
             scenarios = [f.stem for f in SOUL_SCENARIO_DIR.glob("*.md")] if SOUL_SCENARIO_DIR.exists() else []
-            items.append({'label': "🎭 靈魂情境", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)})
+            items.append({'label': "靈魂情境", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)})
         else:
             # Free 版：僅顯示底層靈魂（不可切換）
-            items.append({'label': "🎭 底層靈魂", 'callback': None})
+            items.append({'label': "底層靈魂", 'callback': None})
 
         items += [
             {'label': "快速翻譯", 'callback': None, 'submenu': [
@@ -49,7 +49,7 @@ class VoiceTypeMenuBar:
                 {'label': "恢復正常模式", 'callback': lambda _: self._translate_none(), 'checked': (self.config.get("translation_lang") is None)},
             ]},
             {'label': "---", 'callback': None},
-            {'label': "⚙️  偏好設定...", 'callback': lambda _: self._open_settings()},
+            {'label': "偏好設定...", 'callback': lambda _: self._open_settings()},
             {'label': "---", 'callback': None},
             {'label': "結束", 'callback': lambda _: self._quit()},
         ]
@@ -71,7 +71,7 @@ class VoiceTypeMenuBar:
 
     def _build_format_menu(self, formats):
         active = self.config.get("active_format", "natural")
-        items = [{'label': "📄 自然排版 (無格式支援)", 'callback': self._set_format, 'checked': (active == "natural")}]
+        items = [{'label': "自然排版 (無格式支援)", 'callback': self._set_format, 'checked': (active == "natural")}]
         for f in sorted(formats):
             if f == "natural": continue
             items.append({'label': f, 'callback': self._set_format, 'checked': (active == f)})
