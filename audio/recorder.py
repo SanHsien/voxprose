@@ -36,6 +36,7 @@ class AudioRecorder:
         self._recording = False
         self._frames: list[np.ndarray] = []
         self._lock = threading.Lock()
+        self._stream_lock = threading.Lock()  # v2.9.8: 保護 start/stop 不重疊執行
         self._stream: Optional[sd.InputStream] = None
         self._agc_factor: float = 1.0       # AGC 動態倍率（不覆蓋 gain）
         self._recent_peaks: list[float] = []
@@ -49,6 +50,12 @@ class AudioRecorder:
 
     def start(self) -> None:
         """Start recording audio."""
+        # v2.9.8: 等待上一次 stop() 完全結束（最多 1 秒），避免 stream 重疊
+        if not self._stream_lock.acquire(timeout=1.0):
+            print("[recorder] start() timed out waiting for previous stop.")
+            return
+        self._stream_lock.release()
+
         with self._lock:
             if self._recording:
                 return
@@ -129,19 +136,21 @@ class AudioRecorder:
 
     def stop(self) -> bytes:
         """Stop recording and return WAV bytes. Sets is_silent."""
-        with self._lock:
-            self._recording = False
+        # v2.9.8: 持鎖整個 stop 過程，防止 start() 在 stream 尚未關閉時插入
+        with self._stream_lock:
+            with self._lock:
+                self._recording = False
 
-        if hasattr(self, '_poll_thread') and self._poll_thread.is_alive():
-            self._poll_thread.join(timeout=0.5)
+            if hasattr(self, '_poll_thread') and self._poll_thread.is_alive():
+                self._poll_thread.join(timeout=1.0)
 
-        if self._stream:
-            try:
-                self._stream.stop()
-                self._stream.close()
-            except Exception:
-                pass
-            self._stream = None
+            if self._stream:
+                try:
+                    self._stream.stop()
+                    self._stream.close()
+                except Exception:
+                    pass
+                self._stream = None
 
         # 靜音判斷：用峰值（任一 chunk 中最大的 RMS），
         # 只要有任何一段有聲音就不算靜音，避免長段錄音被平均值拉低而誤判。

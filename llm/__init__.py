@@ -21,6 +21,9 @@ def get_llm(config: dict) -> BaseLLM:
     elif engine == "deepseek":
         from .deepseek import DeepSeekLLM
         return DeepSeekLLM(config)
+    elif engine == "minimax":
+        from .minimax import MiniMaxLLM
+        return MiniMaxLLM(config)
     else:
         from .ollama import OllamaLLM
         return OllamaLLM(config)

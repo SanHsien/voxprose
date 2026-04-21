@@ -22,8 +22,19 @@ from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPL
 from ui.skin_manager import SkinManager, AVAILABLE_SKINS
 
 log = logging.getLogger("voicetype.ui")
-STT_ENGINES = ["mlx_whisper", "groq", "gemini", "openrouter"]
-LLM_ENGINES = ["ollama", "openai", "claude", "openrouter", "gemini", "deepseek", "qwen"]
+LLM_ENGINES = ["ollama", "openai", "claude", "openrouter", "gemini", "deepseek", "qwen", "minimax"]
+PROVIDER_MODELS = {
+    "ollama":     [],
+    "openai":     ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "o1-mini", "o3-mini"],
+    "claude":     ["claude-opus-4-5-20251101", "claude-sonnet-4-5-20251101", "claude-3-5-haiku-20241022"],
+    "openrouter": [],
+    "gemini":     ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-pro", "gemini-1.5-flash"],
+    "deepseek":   ["deepseek-chat", "deepseek-reasoner"],
+    "qwen":       ["qwen-plus", "qwen-turbo", "qwen-max", "qwen-long"],
+    "minimax":    ["MiniMax-M2.5", "MiniMax-Text-01", "abab6.5s-chat", "abab5.5-chat"],
+}
+# 使用本機 Base URL 的供應商（顯示 URL 輸入欄）
+LOCAL_URL_ENGINES = {"ollama"}
 WHISPER_MODELS = ["tiny", "base", "small", "medium", "large"]
 TRIGGER_MODES = ["push_to_talk", "toggle"]
 HOTKEYS = ["right_option", "left_option", "right_ctrl", "f13", "f14", "f15"]
@@ -1312,6 +1323,7 @@ class SettingsWindow(QMainWindow):
         _key_row("OpenRouter API KEY",        "openrouter_key", "sk-or-...")
         _key_row("通義千問 (Qwen) KEY",        "qwen_key",       "sk-...")
         _key_row("DeepSeek API KEY",          "deepseek_key",   "sk-...")
+        _key_row("MiniMax API KEY",           "minimax_key",    "eyJhbGci...")
         keys_layout.addStretch()
         two_col.addWidget(keys_card, stretch=3)
 
@@ -1348,10 +1360,34 @@ class SettingsWindow(QMainWindow):
         lbl_prov = QLabel("模型提供商（Provider）")
         lbl_prov.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
         llm_layout.addWidget(lbl_prov)
+        ENGINE_DISPLAY = {
+            "ollama": "Ollama（本機）", "openai": "OpenAI",
+            "claude": "Anthropic Claude", "openrouter": "OpenRouter", "gemini": "Google Gemini",
+            "deepseek": "DeepSeek", "qwen": "通義千問 Qwen", "minimax": "MiniMax",
+        }
         self.llm_engine = QComboBox()
         for eng in LLM_ENGINES:
-            self.llm_engine.addItem(eng.capitalize() if eng != "openai" else "OpenAI", eng)
+            self.llm_engine.addItem(ENGINE_DISPLAY.get(eng, eng.capitalize()), eng)
         llm_layout.addWidget(self.llm_engine)
+
+        # 本機 Base URL（ollama / omlx）
+        lbl_base_url = QLabel("本機伺服器 URL")
+        lbl_base_url.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
+        llm_layout.addWidget(lbl_base_url)
+        self.llm_base_url = QLineEdit()
+        self.llm_base_url.setFixedHeight(36)
+        self.llm_base_url.setPlaceholderText("http://localhost:11434")
+        llm_layout.addWidget(self.llm_base_url)
+        self._lbl_base_url = lbl_base_url
+
+        # 模型選擇
+        lbl_model = QLabel("模型（Model）")
+        lbl_model.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
+        llm_layout.addWidget(lbl_model)
+        self.llm_model_combo = QComboBox()
+        self.llm_model_combo.setEditable(True)
+        llm_layout.addWidget(self.llm_model_combo)
+        self.llm_engine.currentIndexChanged.connect(self._on_llm_provider_changed)
 
         # 注入模式
         lbl_mode = QLabel("內容注入模式（Injection Mode）")
@@ -1379,6 +1415,30 @@ class SettingsWindow(QMainWindow):
         container.setLayout(layout)
         page.setWidget(container)
         return page
+
+    def _on_llm_provider_changed(self):
+        """依選擇的 LLM 供應商，動態更新模型選單與 Base URL 欄位。"""
+        eng = self.llm_engine.currentData() or ""
+        is_local = eng in LOCAL_URL_ENGINES
+        self._lbl_base_url.setVisible(is_local)
+        self.llm_base_url.setVisible(is_local)
+        if is_local:
+            url_key = f"{eng}_base_url"
+            self.llm_base_url.setPlaceholderText("http://localhost:11434")
+            self.llm_base_url.setText(self.config.get(url_key, ""))
+
+        models = PROVIDER_MODELS.get(eng, [])
+        self.llm_model_combo.blockSignals(True)
+        self.llm_model_combo.clear()
+        self.llm_model_combo.addItems(models)
+        default = models[0] if models else ""
+        saved = self.config.get(f"{eng}_model", default)
+        idx = self.llm_model_combo.findText(saved)
+        if idx >= 0:
+            self.llm_model_combo.setCurrentIndex(idx)
+        else:
+            self.llm_model_combo.setCurrentText(saved)
+        self.llm_model_combo.blockSignals(False)
 
     def _select_model_card(self, selected_key: str):
         """點選模型卡片時更新選取狀態與 config。"""
@@ -2201,6 +2261,14 @@ class SettingsWindow(QMainWindow):
         key_dc, self.btn_view_keystrike = _diag_card("history", "檢視熱鍵紀錄", "排查按鍵衝突與覆載狀態", self._view_keystrike_log)
         dl.addWidget(key_dc)
 
+        # v2.9.11: 匯出診斷包（回報崩潰用）
+        diag_dc, self.btn_export_diagnostics = _diag_card(
+            "download", "匯出診斷包",
+            "一鍵打包日誌與系統資訊到桌面 zip",
+            self._export_diagnostics,
+        )
+        dl.addWidget(diag_dc)
+
         dl.addStretch()
         top_row.addWidget(diag_card, stretch=2)
         layout.addLayout(top_row)
@@ -2405,9 +2473,10 @@ class SettingsWindow(QMainWindow):
         self.llm_enabled.setChecked(self.config.get("llm_enabled", False))
         llm_eng_idx = self.llm_engine.findData(self.config.get("llm_engine", "ollama"))
         if llm_eng_idx >= 0: self.llm_engine.setCurrentIndex(llm_eng_idx)
+        self._on_llm_provider_changed()
         llm_mode_idx = self.llm_mode.findData(self.config.get("llm_mode", "replace"))
         if llm_mode_idx >= 0: self.llm_mode.setCurrentIndex(llm_mode_idx)
-        
+
         # API Keys
         self.openai_key.setText(self.config.get("openai_api_key", ""))
         self.anthropic_key.setText(self.config.get("anthropic_api_key", ""))
@@ -2415,6 +2484,7 @@ class SettingsWindow(QMainWindow):
         self.openrouter_key.setText(self.config.get("openrouter_api_key", ""))
         self.qwen_key.setText(self.config.get("qwen_api_key", ""))
         self.deepseek_key.setText(self.config.get("deepseek_api_key", ""))
+        self.minimax_key.setText(self.config.get("minimax_api_key", ""))
         
         # 3. 系統設定 (Critical: fix UI overwriting disk with stale state)
         self.btn_ptt.key_str = self.config.get("hotkey_ptt", "alt_r")
@@ -2751,14 +2821,22 @@ class SettingsWindow(QMainWindow):
         # whisper_model 由 _select_model_card() 即時寫入 self.config，這裡只確保同步
         self.config["language"] = self.language.currentData() or self.language.currentText()
         self.config["llm_enabled"] = self.llm_enabled.isChecked()
-        self.config["llm_engine"] = self.llm_engine.currentData() or self.llm_engine.currentText()
+        llm_eng = self.llm_engine.currentData() or self.llm_engine.currentText()
+        self.config["llm_engine"] = llm_eng
         self.config["llm_mode"] = self.llm_mode.currentData() or self.llm_mode.currentText()
+        if llm_eng:
+            self.config[f"{llm_eng}_model"] = self.llm_model_combo.currentText().strip()
+        if llm_eng in LOCAL_URL_ENGINES:
+            url = self.llm_base_url.text().strip()
+            if url:
+                self.config[f"{llm_eng}_base_url"] = url
         self.config["openai_api_key"] = self.openai_key.text().strip()
         self.config["anthropic_api_key"] = self.anthropic_key.text().strip()
         self.config["gemini_api_key"] = self.gemini_key.text().strip()
         self.config["openrouter_api_key"] = self.openrouter_key.text().strip()
         self.config["qwen_api_key"] = self.qwen_key.text().strip()
         self.config["deepseek_api_key"] = self.deepseek_key.text().strip()
+        self.config["minimax_api_key"] = self.minimax_key.text().strip()
         self.config["hotkey_ptt"] = self.btn_ptt.key_str
         self.config["hotkey_toggle"] = self.btn_toggle.key_str
         self.config["hotkey_llm"] = self.btn_llm.key_str
@@ -2826,6 +2904,28 @@ class SettingsWindow(QMainWindow):
                 subprocess.run(["open", str(KEYSTRIKE_LOG_PATH)])
         else:
             QMessageBox.information(self, "資訊", f"熱鍵日誌檔案尚未建立：\n{KEYSTRIKE_LOG_PATH}")
+
+    def _export_diagnostics(self):
+        """v2.9.11: 一鍵匯出診斷包到桌面（含 debug.log / crash reports / 環境資訊）。"""
+        from paths import APP_DATA_DIR
+        from utils.diagnostics import export_diagnostic_bundle
+        try:
+            zip_path = export_diagnostic_bundle(APP_DATA_DIR, self.config)
+            if zip_path and zip_path.exists():
+                QMessageBox.information(
+                    self, "診斷包已匯出",
+                    f"已儲存至桌面：\n{zip_path.name}\n\n"
+                    f"請將此 zip 檔傳給開發者協助排查問題。\n\n"
+                    f"（Finder 已自動反白顯示此檔）"
+                )
+            else:
+                QMessageBox.warning(self, "匯出失敗", "診斷包建立失敗，請查看 debug.log。")
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(
+                self, "匯出錯誤",
+                f"匯出診斷包時發生錯誤：\n{e}\n\n{traceback.format_exc()}"
+            )
 
     def run(self):
         self.show()
@@ -2924,10 +3024,10 @@ class SettingsWindow(QMainWindow):
             QMessageBox.critical(self, "錯誤", f"錄音測試失敗: {str(e)}")
 
 def has_api_key(config: dict) -> bool:
-    stt = config.get("stt_engine", "local_whisper")
-    if stt == "local_whisper" and (not config.get("llm_enabled") or config.get("llm_engine") == "ollama"):
+    if not config.get("llm_enabled") or config.get("llm_engine") == "ollama":
         return True
-    for k in ["groq_api_key", "openai_api_key", "openrouter_api_key"]:
+    for k in ["openai_api_key", "anthropic_api_key", "gemini_api_key",
+              "openrouter_api_key", "qwen_api_key", "deepseek_api_key", "minimax_api_key"]:
         if config.get(k): return True
     return False
 

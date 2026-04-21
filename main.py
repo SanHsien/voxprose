@@ -1,55 +1,116 @@
 """
-嘴炮輸入法 (VoiceType4TW) macOS — main entry point (v2.9.0).
+嘴炮輸入法 (VoiceType4TW) macOS — main entry point (v2.9.11).
+
+v2.9.11 啟動流程改造：
+- logging 初始化提前到所有重 import 之前
+- faulthandler 啟用（捕捉 SIGSEGV / SIGBUS / SIGABRT 的 C-level trace）
+- 每個高風險 import 包 [boot] breadcrumb，方便定位在哪崩
 """
 import os
 import sys
 import threading
 import time
-import certifi
+import queue
+import traceback
 from pathlib import Path
 
-# Fix SSL certificate issue in py2app bundles when using httpx/huggingface_hub
-os.environ["SSL_CERT_FILE"] = certifi.where()
-
-# ── Debug Log 寫入檔案 (App 版除錯用) ──────────────────────────────
+# ── v2.9.11 STEP 1: logging + faulthandler 必須最早，在任何重 import 之前 ──
 import logging
-from paths import APP_DATA_DIR, BUILD_ID, VERSION_NAME
-from config import load_config, save_config
 
-# Load config early to determine log level
-_early_config = load_config()
-_log_level = logging.DEBUG if _early_config.get("debug_mode", False) else logging.INFO
+# 直接用硬編碼路徑（不 import paths 模組，避免 paths.py 的 top-level 執行崩在此處無 log 可尋）
+_HOME = Path.home()
+_LOG_DIR = _HOME / "Library" / "Application Support" / "VoiceType4TW"
+_LOG_DIR.mkdir(parents=True, exist_ok=True)
+_LOG_FILE = _LOG_DIR / "debug.log"
 
-_log_dir = APP_DATA_DIR
-_log_dir.mkdir(parents=True, exist_ok=True)
-_log_file = _log_dir / "debug.log"
-
+# 第一優先：寫檔 + stdout logger 起來
 logging.basicConfig(
-    level=_log_level,
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler(str(_log_file), mode='a', encoding='utf-8'),
+        logging.FileHandler(str(_LOG_FILE), mode='a', encoding='utf-8'),
         logging.StreamHandler(sys.stdout),
     ],
 )
 log = logging.getLogger("voicetype")
-log.info("\n" + "="*50 + f"\n[START] {time.strftime('%Y-%m-%d %H:%M:%S')} {VERSION_NAME} ({BUILD_ID})\n" + "="*50)
-log.info(f"=== VoiceType4TW Starting === Log: {_log_file} (Level: {logging.getLevelName(_log_level)})")
+log.info("\n" + "="*60 + f"\n[START] {time.strftime('%Y-%m-%d %H:%M:%S')} (pre-import bootstrap)\n" + "="*60)
 
-from config import load_config, save_config
+# 第二優先：faulthandler (抓 native crash)
+try:
+    from utils.diagnostics import install_faulthandler, collect_env_info
+    install_faulthandler(_LOG_FILE)
+    log.info("[boot] step 1: faulthandler enabled")
+    # 環境資訊進 log
+    for line in collect_env_info().split("\n"):
+        if line.strip():
+            log.info(f"[env] {line}")
+except Exception as _e:
+    log.error(f"[boot] step 1: faulthandler / env_info failed: {_e}\n{traceback.format_exc()}")
 
-from audio.recorder import AudioRecorder
-from hotkey.listener import HotkeyListener
-from output.injector import TextInjector
-from ui.mic_indicator import MicIndicator
-from ui.menu_bar import VoiceTypeMenuBar
-from ui.tray_manager import TrayManager
-from actions.dispatcher import ActionDispatcher
-from utils.permissions import ensure_all_permissions  # v2.8.4: Proactive permission trigger
-from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QTimer, QObject, pyqtSignal
+# 第三：其它 import（每一塊包 try 以便定位）
+try:
+    log.info("[boot] step 2: importing certifi + setting SSL_CERT_FILE")
+    import certifi
+    os.environ["SSL_CERT_FILE"] = certifi.where()
+except Exception as _e:
+    log.error(f"[boot] step 2 FAILED: {_e}\n{traceback.format_exc()}")
+
+try:
+    log.info("[boot] step 3: importing paths (migrate legacy data)")
+    from paths import APP_DATA_DIR, BUILD_ID, VERSION_NAME
+    log.info(f"[boot] step 3 OK: {VERSION_NAME} ({BUILD_ID})")
+except Exception as _e:
+    log.error(f"[boot] step 3 FAILED: {_e}\n{traceback.format_exc()}")
+    raise
+
+try:
+    log.info("[boot] step 4: importing config")
+    from config import load_config, save_config
+    _early_config = load_config()
+    # 根據 config 調整 log level
+    if _early_config.get("debug_mode", False):
+        logging.getLogger().setLevel(logging.DEBUG)
+        log.info("[boot] debug_mode=True, log level raised to DEBUG")
+except Exception as _e:
+    log.error(f"[boot] step 4 FAILED: {_e}\n{traceback.format_exc()}")
+    raise
+
+try:
+    log.info("[boot] step 5: importing audio.recorder (sounddevice)")
+    from audio.recorder import AudioRecorder
+except Exception as _e:
+    log.error(f"[boot] step 5 FAILED: {_e}\n{traceback.format_exc()}")
+    raise
+
+try:
+    log.info("[boot] step 6: importing hotkey.listener (Quartz)")
+    from hotkey.listener import HotkeyListener
+except Exception as _e:
+    log.error(f"[boot] step 6 FAILED: {_e}\n{traceback.format_exc()}")
+    raise
+
+try:
+    log.info("[boot] step 7: importing output / ui / actions / utils")
+    from output.injector import TextInjector
+    from ui.mic_indicator import MicIndicator
+    from ui.menu_bar import VoiceTypeMenuBar
+    from ui.tray_manager import TrayManager
+    from actions.dispatcher import ActionDispatcher
+    from utils.permissions import ensure_all_permissions
+except Exception as _e:
+    log.error(f"[boot] step 7 FAILED: {_e}\n{traceback.format_exc()}")
+    raise
+
+try:
+    log.info("[boot] step 8: importing PyQt6")
+    from PyQt6.QtGui import QIcon
+    from PyQt6.QtCore import QTimer, QObject, pyqtSignal
+except Exception as _e:
+    log.error(f"[boot] step 8 FAILED: {_e}\n{traceback.format_exc()}")
+    raise
 
 from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR, SOUL_SNIPPET_DIR
+log.info(f"[boot] all imports OK — {VERSION_NAME} ({BUILD_ID})")
 
 # ── 內建 LLM Prompt ──────────────────────────────────────────────
 DEFAULT_LLM_PROMPT = (
@@ -107,7 +168,9 @@ class VoiceTypeApp(QObject):
         
         self.injector = TextInjector()
         self.llm = None
-        
+        self._target_bundle_id = ""  # v2.9.9: 記住錄音開始時的目標 App，貼上時回切
+        self._target_pid = 0         # v2.9.10: 目標 App PID，用於 CGEventPostToPid
+
         # 綁定錄音事件
         self.recorder.on_start = self._on_record_start
         self.recorder.on_stop = self._on_record_stop
@@ -120,8 +183,15 @@ class VoiceTypeApp(QObject):
         self.settings_window = None
         self.action_dispatcher = ActionDispatcher(self.injector, self.indicator)
 
+        # v2.9.8: STT 串行保護 — 單一 worker thread + queue，防止並行呼叫 STT 崩潰
+        self._stt_queue: queue.Queue = queue.Queue()
+        self._stt_worker = threading.Thread(target=self._stt_worker_loop, daemon=True)
+        self._stt_worker.start()
+
     def run(self):
+        log.info("[run] step 1: ensure_all_permissions()")
         ensure_all_permissions()
+        log.info("[run] step 2: macOS UI customization")
 
         # ── macOS UI Customization ────────────────────────────────
         try:
@@ -288,9 +358,26 @@ class VoiceTypeApp(QObject):
             self.ui_signal.emit({"type": "hide", "value": None})
             return
 
-        print("[main] Starting STT process thread...")
+        # v2.9.8: 推入 STT queue，由單一 worker 串行處理，防止並行崩潰
+        print("[main] Queueing audio for STT processing...")
         self.ui_signal.emit({"type": "state", "value": "processing"})
-        threading.Thread(target=self._process_audio, args=(audio_data,), daemon=True).start()
+        self._stt_queue.put(audio_data)
+
+    def _stt_worker_loop(self):
+        """v2.9.8: 單一 STT worker thread，確保 transcribe() 永遠串行執行。"""
+        while True:
+            try:
+                audio_data = self._stt_queue.get()
+                if audio_data is None:  # 終止訊號
+                    break
+                self._process_audio(audio_data)
+            except Exception as e:
+                print(f"[stt_worker] Unexpected error: {e}")
+            finally:
+                try:
+                    self._stt_queue.task_done()
+                except Exception:
+                    pass
 
     def _handle_ui_signal(self, data):
         """v2.8.22: Processes UI updates on the MAIN thread."""
@@ -327,7 +414,20 @@ class VoiceTypeApp(QObject):
 
         if mode == "llm":
             self.config["llm_enabled"] = True
-            
+
+        # v2.9.10: 記住目前 frontmost app 的 bundle ID 與 PID
+        # 用於貼上時回切（修正 Logitech FN+Fxx 造成 focus 跑掉）
+        try:
+            from AppKit import NSWorkspace
+            active = NSWorkspace.sharedWorkspace().activeApplication()
+            self._target_bundle_id = active.get("NSApplicationBundleIdentifier", "")
+            self._target_pid = active.get("NSApplicationProcessIdentifier", 0)
+            log.info(f"[start] Target app: {active.get('NSApplicationName', '')} "
+                     f"bundle={self._target_bundle_id} pid={self._target_pid}")
+        except Exception:
+            self._target_bundle_id = ""
+            self._target_pid = 0
+
         is_assistant = self.config.get("action_mode", False)
         llm_active = self.config.get("llm_enabled", False)
 
@@ -408,7 +508,7 @@ class VoiceTypeApp(QObject):
             # --- 1. 語音指令檢測 ---
             is_demo = self.config.get("is_demo", False)
             if self.config.get("action_mode", False) and not is_demo:
-                if self.action_dispatcher.dispatch(text):
+                if self.action_dispatcher.dispatch(text, self._target_bundle_id, self._target_pid):
                     print(f"[main] Action Dispatched: {text}")
                     self._on_config_saved()
                     return
@@ -461,7 +561,8 @@ class VoiceTypeApp(QObject):
                         "gemini": "gemini_api_key",
                         "openrouter": "openrouter_api_key",
                         "qwen": "qwen_api_key",
-                        "deepseek": "deepseek_api_key"
+                        "deepseek": "deepseek_api_key",
+                        "minimax": "minimax_api_key",
                     }
                     if engine in key_map:
                         if not self.config.get(key_map[engine]):
@@ -532,7 +633,7 @@ class VoiceTypeApp(QObject):
             self._log_execution(text, final_text, is_llm_used, engine, stt_duration, llm_duration)
 
             # --- 4. 注入最終文字 (v2.8.0 B19: 已移除瀏覽器攔截) ---
-            self.injector.inject(final_text)
+            self.injector.inject(final_text, self._target_bundle_id, self._target_pid)
 
             # --- 5. 紀錄長期記憶與自動學習 (v2.7.32 Fix) ---
             try:
@@ -721,37 +822,42 @@ class VoiceTypeApp(QObject):
 
     def _load_models_async(self):
         """背景執行緒：下載模型 → 預熱 Metal → 載入 LLM。"""
-        print("[main] Starting background model loading...")
+        log.info("[models] Starting background model loading...")
         try:
+            log.info("[models] step 1: import stt / llm modules")
             from stt import get_stt
             from llm import get_llm
 
-            print("[main] Initializing STT engine...")
+            log.info("[models] step 2: instantiate STT engine")
             self.stt = get_stt(self.config)
 
             # 1. 下載模型（含進度回報）
             if hasattr(self.stt, 'download_model'):
+                log.info("[models] step 3: download_model()")
                 def on_download_progress(pct, msg):
                     self.download_signal.emit(msg, pct, False)
                 self.stt.download_model(progress_callback=on_download_progress)
 
-            # 2. 預熱 Metal
+            # 2. 預熱 Metal — 高風險點（M3 Pro 崩潰最可能位置）
+            log.info("[models] step 4: WARMUP (MLX Metal shader compile) — high risk zone")
             self.download_signal.emit("正在初始化 Metal 加速...", -1, False)
             self.stt.warmup()
+            log.info("[models] step 4 OK: warmup completed")
 
             # 3. 載入 LLM
+            log.info("[models] step 5: load LLM")
             self.download_signal.emit("正在載入 AI 引擎...", -1, False)
             self.llm = get_llm(self.config)
             self.llm.warmup()
 
             self._models_ready = True
-            print("[main] === Models are READY. ===")
+            log.info("[models] === Models are READY. ===")
             self.indicator.hide()
             self._notify_settings_download_done()
         except Exception as e:
-            print(f"[main] !!! FAILED to load models: {e}")
             import traceback
-            traceback.print_exc()
+            err_tb = traceback.format_exc()
+            log.error(f"[models] !!! FAILED to load models: {e}\n{err_tb}")
             self._on_models_error(str(e))
 
     def _on_models_error(self, error_msg):

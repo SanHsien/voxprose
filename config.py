@@ -30,6 +30,8 @@ DEFAULT_CONFIG = {
     "qwen_model": "qwen-plus",
     "deepseek_api_key": "",
     "deepseek_model": "deepseek-chat",
+    "minimax_api_key": "",
+    "minimax_model": "MiniMax-M2.5",
     # 記憶
     "memory_enabled": True,
     # v2.5 靈魂系統
