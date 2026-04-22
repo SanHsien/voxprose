@@ -69,7 +69,7 @@ def fix_bundle(app_path=None):
     fw_dir = app_dir / "Contents" / "Frameworks"
     arm64_ssl = Path("/opt/homebrew/lib/libssl.3.dylib")
     arm64_crypto = Path("/opt/homebrew/lib/libcrypto.3.dylib")
-    
+
     if fw_dir.exists() and arm64_ssl.exists() and arm64_crypto.exists():
         target_ssl = fw_dir / "libssl.3.dylib"
         target_crypto = fw_dir / "libcrypto.3.dylib"
@@ -81,6 +81,55 @@ def fix_bundle(app_path=None):
         # Explicitly set permissions for the Homebrew-sourced dylibs
         os.chmod(target_ssl, 0o755)
         os.chmod(target_crypto, 0o755)
+
+        # v2.9.12: 修正 Homebrew libssl 寫死的 Cellar 路徑
+        # 不修的話，使用者機器（無 Homebrew）會 dlopen 失敗 → ssl import 崩潰
+        import subprocess as _sp
+
+        def _ntool(*args):
+            _sp.run(["install_name_tool", *args], check=True)
+
+        def _resign(path):
+            # install_name_tool 會使簽章失效，必須 ad-hoc 重簽
+            _sp.run(
+                ["codesign", "--force", "--sign", "-", "--timestamp=none", str(path)],
+                check=False,
+            )
+
+        print("[Post-Build Fix] Rewriting libssl/libcrypto install names → @loader_path...")
+
+        # libssl 的 id 與 libcrypto 依賴
+        _ntool("-id", "@rpath/libssl.3.dylib", str(target_ssl))
+        # 列出 libssl 所有以 /opt/homebrew 開頭的依賴，一個個改為 @loader_path/basename
+        deps = _sp.check_output(["otool", "-L", str(target_ssl)]).decode()
+        for line in deps.splitlines():
+            parts = line.strip().split(" ")
+            p = parts[0]
+            if p.startswith("/opt/homebrew/") and p.endswith(".dylib"):
+                new = f"@loader_path/{Path(p).name}"
+                _ntool("-change", p, new, str(target_ssl))
+
+        # libcrypto 的 id
+        _ntool("-id", "@rpath/libcrypto.3.dylib", str(target_crypto))
+        deps = _sp.check_output(["otool", "-L", str(target_crypto)]).decode()
+        for line in deps.splitlines():
+            parts = line.strip().split(" ")
+            p = parts[0]
+            if p.startswith("/opt/homebrew/") and p.endswith(".dylib") and p != str(target_crypto):
+                new = f"@loader_path/{Path(p).name}"
+                _ntool("-change", p, new, str(target_crypto))
+
+        # 重新 ad-hoc 簽章（install_name_tool 會清除簽章）
+        _resign(target_ssl)
+        _resign(target_crypto)
+
+        # 驗證
+        final_deps = _sp.check_output(["otool", "-L", str(target_ssl)]).decode()
+        if "/opt/homebrew/" in final_deps:
+            print("[Post-Build Fix] WARNING: libssl still references /opt/homebrew:")
+            print(final_deps)
+        else:
+            print("[Post-Build Fix] libssl/libcrypto paths rewritten OK.")
 
     print("[Post-Build Fix] Done!")
 
