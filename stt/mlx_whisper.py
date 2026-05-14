@@ -1,5 +1,6 @@
 import gc
 import io
+import threading
 import time
 import wave
 import numpy as np
@@ -48,6 +49,12 @@ def _is_hallucination(text: str) -> bool:
 
 
 class MLXWhisperSTT(BaseSTT):
+    # class-level (NOT instance-level) because Metal command queue is
+    # process-global; per-instance locking would not eliminate the race.
+    # Fixes GitHub Issue #6 (SIGSEGV in mlx::core::RandomBits::eval_gpu when
+    # two daemon threads run mlx_whisper.transcribe() concurrently).
+    _gpu_lock = threading.Lock()
+
     def __init__(self, config: dict):
         model_size = config.get("whisper_model", "medium")
         self.model_repo = MODEL_REPO_MAP.get(model_size, MODEL_REPO_MAP["medium"])
@@ -59,6 +66,9 @@ class MLXWhisperSTT(BaseSTT):
         預先下載模型並回報進度。
         progress_callback(pct: int, msg: str)
           pct = 0-100 實際進度, -1 = 不確定進度
+
+        Note: intentionally NOT locked with _gpu_lock — this method only
+        performs HTTP / filesystem operations and never touches Metal.
         """
         def cb(pct, msg):
             print(f"[stt] download {pct}% — {msg}")
@@ -109,7 +119,8 @@ class MLXWhisperSTT(BaseSTT):
 
         Real audio (non-silent) does not trigger the same C-level abort, so lazy
         compilation on first use is safe."""
-        print(f"[stt] MLX Whisper warmup skipped (lazy Metal compile on first use to avoid abort on certain Mac/macOS combos)")
+        with MLXWhisperSTT._gpu_lock:
+            print(f"[stt] MLX Whisper warmup skipped (lazy Metal compile on first use to avoid abort on certain Mac/macOS combos)")
 
     def _clear_metal_cache(self):
         """釋放 MLX Metal 快取與 Python 垃圾，降低長時間使用後的記憶體占用。"""
@@ -146,29 +157,34 @@ class MLXWhisperSTT(BaseSTT):
         if n_channels > 1:
             audio_np = audio_np.reshape(-1, n_channels).mean(axis=1)
 
+        # Serialise all MLX GPU access across threads. MLX's Metal command queue
+        # is process-global; two daemon threads racing on transcribe() previously
+        # crashed with SIGSEGV (GitHub Issue #6). Lock release is exception-safe
+        # via the with-statement.
         import mlx_whisper
-        result = mlx_whisper.transcribe(
-            audio_np,
-            path_or_hf_repo=self.model_repo,
-            language=language,
-            initial_prompt=prompt,
-            verbose=False,
-            # 降低幻覺：no_speech_threshold 拉高 → Whisper 對「這段沒人聲」更敏感；
-            # condition_on_previous_text=False → 不讓前一段的幻覺污染下一段。
-            no_speech_threshold=0.6,
-            condition_on_previous_text=False,
-        )
-        text = result.get("text", "").strip()
-        if _is_hallucination(text):
-            print(f"[stt] Hallucination dropped: {text!r}")
-            text = ""
-        else:
-            print(f"[stt] MLX Whisper transcribed: {text}")
+        with MLXWhisperSTT._gpu_lock:
+            result = mlx_whisper.transcribe(
+                audio_np,
+                path_or_hf_repo=self.model_repo,
+                language=language,
+                initial_prompt=prompt,
+                verbose=False,
+                # 降低幻覺：no_speech_threshold 拉高 → Whisper 對「這段沒人聲」更敏感；
+                # condition_on_previous_text=False → 不讓前一段的幻覺污染下一段。
+                no_speech_threshold=0.6,
+                condition_on_previous_text=False,
+            )
+            text = result.get("text", "").strip()
+            if _is_hallucination(text):
+                print(f"[stt] Hallucination dropped: {text!r}")
+                text = ""
+            else:
+                print(f"[stt] MLX Whisper transcribed: {text}")
 
-        # 定期清理記憶體
-        self._transcribe_count += 1
-        if self._transcribe_count % _CACHE_CLEAR_INTERVAL == 0:
-            print(f"[stt] Clearing MLX Metal cache (every {_CACHE_CLEAR_INTERVAL} transcriptions)...")
-            self._clear_metal_cache()
+            # 定期清理記憶體（也在 lock 內，因為 mx.metal.clear_cache 觸碰 Metal state）
+            self._transcribe_count += 1
+            if self._transcribe_count % _CACHE_CLEAR_INTERVAL == 0:
+                print(f"[stt] Clearing MLX Metal cache (every {_CACHE_CLEAR_INTERVAL} transcriptions)...")
+                self._clear_metal_cache()
 
         return text

@@ -1,0 +1,29 @@
+## 1. MLX GPU lock in stt/mlx_whisper.py
+
+- [x] 1.1 Add `import threading` at the top of `stt/mlx_whisper.py` (next to other stdlib imports); verification: `grep -n "^import threading" stt/mlx_whisper.py` returns one match in the top import block.
+- [x] 1.2 Add `_gpu_lock = threading.Lock()` as a class attribute on `MLXWhisperSTT`, declared at class scope (NOT inside `__init__`); verification: `python3.12 -c "from stt.mlx_whisper import MLXWhisperSTT; import threading; a,b=MLXWhisperSTT.__new__(MLXWhisperSTT),MLXWhisperSTT.__new__(MLXWhisperSTT); assert a._gpu_lock is b._gpu_lock; assert isinstance(MLXWhisperSTT._gpu_lock, type(threading.Lock()))"` exits 0.
+- [x] 1.3 Wrap the body of `warmup()` (currently a single `print(...)` statement) inside `with MLXWhisperSTT._gpu_lock:`; verification: reading the method shows the `print` line indented one level deeper than `def warmup(self):` and preceded by the `with` line.
+- [x] 1.4 Wrap the `mlx_whisper.transcribe(...)` call AND the subsequent `text = result.get("text", "").strip()` line AND the `_is_hallucination(text)` check AND the conditional `_clear_metal_cache()` call inside `with MLXWhisperSTT._gpu_lock:` in `transcribe()`. The WAV parsing and vocab prompt construction BEFORE the MLX call MAY remain outside the lock. The `return text` statement at the end MAY remain outside the lock; verification: reading the file shows exactly one `with MLXWhisperSTT._gpu_lock:` block inside `transcribe()` and it spans from the `import mlx_whisper` line (or just before) through the end of `_clear_metal_cache()` call.
+- [x] 1.5 Add an inline comment on the line above `_gpu_lock = threading.Lock()` explaining: "class-level (NOT instance-level) because Metal command queue is process-global; per-instance locking would not eliminate the race. Fixes GitHub Issue #6."; verification: `grep -B1 "_gpu_lock = threading.Lock" stt/mlx_whisper.py` shows a comment line containing "Issue #6" or "process-global".
+- [x] 1.6 Add an inline comment near the top of `download_model()` explaining: "intentionally NOT locked — HTTP / filesystem only, never touches Metal"; verification: `grep -A2 "def download_model" stt/mlx_whisper.py` shows the comment within the first 3 lines of the method body.
+
+## 2. Version bump to 2.9.14
+
+- [x] 2.1 Edit `paths.py` to set `BUILD_ID = "BUILD-2994-RELEASE"` and `VERSION_NAME = f"2.9.14 {'Coffee' if EDITION == 'coffee' else 'Free'} Edition"`; verification: `grep -nE "BUILD_ID|VERSION_NAME" paths.py | head -2` shows both updated values with exact strings.
+- [x] 2.2 Edit `setup.py` to set `'CFBundleVersion': '2.9.14'` and `'CFBundleShortVersionString': '2.9.14'`; verification: `grep -nE "'CFBundleVersion'|'CFBundleShortVersionString'" setup.py` shows both lines with `'2.9.14'`.
+- [x] 2.3 Edit `pack_dmg.sh` to set `VERSION="2.9.14-Coffee-Edition"`; verification: `grep -nE "^VERSION=" pack_dmg.sh` shows the updated literal.
+- [x] 2.4 Run a version-consistency audit: `grep -rEn "2\.9\.13" paths.py setup.py pack_dmg.sh` must return zero matches; `grep -rEn "2\.9\.14" paths.py setup.py pack_dmg.sh` must return at least three matches (one per file); verification: the two grep commands produce the expected counts.
+
+## 3. End-to-end build + verification
+
+- [x] 3.1 From repo root, run `rm -rf build dist` then `bash build_all.sh` end-to-end; verification: command exits 0; the terminal log SHALL contain `[pre-build] mlx 0.29.4 OK`, `[Post-Build Fix] mlx.metallib:` (with byte count), `[Post-Build Fix]   ✓ Bundle re-sealed`, `[Post-Build Fix] verify codesign: rc=0`, and the final `✅ All Done!` line.
+- [x] 3.2 Run `codesign --verify --deep --strict dist/dmg_staging/嘴炮輸入法.app`; verification: shell exit status is 0 and stderr does not contain the word `invalid`.
+- [x] 3.3 Run `spctl -a -vvv -t install dist/dmg_staging/嘴炮輸入法.app` and grep stderr for the literal `a sealed resource is missing or invalid`; verification: grep returns no match (rejection by policy like `rejected` or `source=Unnotarized Developer ID` is acceptable; integrity rejection is not).
+- [x] 3.4 Verify the DMG file `dist/嘴炮輸入法_v2.9.14-Coffee-Edition_macOS.dmg` exists and is non-zero size; mount with `hdiutil attach -nobrowse -readonly`, locate the mount point, run `codesign --verify --deep --strict` on the `.app` inside the mounted volume; verification: hdiutil exit 0, mount contains `嘴炮輸入法.app`, codesign on mounted app exits 0. Detach cleanly afterwards.
+- [x] 3.5 Copy the new DMG to `~/Desktop/嘴炮輸入法_v2.9.14-Coffee-Edition_macOS.dmg`; verification: `ls -la ~/Desktop/嘴炮輸入法_v2.9.14-Coffee-Edition_macOS.dmg` shows the file with the expected size in the 500-600 MB range and an mtime within the last few minutes.
+
+## 4. GitHub issue communication
+
+- [x] 4.1 After the new DMG is verified, post a comment on `https://github.com/jfamily4tw/voicetype4tw-mac/issues/6` summarising the fix (class-level `_gpu_lock`, references to spec `mlx-gpu-thread-safety`), naming v2.9.14 as the version that contains it, and asking reporter peitang to retest. Verification: GitHub returns a non-error response from `gh issue comment` and the comment appears under the issue.
+- [x] 4.2 Post a comment on `https://github.com/jfamily4tw/voicetype4tw-mac/issues/7` stating the libssl Cellar path was fixed in v2.9.13 via `post_build_fix.fix_libssl_rpath` + `reseal_bundle`, asking reporter JayC-TW to retest with v2.9.13 (or now v2.9.14). Verification: gh issue comment succeeds and comment appears.
+- [x] 4.3 Post a comment on `https://github.com/jfamily4tw/voicetype4tw-mac/issues/8` stating auto-paste was reinforced in v2.9.10 via `CGEventPostToPid` + focus-change detection in `output/injector.py`, asking reporter JayC-TW to retest with v2.9.13 (or now v2.9.14) and to attach a fresh `debug.log` if the issue persists. Verification: gh issue comment succeeds and comment appears.
