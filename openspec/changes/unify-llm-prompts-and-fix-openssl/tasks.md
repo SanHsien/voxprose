@@ -32,10 +32,10 @@
 ## 5. Testing and validation
 
 - [ ] 5.1 Verify on development machine that refine() calls with empty prompt use defaults
-- [ ] 5.2 Build complete DMG on development machine
-- [ ] 5.3 Verify on brand-new Mac Mini that application launches without manual OpenSSL installation
+- [x] 5.2 Build complete DMG on development machine
+- [x] 5.3 Verify on brand-new Mac Mini that application launches without manual OpenSSL installation
 - [ ] 5.4 Verify LLM refine() produces meaningful output (not hallucinations) when user config has empty llm_prompt
-- [ ] 5.5 Check that otool -L output shows @loader_path for libcrypto.3.dylib
+- [x] 5.5 Check that otool -L output shows @loader_path for libcrypto.3.dylib
 - [ ] 5.6 Verify backward compatibility: existing refine() calls with explicit prompts still work
 
 ## 6. Cleanup and documentation
