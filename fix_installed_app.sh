@@ -10,6 +10,12 @@ if [ ! -d "$APP" ]; then
 fi
 
 echo "[Fix] Applying MLX patch to installed app..."
-python3 post_build_fix_installed.py
+# 一律用 framework Python 3.12（與 py2app build 同一顆，site-packages 才對得上）。
+PYTHON_BIN="/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12"
+if [ ! -x "$PYTHON_BIN" ]; then
+    echo "[ERROR] 找不到 framework Python 3.12：$PYTHON_BIN"
+    exit 1
+fi
+"$PYTHON_BIN" post_build_fix_installed.py
 
 echo "[Fix] Done! Please restart 嘴炮輸入法."

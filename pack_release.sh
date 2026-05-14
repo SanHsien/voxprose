@@ -10,7 +10,8 @@ rm -rf build dist
 rm -f VoiceType4TW-Mac-Release.zip
 
 echo "=== [2/8] 使用 py2app 進行打包 ==="
-python3 setup.py py2app
+# 一律用 framework Python 3.12（不要走 $PATH 上的 python3，避免抓到 homebrew 3.14）。
+/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12 setup.py py2app
 
 echo "=== [3/8] 修復 _ssl.so 的 dylib 連結路徑 ==="
 # py2app 會把 _ssl.so 的連結從絕對路徑改成 @executable_path，

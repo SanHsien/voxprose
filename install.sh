@@ -144,14 +144,10 @@ setup_venv() {
 install_deps() {
     info "正在安裝 Python 套件（首次安裝可能需要 2-5 分鐘）..."
     pip install --upgrade pip -q
+    # requirements.txt 已將 mlx 鎖在 >=0.29,<0.30（macOS 13/14/15 兼容）。
+    # 不要在這裡額外 pip install mlx 不帶版本，會抓到 0.30+（只給 macOS 26）。
     pip install -r requirements.txt -q
-    
-    # Apple Silicon: 安裝 MLX 加速引擎
-    if [[ "$IS_APPLE_SILICON" -eq 1 ]]; then
-        info "安裝 MLX 加速引擎（Apple Silicon 專用）..."
-        pip install mlx mlx-whisper -q 2>/dev/null || warn "MLX 安裝失敗，將使用 faster-whisper 模式"
-    fi
-    
+
     success "所有套件安裝完成"
 }
 
