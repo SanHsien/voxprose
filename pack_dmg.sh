@@ -2,7 +2,7 @@
 
 # Configuration
 APP_NAME="嘴炮輸入法"
-VERSION="2.9.11-Coffee-Edition"
+VERSION="2.9.13-Coffee-Edition"
 DMG_NAME="${APP_NAME}_v${VERSION}_macOS.dmg"
 STAGING_DIR="dist/dmg_staging"
 VOL_NAME="${APP_NAME}"
@@ -11,8 +11,10 @@ echo "[DMG] Preparing staging directory..."
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"
 
-# Copy files
-cp -r "dist/${APP_NAME}.app" "$STAGING_DIR/"
+# Copy files — use ditto to preserve symlinks (notably Python.framework/Versions/Current),
+# otherwise cp -r dereferences the symlink and codesign --deep later fails with
+# "bundle format is ambiguous (could be app or framework)".
+ditto "dist/${APP_NAME}.app" "$STAGING_DIR/${APP_NAME}.app"
 
 # v2.8.4: Ensure instruction file is included with correct name
 if [ -f "安裝說明.md" ]; then

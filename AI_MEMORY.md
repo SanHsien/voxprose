@@ -261,3 +261,8 @@ Dashboard→home, 辨識AI→mic, 靈魂設定→auto_awesome
 ---
 
 *此記憶文件由 AI 於 2026-03-20 更新，標記 v2.9.6 stable 里程碑。*
+
+## 2026-05-14 重要 carry-over
+
+- MLX 必須鎖在 `>=0.29,<0.30`：MLX 0.30+ wheel = `macosx_26_0_arm64` + MSL 4.0 metallib，只能跑 macOS 26+；對 macOS 13/14/15 使用者會 `RuntimeError: Unable to load kernel ...` 或 C-level abort。詳見 `requirements.txt` 註解、`CLAUDE.md` MLX Version Pin 段落、`openspec/specs/mlx-version-pin/spec.md`。要升級必須開新 Spectra change 並在 design.md 解釋是否要放棄 macOS 13/14/15 支援。
+- v2.9.13 build pipeline 內建 `scripts/pre_build_check.py` 守衛，發現 MLX 太新會直接 abort 不繼續 build。

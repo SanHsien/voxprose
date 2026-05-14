@@ -12,7 +12,7 @@ DEFAULT_CONFIG = {
     "language": "zh",
     # LLM
     "llm_enabled": False,
-    "llm_engine": "ollama",
+    "llm_engine": "openrouter",
     "llm_mode": "replace",   # "replace" | "fast"
     "llm_prompt": "",        # 留空使用內建 prompt
     "ollama_model": "llama3",

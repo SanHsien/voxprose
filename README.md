@@ -233,6 +233,27 @@ python main.py
 > ⚠️ 首次執行時，macOS 會詢問你是否允許「終端機」使用麥克風與輔助使用權限，請務必允許。  
 > 路徑：系統設定 → 隱私權與安全性 → 麥克風 / 輔助使用
 
+### 🔒 MLX 版本鎖定（重要！打包前必看）
+
+打包 .app 前必須確認 MLX 版本在 `>=0.29,<0.30` 範圍。
+
+**為什麼**：MLX 0.30+ 的 wheel 是 `macosx_26_0_arm64`，內建的 `mlx.metallib` 用 Metal Shading Language 4.0 編譯，**只能在 macOS 26+ 載入**。如果你的開發機是 macOS 26 而 `pip install` 抓到 0.30+，打出來的 .app 會讓所有 macOS 13/14/15 使用者啟動時崩潰（`RuntimeError: Unable to load kernel ... using language version 4.0 which is incompatible with this OS`）。
+
+**確認版本**：
+```bash
+/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12 -m pip show mlx | grep Version
+# 應該看到：Version: 0.29.4（或其他 0.29.x）
+```
+
+**如果版本太新（>=0.30），降回 0.29.4**：
+```bash
+/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12 -m pip install 'mlx==0.29.4'
+```
+
+`build_all.sh` 內建 `scripts/pre_build_check.py` 守衛，發現 MLX 太新會直接 fail 不繼續 build，所以你不會不小心做出壞的 DMG——但如果你直接呼叫 `setup.py py2app` 繞過 build_all.sh 就沒這層保護。**升 MLX 到 >=0.30 必須開新 Spectra change 並在 design.md 解釋是否要放棄 macOS 13/14/15 支援**。
+
+詳見 `openspec/specs/mlx-version-pin/spec.md`（或對應 archived change）。
+
 ---
 
 ## 設定

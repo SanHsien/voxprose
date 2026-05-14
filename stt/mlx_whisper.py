@@ -16,6 +16,36 @@ MODEL_REPO_MAP = {
 # 每 N 次轉錄後自動清理 Metal 快取，防止長時間使用後記憶體膨脹
 _CACHE_CLEAR_INTERVAL = 10
 
+# Whisper 在靜音 / 雜訊 / 過短音檔時會憑空編出 YouTube 結尾片語（訓練資料偏差）。
+# 整段命中（去掉空白/標點後）就丟掉。不做子字串匹配，避免誤殺正常句子裡含這些詞的情況。
+_WHISPER_HALLUCINATIONS = frozenset({
+    # YouTube 結尾片語
+    "謝謝收看", "謝謝觀看", "謝謝大家", "謝謝大家的收看", "謝謝大家的觀看",
+    "感謝收看", "感謝觀看", "感謝你的觀看", "感謝您的觀看", "感謝大家的收看", "感謝大家的觀看",
+    "感謝你的收看", "感謝您的收看",
+    "我們下次再見", "我們下集再見", "下次見", "下集再見", "下次再見", "我們下次見",
+    "請訂閱", "請按讚", "請按讚訂閱", "別忘了訂閱", "記得訂閱", "請按讚並訂閱",
+    "別忘了按讚訂閱", "別忘了按讚訂閱開啟小鈴鐺", "記得按讚訂閱開啟小鈴鐺",
+    "按讚訂閱開啟小鈴鐺",
+    # 字幕組 / 上傳者水印
+    "字幕由Amara.org社群提供", "字幕由 Amara.org 社群提供",
+    "由 Amara.org 社群提供", "由Amara.org社群提供",
+    "MBC뉴스", "MBC 뉴스",
+    # 過短口頭禪（單字節 hallucination）
+    "嗯", "啊", "喔", "哦", "嗯哼", "呃", "嗯嗯",
+    "。", "...", "…",
+})
+
+
+def _is_hallucination(text: str) -> bool:
+    """Return True iff text (stripped of trailing punctuation/whitespace) exactly
+    matches a known Whisper hallucination pattern."""
+    if not text:
+        return False
+    # 去掉常見尾標點與空白後比對
+    stripped = text.strip().rstrip("。.!?！？,，、 \t\n")
+    return stripped in _WHISPER_HALLUCINATIONS
+
 
 class MLXWhisperSTT(BaseSTT):
     def __init__(self, config: dict):
@@ -68,15 +98,18 @@ class MLXWhisperSTT(BaseSTT):
                 print(f"[stt] snapshot_download failed: {e2}")
 
     def warmup(self):
-        """Pre-initialize MLX and Metal by doing a tiny dummy transcription."""
-        print(f"[stt] Warming up MLX Whisper ({self.model_repo})...")
-        try:
-            import mlx_whisper
-            silence = np.zeros(16000, dtype=np.float32)
-            mlx_whisper.transcribe(silence, path_or_hf_repo=self.model_repo)
-            print(f"[stt] MLX Whisper warmup complete.")
-        except Exception as e:
-            print(f"[stt] Warmup error: {e}")
+        """No-op since v2.9.12: MLX Metal warmup with silence triggers C-level abort()
+        in mlx_whisper.detect_language on certain Mac/macOS combos (confirmed:
+        Mac16,12 + macOS 15.5, regardless of model size). The abort is from MLX C
+        extension and cannot be caught by Python try/except.
+
+        Trade-off: first real transcription will be ~5-15s slower (Metal kernel
+        JIT compile happens lazily). This is a one-time cost and far better than
+        having the app crash on launch for affected users.
+
+        Real audio (non-silent) does not trigger the same C-level abort, so lazy
+        compilation on first use is safe."""
+        print(f"[stt] MLX Whisper warmup skipped (lazy Metal compile on first use to avoid abort on certain Mac/macOS combos)")
 
     def _clear_metal_cache(self):
         """釋放 MLX Metal 快取與 Python 垃圾，降低長時間使用後的記憶體占用。"""
@@ -120,9 +153,17 @@ class MLXWhisperSTT(BaseSTT):
             language=language,
             initial_prompt=prompt,
             verbose=False,
+            # 降低幻覺：no_speech_threshold 拉高 → Whisper 對「這段沒人聲」更敏感；
+            # condition_on_previous_text=False → 不讓前一段的幻覺污染下一段。
+            no_speech_threshold=0.6,
+            condition_on_previous_text=False,
         )
         text = result.get("text", "").strip()
-        print(f"[stt] MLX Whisper transcribed: {text}")
+        if _is_hallucination(text):
+            print(f"[stt] Hallucination dropped: {text!r}")
+            text = ""
+        else:
+            print(f"[stt] MLX Whisper transcribed: {text}")
 
         # 定期清理記憶體
         self._transcribe_count += 1
