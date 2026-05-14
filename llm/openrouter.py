@@ -1,5 +1,6 @@
 import httpx
 from .base import BaseLLM
+from .prompts import get_default_system_prompt
 
 class OpenRouterLLM(BaseLLM):
     """OpenRouter LLM — 支援數百個模型 (Gemini, Qwen, DeepSeek...)"""
@@ -7,11 +8,13 @@ class OpenRouterLLM(BaseLLM):
     def __init__(self, config: dict):
         self.api_key = config.get("openrouter_api_key", "")
         self.model = config.get("openrouter_model", "google/gemini-2.0-flash-001")
-        self.prompt = config.get("llm_prompt", "請將以下語音辨識結果整理成通順的文字，保持原意，只回傳結果：")
+        self.language = config.get("language", "zh")
+        self.prompt = config.get("llm_prompt", "")
 
     def refine(self, text: str, prompt: str) -> str:
         if not self.api_key:
             return text
+        effective_prompt = prompt or get_default_system_prompt(self.language)
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "HTTP-Referer": "https://github.com/voicetype-mac",
@@ -21,7 +24,7 @@ class OpenRouterLLM(BaseLLM):
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": prompt},
+                {"role": "system", "content": effective_prompt},
                 {"role": "user", "content": f"<Draft>\n{text}\n</Draft>"}
             ],
         }

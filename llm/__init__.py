@@ -1,4 +1,5 @@
 from .base import BaseLLM
+from .prompts import get_default_system_prompt
 
 def get_llm(config: dict) -> BaseLLM:
     engine = config.get("llm_engine", "ollama")

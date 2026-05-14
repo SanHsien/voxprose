@@ -1,5 +1,6 @@
 import httpx
 from .base import BaseLLM
+from .prompts import get_default_system_prompt
 
 class GeminiLLM(BaseLLM):
     """Google Gemini LLM"""
@@ -7,14 +8,16 @@ class GeminiLLM(BaseLLM):
     def __init__(self, config: dict):
         self.api_key = config.get("gemini_api_key", "")
         self.model = config.get("gemini_model", "gemini-2.0-flash")
-        self.prompt = config.get("llm_prompt", "請將以下語音辨識結果整理成通順的文字，保持原意，只回傳結果：")
+        self.language = config.get("language", "zh")
+        self.prompt = config.get("llm_prompt", "")
 
     def refine(self, text: str, prompt: str) -> str:
         if not self.api_key:
             return text
+        effective_prompt = prompt or get_default_system_prompt(self.language)
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
         payload = {
-            "contents": [{"parts": [{"text": f"{prompt}\n\n<Draft>\n{text}\n</Draft>"}]}]
+            "contents": [{"parts": [{"text": f"{effective_prompt}\n\n<Draft>\n{text}\n</Draft>"}]}]
         }
         try:
             resp = httpx.post(url, json=payload, timeout=30)
