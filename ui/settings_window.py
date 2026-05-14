@@ -1209,10 +1209,11 @@ class SettingsWindow(QMainWindow):
         model_cards_row = QHBoxLayout()
         model_cards_row.setSpacing(12)
 
+        # 順序與 Dashboard 一致：Small → Medium → Large（左到右、由輕到重）
         MODEL_META = {
-            "large":  ("psychology",  "精準辨識", "Large",  "最高精準度，適合複雜環境與專業術語辨識。", "~3.0 GB"),
-            "medium": ("balance",     "平衡模式", "Medium", "速度與精準的完美平衡，適合日常對話。",     "~1.5 GB"),
             "small":  ("bolt",        "輕量辨識", "Small",  "低延遲優先，適合簡單語句與快速記錄。",     "~500 MB"),
+            "medium": ("balance",     "平衡模式", "Medium", "速度與精準的完美平衡，適合日常對話。",     "~1.5 GB"),
+            "large":  ("psychology",  "精準辨識", "Large",  "最高精準度，適合複雜環境與專業術語辨識。", "~3.0 GB"),
         }
         current_model = self.config.get("whisper_model", "medium")
         self._model_cards = {}
