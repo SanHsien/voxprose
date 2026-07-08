@@ -2,7 +2,7 @@
 
 ## 📌 當前狀態 (Current Context)
 - **版本號**: v2.8.27-dev (BUILD-0306-P) - **[APP 穩定測試版]**
-- **專案路徑**: `/Volumes/JDATA/playground/voicetype-mac`
+- **專案路徑**: `<repo>`
 - **關鍵成就**: 
   - 核心熱鍵系統徹底加固，解決物理按鍵對應失敗問題（一律記錄 `code:XX`）。
   - 非同步 LLM 狀態鎖定修復，解決潤飾模式被提早關閉的 Race Condition。

@@ -472,7 +472,8 @@ class VoiceTypeApp(QObject):
                 self.indicator.hide()
                 return
 
-            lang = self.config.get("translation_lang", "zh")
+            from stt.language import get_transcription_language
+            lang = get_transcription_language(self.config)
             stt_start_time = time.time()
             text = self.stt.transcribe(audio_data, language=lang)
             stt_duration = time.time() - stt_start_time

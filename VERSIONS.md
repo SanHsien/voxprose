@@ -4,6 +4,21 @@
 
 ---
 
+## [v2.9.16] - 2026-05-24 (Coffee Release)
+### 長靜音幻覺與翻譯模式污染修復
+- **長靜音幻覺過濾**：新增高比例重複 token / n-gram 偵測，阻擋「通過」連發、`anterior access` 長尾重複等 Whisper 靜音幻覺。
+- **YouTube 結尾變體擴充**：補上「多謝您的觀看」等中文 / 粵語式結尾片語，修正 30 秒純靜音會輸出的案例。
+- **STT 語言選擇修復**：STT 辨識語言改用 `config.language`，不再被 `translation_lang=en` 污染，避免回英文信後中文錄音後半段漂成英文。
+- **模型搬遷**：`mlx-community/whisper-medium-mlx` Hugging Face cache 可搬到外部模型快取目錄，原 cache 位置保留 symlink。
+- **驗證**：30 秒純靜音 STT 回空字串；source app 與 dist app 均可透過外部模型快取 symlink 載入模型並進入 `Models are READY`。
+
+| 項目 | 值 |
+|------|-----|
+| BUILD_ID | `BUILD-2996-RELEASE` |
+| Coffee Edition DMG | `嘴炮輸入法_v2.9.16-Coffee-Edition_macOS.dmg` |
+
+---
+
 ## [v2.8.2] - 2026-03-04 19:00 (Stable Release)
 ### 全功能同步與對齊 (Full Parity)
 - **旗艦功能對齊**：同步 Mac 版的高精度「處理耗時顯示」與「執行日誌系統」。

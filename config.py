@@ -22,7 +22,7 @@ DEFAULT_CONFIG = {
     "anthropic_api_key": "",
     "anthropic_model": "claude-3-haiku-20240307",
     "openrouter_api_key": "",
-    "openrouter_model": "google/gemini-2.0-flash-001",
+    "openrouter_model": "google/gemini-2.5-flash",
     "gemini_api_key": "",
     "gemini_model": "gemini-2.0-flash",
     "gemini_stt_model": "gemini-2.0-flash",

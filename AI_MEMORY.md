@@ -9,7 +9,7 @@
 | App 資料 | `~/Library/Application Support/VoiceType4TW/` |
 | debug log | `~/Library/Application Support/VoiceType4TW/debug.log` |
 | sync_path.txt | `~/Library/Application Support/VoiceType4TW/sync_path.txt` |
-| 打包輸出 | `/Volumes/JDATA/playground/voicetype-mac/dist/` |
+| 打包輸出 | `<repo>/dist/` |
 
 ## ⚙️ 打包指令
 ```bash
@@ -266,3 +266,10 @@ Dashboard→home, 辨識AI→mic, 靈魂設定→auto_awesome
 
 - MLX 必須鎖在 `>=0.29,<0.30`：MLX 0.30+ wheel = `macosx_26_0_arm64` + MSL 4.0 metallib，只能跑 macOS 26+；對 macOS 13/14/15 使用者會 `RuntimeError: Unable to load kernel ...` 或 C-level abort。詳見 `requirements.txt` 註解、`CLAUDE.md` MLX Version Pin 段落、`openspec/specs/mlx-version-pin/spec.md`。要升級必須開新 Spectra change 並在 design.md 解釋是否要放棄 macOS 13/14/15 支援。
 - v2.9.13 build pipeline 內建 `scripts/pre_build_check.py` 守衛，發現 MLX 太新會直接 abort 不繼續 build。
+
+## 2026-05-24 v2.9.16 長靜音幻覺修復
+
+- 修正 30 秒純靜音會被 MLX Whisper 辨識成「多謝您的觀看。」的案例；`stt/mlx_whisper.py` 增加中文 / 粵語式 YouTube 結尾片語與高比例重複 token / n-gram 偵測。
+- 修正翻譯模式污染 STT：`main.py` 改用 `stt.language.get_transcription_language(config)`，STT 永遠讀 `language`，`translation_lang` 只給 LLM prompt 翻譯輸出使用。
+- 本機 `mlx-community/whisper-medium-mlx` cache 可搬到外部模型快取目錄，原 Hugging Face cache 位置保留 symlink。
+- 驗證重點：30 秒純靜音 STT 回空字串；source app / dist app 啟動後都能透過 symlink 找到模型並進入 `Models are READY`。

@@ -27,6 +27,8 @@ _CACHE_CLEAR_INTERVAL = 10
 _WHISPER_HALLUCINATION_PHRASES = frozenset(p.lower() for p in {
     # 中文 YouTube 結尾片語
     "謝謝收看", "謝謝觀看", "謝謝大家", "謝謝大家的收看", "謝謝大家的觀看",
+    "多謝收看", "多謝觀看", "多謝你的觀看", "多謝您的觀看",
+    "多謝你的收看", "多謝您的收看",
     "感謝收看", "感謝觀看", "感謝你的觀看", "感謝您的觀看", "感謝大家的收看", "感謝大家的觀看",
     "感謝你的收看", "感謝您的收看",
     "我們下次再見", "我們下集再見", "下次見", "下集再見", "下次再見", "我們下次見",
@@ -55,6 +57,31 @@ _WHISPER_HALLUCINATION_PHRASES = frozenset(p.lower() for p in {
 
 # 拆句符號（中英文標點均可）
 _SENTENCE_SPLIT = re.compile(r"[。.!?！？]+")
+_TOKEN_RE = re.compile(r"[a-zA-Z]+|[\u4e00-\u9fff]+")
+
+
+def _has_dominant_repetition(text: str) -> bool:
+    """Return True when one token/ngram dominates the whole transcript.
+
+    Whisper silent-tail failures often look like "通過 通過 ..." or
+    "anterior access anterior access ..." rather than a known ending phrase.
+    This detects only heavy repetition so normal mixed-language dictation stays.
+    """
+    tokens = _TOKEN_RE.findall(text.lower())
+    if len(tokens) < 12:
+        return False
+
+    for n in range(1, 5):
+        if len(tokens) < n * 8:
+            continue
+        counts = {}
+        for i in range(0, len(tokens) - n + 1):
+            gram = tuple(tokens[i:i + n])
+            counts[gram] = counts.get(gram, 0) + 1
+        repeats = max(counts.values(), default=0)
+        if repeats >= 8 and (repeats * n) / len(tokens) >= 0.65:
+            return True
+    return False
 
 
 def _is_hallucination(text: str) -> bool:
@@ -83,6 +110,9 @@ def _is_hallucination(text: str) -> bool:
     # 用於擋 "E...E...Thank you for watching.Thank you for watching." 這種模式。
     meaningful = [p for p in parts if len(p) > 2]
     if meaningful and all(p in _WHISPER_HALLUCINATION_PHRASES for p in meaningful):
+        return True
+    # 5) 長尾重複幻覺：例如「通過」連發或英文片語重複到支配整段。
+    if _has_dominant_repetition(stripped):
         return True
     return False
 
