@@ -8,6 +8,7 @@ venv/
 .env
 
 # AI / Project Memory (Moved to Ignore for Privacy)
+INTERNAL_TODO.md
 AI_MEMORY.md
 HANDOVER.md
 task.md
@@ -22,12 +23,15 @@ memory/archive/
 config_local.json
 vocab/*.json
 vocab/archive/
-stats/
+stats/*.json
 audio/*.wav
 output/*.txt
 
-# macOS
-.DS_Store
+# Windows Runtime & Local Artifacts
+.runtime/
+archive/
+bundled_models/
+*.exe
 
 # Build & App Pack
 build/
@@ -36,9 +40,6 @@ VoiceType4TW_Win_Stable_V*/
 .eggs/
 *.egg-info/
 *.zip
-*.dmg
-*.icns
-assets/dmg_icon.iconset/
 
 # Logs & Temp
 *.log

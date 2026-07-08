@@ -1,4 +1,4 @@
-# get_portable_python.ps1 - VoiceType4TW Portable Python Installer
+﻿# get_portable_python.ps1 - VoiceType4TW Portable Python Installer
 $PythonVersion = "3.12.2"
 $Url = "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-amd64.zip"
 $CurrentDir = Get-Location

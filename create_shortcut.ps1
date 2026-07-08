@@ -14,8 +14,16 @@ try {
         Remove-Item $ShortcutPath -Force
     }
     $Shortcut = $WScriptShell.CreateShortcut($ShortcutPath)
-    $Shortcut.TargetPath = "cmd.exe"
-    $Shortcut.Arguments = "/c `"$TargetFile`""
+    # Prefer the native launcher EXE (no console window, no cmd encoding issues);
+    # fall back to run_voicetype.bat when the EXE was not built.
+    $ExeLauncher = Join-Path $PSScriptRoot "VoiceType4TW.exe"
+    if (Test-Path $ExeLauncher) {
+        $Shortcut.TargetPath = $ExeLauncher
+        $Shortcut.Arguments = ""
+    } else {
+        $Shortcut.TargetPath = "cmd.exe"
+        $Shortcut.Arguments = "/c `"$TargetFile`""
+    }
     $Shortcut.WorkingDirectory = $PSScriptRoot
     $Shortcut.WindowStyle = 7 # Minimized
     $Shortcut.IconLocation = "$IconLocation,0"

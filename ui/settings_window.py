@@ -427,7 +427,9 @@ class SettingsWindow(QMainWindow):
     def _setup_ui(self):
         from paths import VERSION_NAME
         self.setWindowTitle(f"VoiceType4TW {VERSION_NAME}")
-        self.setMinimumSize(900, 680)
+        # 最小寬度需容納側欄 240px + 三張卡片不被裁切
+        self.setMinimumSize(1080, 720)
+        self.resize(1200, 840)
         
         # Ensure it pops up correctly on Windows
         self.raise_()
@@ -435,6 +437,8 @@ class SettingsWindow(QMainWindow):
         
         # Premium CSS
         win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "PingFang TC"
+        from utils.resources import get_resource_path
+        check_icon = get_resource_path("assets/check.png").replace("\\", "/")
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #0f1115;
@@ -526,7 +530,19 @@ class SettingsWindow(QMainWindow):
                 min-height: 20px;
             }
             QCheckBox { color: #e2e4e7; spacing: 10px; }
-            QCheckBox::indicator { width: 18px; height: 18px; }
+            /* 勾選框：深色背景上必須有明顯外框，否則與底色溶在一起 */
+            QCheckBox::indicator {
+                width: 18px; height: 18px;
+                border: 2px solid #5a6270;
+                border-radius: 4px;
+                background-color: #1c1f26;
+            }
+            QCheckBox::indicator:hover { border-color: #7c4dff; }
+            QCheckBox::indicator:checked {
+                background-color: #7c4dff;
+                border-color: #7c4dff;
+                image: url(\"""" + check_icon + """\");
+            }
         """)
 
         central = QWidget()
@@ -538,7 +554,7 @@ class SettingsWindow(QMainWindow):
         # Sidebar
         sidebar_container = QWidget()
         sidebar_container.setObjectName("sidebar_container")
-        sidebar_container.setFixedWidth(300)
+        sidebar_container.setFixedWidth(240)
         sidebar_layout = QVBoxLayout(sidebar_container)
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         
@@ -593,8 +609,8 @@ class SettingsWindow(QMainWindow):
         sidebar_layout.addStretch()
         
         # Credits and SNS at Bottom
-        from paths import VERSION_NAME, BUILD_ID
-        credit_box = QLabel(f"{VERSION_NAME} |\n{BUILD_ID}\n\n主要開發者：吉米丘, CC58TW\n協助開發者：Gemini, Nebula")
+        from paths import VERSION_NAME
+        credit_box = QLabel(f"{VERSION_NAME}\n\n主要開發者：吉米丘, CC58TW\n協助開發者：Claude Code")
         credit_box.setStyleSheet("color: #555; font-size: 10px; margin-left: 25px; line-height: 1.2;")
         sidebar_layout.addWidget(credit_box)
         
@@ -625,7 +641,7 @@ class SettingsWindow(QMainWindow):
         # Content Area
         content_container = QWidget()
         self.content_layout = QVBoxLayout(content_container)
-        self.content_layout.setContentsMargins(40, 50, 40, 40) # 50px Top Margin
+        self.content_layout.setContentsMargins(32, 40, 32, 28)
         
         self.stack = QStackedWidget()
         self.content_layout.addWidget(self.stack)
@@ -740,11 +756,16 @@ class SettingsWindow(QMainWindow):
         return page
 
     def _create_dashboard_page(self):
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        # Shift everything UP: significantly reduce top margin
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(30)
+        # QScrollArea：內容超過視窗高度時捲動，而不是被 Qt 壓縮到文字重疊
+        page = QScrollArea()
+        page.setWidgetResizable(True)
+        page.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        page.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        container = QWidget()
+        container.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 12, 0)
+        layout.setSpacing(18)
 
         dash_header = QHBoxLayout()
         header = QLabel("Dashboard")
@@ -755,7 +776,7 @@ class SettingsWindow(QMainWindow):
         
         title_cn = QLabel("嘴炮輸入法")
         win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "Taipei Sans TC Beta"
-        title_cn.setStyleSheet(f"font-family: '{win_font}'; font-size: 32px; font-weight: bold; color: #ffffff;")
+        title_cn.setStyleSheet(f"font-family: '{win_font}'; font-size: 22px; font-weight: bold; color: #7c4dff;")
         dash_header.addWidget(title_cn)
 
         
@@ -775,9 +796,10 @@ class SettingsWindow(QMainWindow):
             # Windows: 顯示 GPU/CUDA 與麥克風資訊
             env_card = GlassCard()
             p_layout = QVBoxLayout(env_card)
-            p_layout.setContentsMargins(15, 15, 15, 15)
+            p_layout.setContentsMargins(20, 18, 20, 18)
+            p_layout.setSpacing(8)
             lbl_p = QLabel("🖥️ 系統環境")
-            lbl_p.setStyleSheet("font-weight: bold; color: #aaa; margin-bottom: 5px;")
+            lbl_p.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
             p_layout.addWidget(lbl_p)
             
             # GPU / CUDA 偵測 (v2.8.27_V28: Robust check)
@@ -827,8 +849,9 @@ class SettingsWindow(QMainWindow):
             self.lbl_mic_device.setWordWrap(True)
 
             p_layout.addWidget(self.lbl_mic_device)
-            
-            cards_row1.addWidget(env_card)
+            p_layout.addStretch()
+
+            cards_row1.addWidget(env_card, 1)
             
             # 建立隱藏的權限燈號（讓 _check_all_permissions 不炸）
             self.light_acc = PermissionLight("輔助功能", "")
@@ -841,74 +864,93 @@ class SettingsWindow(QMainWindow):
         # 2. Model Card (New)
         model_card = GlassCard()
         m_layout = QVBoxLayout(model_card)
-        m_layout.setContentsMargins(15, 15, 15, 15)
+        m_layout.setContentsMargins(20, 18, 20, 18)
+        m_layout.setSpacing(6)
         lbl_m = QLabel("🧠 AI 本地模型 (Faster-Whisper)")
-        lbl_m.setStyleSheet("font-weight: bold; color: #aaa; margin-bottom: 5px;")
+        lbl_m.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
         m_layout.addWidget(lbl_m)
-        
+
         self.light_model_small = ModelStatusLight("Small", "500MB", "輕快，但精準度稍遜。")
         self.light_model_medium = ModelStatusLight("Medium", "1.5GB", "均衡型，首選推薦 (精準)。")
         self.light_model_large = ModelStatusLight("Large", "3.0GB", "極致精準，背景嘈雜也能辨識。")
         m_layout.addWidget(self.light_model_small)
         m_layout.addWidget(self.light_model_medium)
         m_layout.addWidget(self.light_model_large)
-        cards_row1.addWidget(model_card)
+        m_layout.addStretch()
+        cards_row1.addWidget(model_card, 1)
 
         # 3. Status Card
         status_card = GlassCard()
         status_layout = QVBoxLayout(status_card)
-        status_layout.setContentsMargins(15, 15, 15, 15)
+        status_layout.setContentsMargins(20, 18, 20, 18)
+        status_layout.setSpacing(8)
         lbl_s = QLabel("📺 運行狀態")
-        lbl_s.setStyleSheet("font-weight: bold; color: #aaa; margin-bottom: 5px;")
+        lbl_s.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
         status_layout.addWidget(lbl_s)
-        
+
         self.lbl_status_ai = QLabel("AI 潤飾: 已開啟")
         self.lbl_status_ai.setStyleSheet("color: #7c4dff; font-weight: bold; font-size: 16px;")
         status_layout.addWidget(self.lbl_status_ai)
-        
+
         self.lbl_status_stt = QLabel("引擎: Local Whisper")
         self.lbl_status_stt.setStyleSheet("color: #888; font-size: 13px;")
         status_layout.addWidget(self.lbl_status_stt)
-        cards_row1.addWidget(status_card)
+
+        self.lbl_status_auto = QLabel("全時模式: 關")
+        self.lbl_status_auto.setStyleSheet("color: #888; font-size: 13px;")
+        status_layout.addWidget(self.lbl_status_auto)
+        status_layout.addStretch()
+        cards_row1.addWidget(status_card, 1)
 
         layout.addLayout(cards_row1)
 
         # Bottom Cards: Row 2
         cards_row2 = QHBoxLayout()
+        cards_row2.setSpacing(15)
 
         # 3. Quick Stats Card
         stats_card = GlassCard()
         sq_layout = QVBoxLayout(stats_card)
-        sq_layout.setContentsMargins(20, 20, 20, 20)
-        sq_layout.addWidget(QLabel("今日語效"))
+        sq_layout.setContentsMargins(20, 18, 20, 18)
+        sq_layout.setSpacing(6)
+        lbl_sq = QLabel("📈 今日語效")
+        lbl_sq.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
+        sq_layout.addWidget(lbl_sq)
         self.lbl_today_count = QLabel("0 次錄音")
-        self.lbl_today_count.setStyleSheet("color: #00e5ff; font-weight: bold; font-size: 16px;")
+        self.lbl_today_count.setStyleSheet("color: #00e5ff; font-weight: bold; font-size: 26px;")
         sq_layout.addWidget(self.lbl_today_count)
         self.lbl_today_chars = QLabel("錄製約 0 字")
+        self.lbl_today_chars.setStyleSheet("color: #888; font-size: 13px;")
         sq_layout.addWidget(self.lbl_today_chars)
-        cards_row2.addWidget(stats_card)
+        cards_row2.addWidget(stats_card, 1)
 
         # 4. Time Saved Card
         time_card = GlassCard()
         t_layout = QVBoxLayout(time_card)
-        t_layout.setContentsMargins(20, 20, 20, 20)
-        t_layout.addWidget(QLabel("累計省下時間"))
+        t_layout.setContentsMargins(20, 18, 20, 18)
+        t_layout.setSpacing(6)
+        lbl_tc = QLabel("⏱️ 累計省下時間")
+        lbl_tc.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
+        t_layout.addWidget(lbl_tc)
         self.lbl_time_saved = QLabel("0 分鐘")
-        self.lbl_time_saved.setStyleSheet("color: #ffab40; font-weight: bold; font-size: 16px;")
+        self.lbl_time_saved.setStyleSheet("color: #ffab40; font-weight: bold; font-size: 26px;")
         t_layout.addWidget(self.lbl_time_saved)
         self.lbl_total_chars_desc = QLabel("共辨識 0 字")
         self.lbl_total_chars_desc.setStyleSheet("color: #888; font-size: 13px;")
         t_layout.addWidget(self.lbl_total_chars_desc)
-        cards_row2.addWidget(time_card)
-        
+        cards_row2.addWidget(time_card, 1)
+
         layout.addLayout(cards_row2)
 
         # ── Model Download Progress Card ──────────────────────
         from PyQt6.QtWidgets import QProgressBar
         self.download_card = GlassCard()
         dl_layout = QVBoxLayout(self.download_card)
-        dl_layout.setContentsMargins(20, 20, 20, 20)
-        dl_layout.addWidget(QLabel("⬇️ 模型下載進度"))
+        dl_layout.setContentsMargins(20, 18, 20, 18)
+        dl_layout.setSpacing(8)
+        lbl_dl = QLabel("⬇️ 模型下載進度")
+        lbl_dl.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
+        dl_layout.addWidget(lbl_dl)
         
         self.lbl_download_status = QLabel("等待模型載入...")
         self.lbl_download_status.setStyleSheet("color: #00e5ff; font-size: 14px; font-weight: bold;")
@@ -934,8 +976,11 @@ class SettingsWindow(QMainWindow):
         # Recent Activity Card
         recent_card = GlassCard()
         rc_layout = QVBoxLayout(recent_card)
-        rc_layout.setContentsMargins(20, 20, 20, 20)
-        rc_layout.addWidget(QLabel("💡 最近學到的詞彙"))
+        rc_layout.setContentsMargins(20, 18, 20, 18)
+        rc_layout.setSpacing(8)
+        lbl_rc = QLabel("💡 最近學到的詞彙")
+        lbl_rc.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
+        rc_layout.addWidget(lbl_rc)
         self.dashboard_vocab = QListWidget()
         self.dashboard_vocab.setStyleSheet("background: transparent; border: none; font-size: 13px;")
         self.dashboard_vocab.setFixedHeight(120)
@@ -943,6 +988,7 @@ class SettingsWindow(QMainWindow):
         layout.addWidget(recent_card)
 
         layout.addStretch()
+        page.setWidget(container)
         return page
 
     def _create_stt_llm_page(self):
@@ -1010,13 +1056,9 @@ class SettingsWindow(QMainWindow):
         self.deepseek_key = self._add_grid_row(layout, "DeepSeek API Key", QLineEdit())
         self.deepseek_key.setEchoMode(QLineEdit.EchoMode.Password)
 
-        layout.addWidget(self._page_section_header("🪄 AI 魔術指令與展示選項"))
+        layout.addWidget(self._page_section_header("🪄 AI 魔術指令"))
         self.magic_trigger = self._add_grid_row(layout, "啟動咒語 (例如: 嘿 助理)", QLineEdit())
         self.magic_trigger.setPlaceholderText("預設為: 嘿 VoiceType")
-        
-        self.debug_showcase_mode_llm = QLabel("💡 提示：展示模式與 Demo 模式已移至「系統設定」分頁。")
-        self.debug_showcase_mode_llm.setStyleSheet("color: #666; font-size: 11px;")
-        layout.addWidget(self.debug_showcase_mode_llm)
 
         container.setLayout(layout)
         page.setWidget(container)
@@ -1180,9 +1222,21 @@ class SettingsWindow(QMainWindow):
         btn_del.clicked.connect(on_delete)
         btn_save.clicked.connect(on_save)
         
-        btn_open = QPushButton("📂 在 Finder 中打開資料夾")
+        open_label = "📂 從檔案總管開啟資料夾" if platform.system() == "Windows" else "📂 在 Finder 中打開資料夾"
+        btn_open = QPushButton(open_label)
         btn_open.setStyleSheet("background: transparent; border: 1px solid #3d4452; color: #888; font-size: 11px;")
-        btn_open.clicked.connect(lambda: os.system(f"open '{directory}'"))
+
+        def _open_folder():
+            try:
+                directory.mkdir(parents=True, exist_ok=True)
+                if platform.system() == "Windows":
+                    os.startfile(str(directory))  # 原本的 `open` 是 macOS 指令，Windows 上無效
+                else:
+                    os.system(f"open '{directory}'")
+            except Exception as e:
+                QMessageBox.warning(self, "嘴炮輸入法", f"無法開啟資料夾：{e}")
+
+        btn_open.clicked.connect(_open_folder)
         layout.addWidget(btn_open)
 
         return tab
@@ -1229,7 +1283,7 @@ class SettingsWindow(QMainWindow):
         lh.addWidget(self.btn_promote)
         self.btn_delete_learned = QPushButton("刪除")
         self.btn_delete_learned.setObjectName("danger")
-        self.btn_delete_learned.setFixedHeight(32)
+        self.btn_delete_learned.setMinimumHeight(40)  # 32px 會把中文字上下裁切
         self.btn_delete_learned.clicked.connect(self._delete_learned_word)
         lh.addWidget(self.btn_delete_learned)
         rl.addLayout(lh)
@@ -1244,9 +1298,14 @@ class SettingsWindow(QMainWindow):
         self.memory_inject_cb.setChecked(False)
         mem_ctrl_row.addWidget(self.memory_inject_cb)
         mem_ctrl_row.addStretch()
+        self.btn_del_memory = QPushButton("刪除選取")
+        self.btn_del_memory.setObjectName("danger")
+        self.btn_del_memory.setMinimumHeight(40)
+        self.btn_del_memory.clicked.connect(self._delete_memory_entry)
+        mem_ctrl_row.addWidget(self.btn_del_memory)
         self.btn_purge_memory = QPushButton("壓縮本週記憶")
         self.btn_purge_memory.setObjectName("danger")
-        self.btn_purge_memory.setFixedHeight(32)
+        self.btn_purge_memory.setMinimumHeight(40)
         self.btn_purge_memory.clicked.connect(self._purge_memory)
         mem_ctrl_row.addWidget(self.btn_purge_memory)
         rl.addLayout(mem_ctrl_row)
@@ -1350,7 +1409,7 @@ class SettingsWindow(QMainWindow):
         self.auto_paste.setChecked(self.config.get("auto_paste", True))
         layout.addWidget(self.auto_paste)
 
-        self.show_floating_button = QCheckBox("顯示顯示浮動按鈕 (Show Floating Button)")
+        self.show_floating_button = QCheckBox("顯示浮動按鈕 (Show Floating Button)")
         self.show_floating_button.setChecked(self.config.get("show_floating_button", True))
         layout.addWidget(self.show_floating_button)
         
@@ -1580,7 +1639,13 @@ class SettingsWindow(QMainWindow):
         
         eng = self.config.get("stt_engine", "local_whisper")
         self.lbl_status_stt.setText(f"引擎: {eng.upper()}")
-        
+
+        auto_on = self.config.get("auto_trigger_enabled", False)
+        self.lbl_status_auto.setText(f"全時模式: {'開 (免按鍵)' if auto_on else '關'}")
+        self.lbl_status_auto.setStyleSheet(
+            f"color: {'#00e676' if auto_on else '#888'}; font-size: 13px;"
+            + ("font-weight: bold;" if auto_on else ""))
+
         # 檢查權限與模型狀態
         self._check_all_permissions()
         self._check_local_models()
@@ -1624,21 +1689,22 @@ class SettingsWindow(QMainWindow):
 
     def _is_model_present(self, size: str) -> bool:
         try:
-            cache_path = Path.home() / ".cache" / "huggingface" / "hub"
-            if not cache_path.exists():
-                return False
-            
-            # faster-whisper: models--Systran--faster-whisper-<size>
-            prefixes = [
-                f"models--Systran--faster-whisper-{size}",
+            from paths import APP_DATA_DIR
+            # 先查 App 實際的 download_root（%APPDATA%/VoiceType4TW/whisper_models），
+            # 再退回 HuggingFace 預設快取（手動裝過的人可能放這）
+            candidates = [
+                APP_DATA_DIR / "whisper_models",
+                Path.home() / ".cache" / "huggingface" / "hub",
             ]
-            
-            for p in cache_path.iterdir():
-                if p.is_dir() and any(p.name.startswith(pref) for pref in prefixes):
-                    # 檢查是否有 snapshot
-                    snap = p / "snapshots"
-                    if snap.exists() and any(snap.iterdir()):
-                        return True
+            prefix = f"models--Systran--faster-whisper-{size}"
+            for cache_path in candidates:
+                if not cache_path.exists():
+                    continue
+                for p in cache_path.iterdir():
+                    if p.is_dir() and p.name.startswith(prefix):
+                        snap = p / "snapshots"
+                        if snap.exists() and any(snap.iterdir()):
+                            return True
             return False
         except Exception:
             return False
@@ -1715,12 +1781,39 @@ class SettingsWindow(QMainWindow):
             memory = load_memory()
             summary = memory.get("summary", "")
             if summary:
-                self.mem_tree.addTopLevelItem(QTreeWidgetItem(["[摘要]", summary[:60] + "..."]))
+                item = QTreeWidgetItem(["[摘要]", summary[:60] + "..."])
+                item.setData(0, Qt.ItemDataRole.UserRole, "__summary__")
+                self.mem_tree.addTopLevelItem(item)
             for entry in reversed(memory.get("entries", [])):
-                ts = entry.get("ts", "")[:16]
+                ts = entry.get("ts", "")
                 text = (entry.get("llm") or entry.get("stt", ""))[:40]
-                self.mem_tree.addTopLevelItem(QTreeWidgetItem([ts, text + "..."]))
+                item = QTreeWidgetItem([ts[:16], text + "..."])
+                item.setData(0, Qt.ItemDataRole.UserRole, ts)  # 完整 ts 作為刪除 key
+                self.mem_tree.addTopLevelItem(item)
         except: pass
+
+    def _delete_memory_entry(self):
+        item = self.mem_tree.currentItem()
+        if not item:
+            QMessageBox.information(self, "嘴炮輸入法", "請先在長期記憶清單中選取一筆記錄。")
+            return
+        key = item.data(0, Qt.ItemDataRole.UserRole)
+        if key == "__summary__":
+            reply = QMessageBox.question(
+                self, "確認刪除", "確定要清除長期記憶摘要嗎？（歸檔備份不受影響）",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                from memory.manager import clear_summary
+                clear_summary()
+                self._refresh_memory()
+            return
+        reply = QMessageBox.question(
+            self, "確認刪除", f"確定要刪除「{item.text(1)}」這筆記憶嗎？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            from memory.manager import delete_entry
+            delete_entry(key)
+            self._refresh_memory()
 
     def _purge_memory(self):
         from memory.manager import load_memory

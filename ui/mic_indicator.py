@@ -43,6 +43,8 @@ class MicIndicatorWindow(QWidget):
         self._label_suffix = ""  # 例如 "(翻譯中: 英文)"
         self._bars = [0.0] * 20  # rolling bar history
         self._flash_active = False
+        self._drag_pos = None
+        self._is_dragging = False
         self._setup_window()
         
         # 音效器
@@ -78,18 +80,61 @@ class MicIndicatorWindow(QWidget):
         # Detect which screen the cursor is currently on
         cursor_pos = QCursor.pos()
         screen_obj = QGuiApplication.screenAt(cursor_pos)
-        
+
         # Fallback to primary screen if not found
         if not screen_obj:
             screen_obj = QGuiApplication.primaryScreen()
-            
+
         if not screen_obj:
             return
-            
+
         available = screen_obj.availableGeometry()
+
+        # 位置記憶：若使用者曾在這個螢幕拖曳過 Indicator，回到偏好停靠位置
+        from ui.positions import get_position, clamp_into
+        saved = get_position("indicator", screen_obj.name())
+        if saved:
+            x, y = clamp_into(available, available.x() + saved[0],
+                              available.y() + saved[1], self.width(), self.height())
+            self.move(x, y)
+            return
+
         x = available.x() + (available.width() - self.width()) // 2
         y = available.y() + available.height() - self.height() - 10
         self.move(x, y)
+
+    # ── 拖曳與位置記憶 ──
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = event.globalPosition().toPoint()
+            self._is_dragging = False
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.MouseButton.LeftButton and self._drag_pos:
+            diff = event.globalPosition().toPoint() - self._drag_pos
+            if diff.manhattanLength() > 5:
+                self._is_dragging = True
+            if self._is_dragging:
+                self.move(self.pos() + diff)
+                self._drag_pos = event.globalPosition().toPoint()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            if self._is_dragging:
+                self._save_position()
+            self._drag_pos = None
+            self._is_dragging = False
+
+    def _save_position(self):
+        screen_obj = QGuiApplication.screenAt(self.geometry().center())
+        if not screen_obj:
+            screen_obj = QGuiApplication.primaryScreen()
+        if not screen_obj:
+            return
+        from ui.positions import save_position
+        available = screen_obj.availableGeometry()
+        save_position("indicator", screen_obj.name(),
+                      self.x() - available.x(), self.y() - available.y())
 
     def _tick(self):
         self._bars = self._bars[1:] + [self._level]

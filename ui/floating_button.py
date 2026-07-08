@@ -28,11 +28,39 @@ class FloatingButton(QWidget):
         
     def _reposition(self):
         try:
+            # 位置記憶：回到使用者上次拖曳停靠的螢幕與位置
+            from ui.positions import get_position, get_last_screen, clamp_into
+            last_screen = get_last_screen("floating_button")
+            if last_screen:
+                for screen in QGuiApplication.screens():
+                    if screen.name() != last_screen:
+                        continue
+                    saved = get_position("floating_button", last_screen)
+                    if saved:
+                        avail = screen.availableGeometry()
+                        x, y = clamp_into(avail, avail.x() + saved[0],
+                                          avail.y() + saved[1], self.width(), self.height())
+                        self.move(x, y)
+                        return
+
             screen = QGuiApplication.primaryScreen()
             if screen:
                 avail = screen.availableGeometry()
                 # 放在右下角，預留一些邊距
                 self.move(avail.x() + avail.width() - 90, avail.y() + avail.height() - 120)
+        except: pass
+
+    def _save_position(self):
+        try:
+            screen = QGuiApplication.screenAt(self.geometry().center())
+            if not screen:
+                screen = QGuiApplication.primaryScreen()
+            if not screen:
+                return
+            from ui.positions import save_position
+            avail = screen.availableGeometry()
+            save_position("floating_button", screen.name(),
+                          self.x() - avail.x(), self.y() - avail.y())
         except: pass
             
     def paintEvent(self, event):
@@ -148,6 +176,8 @@ class FloatingButton(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             if not self._is_dragging:
                 self._show_menu()
+            else:
+                self._save_position()
             self._drag_pos = None
             self._is_dragging = False
 

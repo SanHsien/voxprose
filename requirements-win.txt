@@ -8,5 +8,13 @@ httpx>=0.27.0
 certifi>=2024.2.2
 numpy>=1.26.0
 sounddevice>=0.4.6
-nvidia-cublas-cu12>=12.1.3
-nvidia-cudnn-cu12>=8.9.2
+requests>=2.31.0
+soundfile>=0.12.1
+# Optional cloud engine SDKs — imported when the user selects these engines
+# (llm/claude.py, llm/openai_llm.py, stt/groq_whisper.py). Small wheels, so
+# install them up front instead of crashing on engine switch.
+anthropic>=0.25.0
+openai>=1.30.0
+groq>=0.9.0
+# NVIDIA CUDA wheels moved to requirements-cuda-win.txt —
+# installed by setup_win.bat only when an NVIDIA GPU is detected.

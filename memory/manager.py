@@ -130,6 +130,25 @@ def clear_memory():
     save_memory({"entries": [], "summary": "", "last_archive": ""})
 
 
+def delete_entry(ts: str) -> bool:
+    """刪除指定時間戳的單筆記憶。回傳是否有刪到。"""
+    memory = load_memory()
+    entries = memory.get("entries", [])
+    remaining = [e for e in entries if e.get("ts") != ts]
+    if len(remaining) == len(entries):
+        return False
+    memory["entries"] = remaining
+    save_memory(memory)
+    return True
+
+
+def clear_summary():
+    """清除長期記憶摘要（entries 與歸檔不受影響）"""
+    memory = load_memory()
+    memory["summary"] = ""
+    save_memory(memory)
+
+
 def _generate_digest(entries: list, old_summary: str = "") -> str:
     """
     從一組 entries 產生緊湊的文字摘要，無需 LLM。

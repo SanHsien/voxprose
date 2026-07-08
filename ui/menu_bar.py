@@ -39,7 +39,9 @@ class VoiceTypeMenuBar:
             {'label': f"辨識引擎: {engine}", 'callback': None},
             {'label': "---", 'callback': None},
             {'label': f"AI 潤飾/翻譯 : {llm_state}", 'callback': self._toggle_llm},
-            
+            {'label': "🎤 全時模式 (免按鍵自動觸發)", 'callback': self._toggle_auto_trigger,
+             'checked': bool(self.config.get("auto_trigger_enabled", False))},
+
             # Scenario Submenu
              {'label': "🎭 靈魂情境", 'callback': None, 'submenu': self._build_scenario_menu(scenarios)},
             {'label': "快速翻譯", 'callback': None, 'submenu': [
@@ -77,6 +79,15 @@ class VoiceTypeMenuBar:
         if not items:
             items.append({'label': "(無其他靈魂)", 'callback': None})
         return items
+
+    def _toggle_auto_trigger(self, _):
+        latest = load_config()
+        latest["auto_trigger_enabled"] = not latest.get("auto_trigger_enabled", False)
+        save_config(latest)
+        self.config.update(latest)
+        if hasattr(self, 'on_config_saved') and callable(self.on_config_saved):
+            self.on_config_saved()
+        self.refresh_ui()
 
     def _toggle_action_mode(self, _):
         enabled = not self.config.get("action_mode", False)

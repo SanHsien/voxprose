@@ -59,8 +59,8 @@ STATS_DIR = SYNC_BASE_DIR / "stats"
 AI_PERMANENT_MEMORY_PATH = SYNC_BASE_DIR / "ai_permanent_memory.md"
 
 APP_CONFIG_DIR = APP_DATA_DIR
-VERSION_NAME = "V2.9.6 Windows (BUILD-2960-STABLE)"
-BUILD_ID = "BUILD-2960-STABLE"
+VERSION_NAME = "V3.0.1 Windows Edition (BUILD-3010-STABLE)"
+BUILD_ID = "BUILD-3010-STABLE"
 KEYSTRIKE_LOG_PATH = APP_DATA_DIR / "keystrike.log"
 
 # 舊版路徑 (用於遷移)
@@ -118,6 +118,31 @@ def _initialize_data():
     except Exception as e:
         print(f"[paths] CRITICAL: Data initialization failed: {e}")
 
+# v3.0.1: 真可攜版支援 — ZIP 內若附帶 bundled_models，首次啟動自動安裝到 AppData。
+# （解壓即用時 launcher 看到 .runtime 就緒會直接啟動 App、跳過 setup_win.bat 的
+#  模型安裝步驟，因此這一步必須由 App 自己完成。安裝後執行期只讀 AppData，
+#  行為與 setup_win.bat 的 robocopy 一致。）
+def _install_bundled_models(bundle_root=None, dest_root=None):
+    try:
+        if bundle_root is None:
+            bundle_root = Path(__file__).parent / "bundled_models"
+        if not bundle_root.exists():
+            return
+        if dest_root is None:
+            dest_root = APP_DATA_DIR / "whisper_models"
+        dest_root.mkdir(parents=True, exist_ok=True)
+        for src in bundle_root.iterdir():
+            if not src.is_dir():
+                continue
+            dest = dest_root / src.name
+            if (dest / "snapshots").exists():
+                continue  # 已安裝過
+            print(f"[paths] First run: installing bundled model {src.name} (~may take a minute)...")
+            shutil.copytree(src, dest, dirs_exist_ok=True)
+            print(f"[paths] Bundled model installed: {dest}")
+    except Exception as e:
+        print(f"[paths] Bundled model install failed (app can still download): {e}")
+
 # v2.8.27_V39: Refactored to avoid redundant initialization in subprocesses.
 # ONLY call this from main.py if is_main_process is True.
 def initialize_paths():
@@ -134,6 +159,7 @@ def initialize_paths():
         except:
             pass
 
+        _install_bundled_models()
         _initialize_data()
     except Exception as e:
         print(f"[paths] Skip initialization: {e}")

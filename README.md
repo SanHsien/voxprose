@@ -1,9 +1,12 @@
-# VoiceType4TW 嘴炮輸入法 (v2.8.27 PC版V90)
+# VoiceType4TW 嘴炮輸入法 — Windows 專用版 (V3.0.0)
 
 主要開發者：吉米丘 , CC58TW 
-協助開發者：Gemini、Nebula (Google AI)
+協助開發者：Claude Code
 
 吉米與女兒CC58TW全新開發的嘴炮輸入法，讓你出一張嘴就能打字的輸入法
+
+> **📌 本 repo 為 Windows 10/11 專用開發版**（win-stable 分支），已移除所有 macOS 專屬程式碼與打包腳本，針對 Windows 環境深度優化安裝與相容性。
+> macOS 版請見原作者專案：[jfamily4tw/voicetype4tw-mac](https://github.com/jfamily4tw/voicetype4tw-mac)
 
 免費版歡迎大家測試使用，GitHub開源的Python版，想自己抓下來研究、裝在電腦裡都OK
 
@@ -42,8 +45,10 @@ ZIP 咖啡版：為了感謝 Buy me a coffee的朋友，所以這個版本不只
 
 ## 功能特色
 
-- **跨平台支援**：全新重構，原生支援 macOS (Universal) 與 Windows 10/11。
+- **Windows 深度優化**：專為 Windows 10/11 打造——一鍵安裝（自動下載可攜式 Python、偵測 NVIDIA GPU 條件安裝 CUDA）、原生 Starter EXE 啟動免黑窗。
 - **全域快捷鍵**：按住說話 (PTT) 或 切換開關 (Toggle)，反應迅速不卡頓。
+- **🎤 全時模式**：免按鍵自動觸發——VAD 偵測語音自動切句辨識，說完就輸出。
+- **📍 位置記憶**：錄音指示器與浮動按鈕可拖曳，記住你在每個螢幕的偏好停靠位置。
 - **神經級辨識**：搭載本地 Faster-Whisper，支援各平台硬體加速。
 - **✨ 多螢幕跟隨**：Indicator 會自動偵測滑鼠位置並出現在對應螢幕。
 - **🔵 完成感官優化**：貼回文字時觸發亮藍色閃爍與音效 (可於設定關閉)。
@@ -156,7 +161,7 @@ ZIP 咖啡版：為了感謝 Buy me a coffee的朋友，所以這個版本不只
 
 ---
 
-### Windows (v2.8.27 咖啡版)
+### Windows 安裝 (ZIP 咖啡版)
 
 ![批次安裝](assets/batch-install.jpg)
 
@@ -196,23 +201,35 @@ run_voicetype4tw.bat
 
 ---
 
+## 打包真可攜版（開發者）
+
+要製作「解壓即用」的可攜 ZIP（免裝 Python、離線可用、隨身碟可帶著走）：
+
+```powershell
+.\release_win.ps1          # Full：含 CUDA 加速 + medium 模型（約 4GB）
+.\release_win.ps1 -Lite    # Lite：無 CUDA 無模型，首次啟動線上下載（約 300MB）
+```
+
+產出在 `dist\VoiceType4TW_Win_Portable_V****.zip`，對方解壓後雙擊 `VoiceType4TW.exe` 即可使用。
+
 ## 手動安裝
 
-如果你想自己來，也可以手動操作：
+如果你想自己來，也可以手動操作（需 Python 3.10–3.12）：
 
-```bash
-# 1. Clone 專案
-git clone https://github.com/jfamily4tw/voicetype4tw-mac.git
+```bat
+rem 1. Clone 本專案（Windows 專用版，win-stable 分支）
+git clone -b win-stable https://github.com/go-mask/voicetype4tw-mac.git
 cd voicetype4tw-mac
 
-# 2. 建立虛擬環境
-python3 -m venv venv
-source venv/bin/activate
+rem 2. 建立虛擬環境
+py -3.12 -m venv venv
+venv\Scripts\activate
 
-# 3. 安裝依賴
-pip install -r requirements.txt
+rem 3. 安裝依賴（有 NVIDIA GPU 才需要第二行）
+pip install -r requirements-win.txt
+pip install -r requirements-cuda-win.txt
 
-# 4. 啟動
+rem 4. 啟動
 python main.py
 ```
 
@@ -221,24 +238,28 @@ python main.py
 
 ## 設定
 
-編輯 `config.json`：
+設定檔位於 `%APPDATA%\VoiceType4TW\`（`config_local.json` 為本機設定、`config_global.json` 參與雲端同步），大多數選項都可以直接在應用程式的設定視窗調整：
 
-| 欄位            | 說明                                                | 預設值          |
-|-----------------|-----------------------------------------------------|-----------------| 
-| `hotkey`        | 快捷鍵(right_option / right_shift / right_ctrl / f13-f15) | `right_option` |
-| `trigger_mode`  | 觸發模式(push_to_talk / toggle)                    | `push_to_talk`  |
-| `stt_engine`    | 語音引擎(local_whisper / mlx_whisper / groq)       | `local_whisper` |
-| `whisper_model` | Whisper模型大小(tiny/base/small/medium/large)      | `medium`        |
-| `groq_api_key`  | Groq API Key(使用groq引擎時填入)                  | `""`            |
-| `llm_enabled`   | 是否啟用AI文字潤飾                                 | `false`         |
-| `llm_engine`    | LLM引擎(ollama / openai / claude)                  | `ollama`        |
-| `language`      | 辨識語言                                           | `zh`            |
+| 欄位                       | 說明                                                    | 預設值          |
+|----------------------------|---------------------------------------------------------|-----------------|
+| `hotkey_ptt`               | 按住說話快捷鍵 (alt_r / ctrl_r / shift_r / f13-f15 / code:VK) | `alt_r`     |
+| `hotkey_toggle`            | 切換開關快捷鍵                                          | `f13`           |
+| `auto_trigger_enabled`     | 🎤 全時模式（免按鍵自動觸發）                            | `false`         |
+| `auto_trigger_sensitivity` | 全時模式觸發門檻 (0~1，越高越不敏感)                     | `0.15`          |
+| `auto_trigger_silence_sec` | 全時模式靜音幾秒視為一句結束                             | `1.5`           |
+| `stt_engine`               | 語音引擎 (local_whisper / groq / gemini / openrouter)   | `local_whisper` |
+| `whisper_model`            | Whisper模型大小 (tiny/base/small/medium/large)          | `medium`        |
+| `groq_api_key`             | Groq API Key (使用groq引擎時填入)                       | `""`            |
+| `llm_enabled`              | 是否啟用AI文字潤飾                                      | `false`         |
+| `llm_engine`               | LLM引擎 (ollama / openai / claude / openrouter / gemini / deepseek / qwen) | `ollama` |
+| `language`                 | 辨識語言                                                | `zh`            |
 
 ---
 
 ## 系統需求
 
-- **Windows** 10/11 (Python 3.10+，推薦搭配 NVIDIA GPU 以使用 CUDA 加速)。    
+- **Windows** 10/11（Python 3.10–3.12；沒裝 Python 也沒關係，`setup_win.bat` 會自動下載可攜式 Python 3.12，不需要系統管理員權限）。
+- **顯示卡**：有 NVIDIA GPU 會自動安裝 CUDA 加速函式庫；沒有的話會自動改用 CPU 模式（省下約 800MB 下載量）。
 - **記憶體**: 建議 16GB 以上。
 
 ---

@@ -76,12 +76,15 @@ def main():
     print(f"[INFO] 檢測目錄: {current_dir}")
     
     issues = []
+    # (名稱, 檢查函式, 是否致命)。非致命項目失敗只提出警告，不會中止安裝：
+    # - 路徑含中文在多數情況下可正常運作（台灣使用者名稱常為中文）
+    # - 網路不通時仍可使用隨包附帶的模型，或之後在應用程式內下載
     checks = [
-        ("磁碟空間", lambda: check_disk_space(current_dir)),
-        ("寫入權限", lambda: check_write_permission(current_dir)),
-        ("路徑安全", lambda: check_path_validity(current_dir)),
-        ("Python環境", check_python_integrity),
-        ("網路連線", check_network)
+        ("磁碟空間", lambda: check_disk_space(current_dir), True),
+        ("寫入權限", lambda: check_write_permission(current_dir), True),
+        ("路徑安全", lambda: check_path_validity(current_dir), False),
+        ("Python環境", check_python_integrity, True),
+        ("網路連線", check_network, False)
     ]
     
     report = []
@@ -91,19 +94,27 @@ def main():
     report.append("-" * 40 + "\n")
 
     all_passed = True
-    for name, func in checks:
+    for name, func, fatal in checks:
         print(f"[{name}] ", end="", flush=True)
         success, msg = func()
-        status = "PASS" if success else "FAIL"
+        if success:
+            status = "PASS"
+        elif fatal:
+            status = "FAIL"
+        else:
+            status = "WARN"
         print(f"{status}: {msg}")
         report.append(f"[{status}] {name}: {msg}\n")
-        if not success:
+        if not success and fatal:
             all_passed = False
             issues.append(f"{name}: {msg}")
     
-    # 將報告寫入檔案
-    with open("diagnostic_report.txt", "w", encoding="utf-8") as f:
-        f.writelines(report)
+    # 將報告寫入檔案（若目錄不可寫入，僅提示，不要讓 doctor 自己崩潰）
+    try:
+        with open("diagnostic_report.txt", "w", encoding="utf-8") as f:
+            f.writelines(report)
+    except OSError as e:
+        print(f"[WARN] 無法寫入 diagnostic_report.txt: {e}")
     
     print("-" * 60)
     if all_passed:

@@ -42,14 +42,20 @@ DEFAULT_CONFIG = {
     # 其他
     "auto_paste": True,
     "magic_trigger": "嘿 VoiceType",
+    # v2.9.8 全時自動觸發 (VAD)
+    "auto_trigger_enabled": False,
+    "auto_trigger_sensitivity": 0.15,   # 0~1 觸發門檻（與音量條同尺度）
+    "auto_trigger_silence_sec": 1.5,    # 靜音多久視為一句結束
 }
 # 🗝️ 本地設定白名單 (不進行雲端同步的項目)
 LOCAL_KEYS = {
-    "hotkey_ptt", "hotkey_toggle", "hotkey_llm", "hotkey", 
+    "hotkey_ptt", "hotkey_toggle", "hotkey_llm", "hotkey",
     "trigger_mode", "show_floating_button", "completion_sound",
-    "debug_mode", "is_demo", "output_prefix", 
+    "debug_mode", "is_demo", "output_prefix",
     "separate_keystrike_log", "showcase_mode",
-    "stt_engine", "whisper_model"
+    "stt_engine", "whisper_model",
+    # 麥克風靈敏度與觸發習慣屬於機器特定設定，不做雲端同步
+    "auto_trigger_enabled", "auto_trigger_sensitivity", "auto_trigger_silence_sec"
 }
 
 from paths import GLOBAL_CONFIG_PATH, LOCAL_CONFIG_PATH, APP_DATA_DIR

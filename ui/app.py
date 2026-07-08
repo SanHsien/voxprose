@@ -62,6 +62,10 @@ class VoiceTypeApp(QObject):
         self._models_ready = False
         self.stt = None
         self.settings_window = None
+        # 全時自動觸發 (VAD) 模式
+        self.auto_trigger = None
+        self._segment_queue = None
+        self._segment_worker = None
         
         # 1. 核心邏輯 (V52: 正確的依賴注入與初始化順序)
         self.injector = TextInjector()
@@ -134,7 +138,10 @@ class VoiceTypeApp(QObject):
             
         # v2.8.27_V68: Synchronous load on Windows to prevent ctranslate2/PyQt thread conflict.
         self._sync_preload_models()
-            
+
+        # v2.9.8: 全時自動觸發模式 (若已啟用)
+        self._apply_auto_trigger()
+
         self.hotkey_listener.start()
         if self.config.get("floating_button_enabled", True):
             self.floating_btn.show()
@@ -207,6 +214,62 @@ class VoiceTypeApp(QObject):
 
     def _on_audio_level(self, level):
         self.indicator.set_level(level)
+
+    # ── v2.9.8: 全時自動觸發 (VAD) 模式 ──
+    def _apply_auto_trigger(self):
+        """依 config 啟動或停止 VAD 自動觸發。啟動/設定變更後呼叫。"""
+        enabled = self.config.get("auto_trigger_enabled", False)
+        if self.auto_trigger:
+            self.auto_trigger.stop()
+            self.auto_trigger = None
+        if not enabled:
+            return
+        if not self._models_ready:
+            log.warning("[auto] Models not ready; auto trigger not armed.")
+            return
+        try:
+            from audio.auto_trigger import AutoTriggerController
+            self.auto_trigger = AutoTriggerController(
+                on_segment_start=self._on_auto_segment_start,
+                on_segment_stop=self._on_auto_segment_stop,
+                level_callback=self._on_audio_level,
+                sensitivity=float(self.config.get("auto_trigger_sensitivity", 0.15)),
+                silence_sec=float(self.config.get("auto_trigger_silence_sec", 1.5)),
+            )
+            self.auto_trigger.start()
+        except Exception as e:
+            log.error(f"[auto] Failed to arm auto trigger: {e}", exc_info=True)
+            self.auto_trigger = None
+
+    def _ensure_segment_worker(self):
+        """單一 worker 依序處理語音段落，避免連續講話時輸出順序錯亂。"""
+        if self._segment_worker and self._segment_worker.is_alive():
+            return
+        import queue
+        self._segment_queue = queue.Queue()
+
+        def worker():
+            while True:
+                wav = self._segment_queue.get()
+                if wav is None:
+                    break
+                self._process_audio(wav)
+
+        self._segment_worker = threading.Thread(target=worker, daemon=True)
+        self._segment_worker.start()
+
+    def _on_auto_segment_start(self):
+        # UI 回饋（錄音本身由 AutoTriggerController 負責）
+        self.indicator.show()
+        if self.config.get("llm_enabled", False):
+            self.indicator.set_state("ai_recording")
+        else:
+            self.indicator.set_state("recording")
+        self.tray.set_icon("🔴")
+
+    def _on_auto_segment_stop(self, wav_bytes):
+        self._ensure_segment_worker()
+        self._segment_queue.put(wav_bytes)
 
     def _on_audio_complete(self, audio_data):
         threading.Thread(target=self._process_audio, args=(audio_data,), daemon=True).start()
@@ -396,6 +459,7 @@ class VoiceTypeApp(QObject):
 
     def quit(self):
         try:
+            if self.auto_trigger: self.auto_trigger.stop()
             if self.tray: self.tray.stop_ticker()
             if self.hotkey_listener: self.hotkey_listener.stop()
         except: pass
@@ -430,6 +494,7 @@ class VoiceTypeApp(QObject):
             from stt import get_stt
             self.llm = get_llm(self.config)
             self.stt = get_stt(self.config)
+            self._apply_auto_trigger()
             if self.menu_bar:
                 self.menu_bar.config = self.config
                 self.menu_bar.refresh_ui()

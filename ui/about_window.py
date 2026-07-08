@@ -58,7 +58,7 @@ class AboutDialog(QDialog):
         dev_label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
         dev_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        assist_label = QLabel("協助開發者：Gemini + Nebula")
+        assist_label = QLabel("協助開發者：Claude Code")
         assist_label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
         assist_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         

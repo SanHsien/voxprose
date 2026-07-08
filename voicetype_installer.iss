@@ -35,7 +35,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; 複製所有必要的原始碼與資源 (排除 logs, venv, .git 以及測試開發檔案)
-Source: "*"; DestDir: "{app}"; Excludes: ".git,venv,__pycache__,.aicore,dist,build,output,node_modules,memory,stats,test_*.py,main2.py,debug_test.py,self_check.py,diagnose_mic.py,import_check.py,tiny.py,build_*.py,post_build_fix*.py,release_win.ps1,create_shortcut.ps1,*.log,*.txt,*.patch,boot_*.txt,err*.txt,out*.txt,*.zip,AI_MEMORY.md,INTERNAL_TODO.md,HANDOVER.md,MIGRATION_GUIDE.md,VERSIONS.md,*.command"
+Source: "*"; DestDir: "{app}"; Excludes: ".git,venv,.runtime,archive,__pycache__,.aicore,dist,build,output,node_modules,memory,stats,test_*.py,main2.py,debug_test.py,self_check.py,diagnose_mic.py,import_check.py,tiny.py,build_*.py,post_build_fix*.py,release_win.ps1,create_shortcut.ps1,*.log,*.txt,*.patch,boot_*.txt,err*.txt,out*.txt,*.zip,AI_MEMORY.md,INTERNAL_TODO.md,HANDOVER.md,MIGRATION_GUIDE.md,VERSIONS.md,*.command"
 Source: "actions\*"; DestDir: "{app}\actions"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "audio\*"; DestDir: "{app}\audio"; Flags: ignoreversion recursesubdirs createallsubdirs
