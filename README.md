@@ -1,7 +1,7 @@
-# VoiceType4TW 嘴炮輸入法 (v2.9.7 Mac版)
+# VoiceType4TW 嘴炮輸入法
 
 主要開發者：吉米丘 , CC58TW 
-協助開發者：Claude、Gemini、Nebula
+協助開發者：Codex、Claude、Gemini、Nebula
 
 吉米與女兒CC58TW全新開發的嘴炮輸入法，讓你出一張嘴就能打字的輸入法
 
