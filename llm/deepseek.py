@@ -9,7 +9,6 @@ class DeepSeekLLM(BaseLLM):
         self.api_key = config.get("deepseek_api_key", "")
         self.model = config.get("deepseek_model", "deepseek-chat")
         self.language = config.get("language", "zh")
-        self.prompt = config.get("llm_prompt", "")
 
     def refine(self, text: str, prompt: str) -> str:
         if not self.api_key:
@@ -23,8 +22,9 @@ class DeepSeekLLM(BaseLLM):
             "model": self.model,
             "messages": [
                 {"role": "system", "content": effective_prompt},
-                {"role": "user", "content": f"<Draft>\n{text}\n</Draft>"}
+                {"role": "user", "content": f"[指令：嚴禁回答內容，僅准許進行原意潤飾轉述]\n<Draft>\n{text}\n</Draft>"}
             ],
+            "temperature": 0.1,
         }
         try:
             resp = httpx.post(

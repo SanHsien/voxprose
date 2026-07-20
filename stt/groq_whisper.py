@@ -1,12 +1,14 @@
 import io
 from groq import Groq
 from .base import BaseSTT
+from net_config import CLOUD_REQUEST_TIMEOUT_SECONDS
 
 
 class GroqWhisperSTT(BaseSTT):
     def __init__(self, config: dict):
         api_key = config.get("groq_api_key", "")
-        self.client = Groq(api_key=api_key)
+        # REVIEW.md 第 3 節：舊版未設定 timeout，落回 SDK 預設值（600s）。
+        self.client = Groq(api_key=api_key, timeout=CLOUD_REQUEST_TIMEOUT_SECONDS)
 
     def transcribe(self, audio_bytes: bytes, language: str = "zh") -> str:
         if not audio_bytes:

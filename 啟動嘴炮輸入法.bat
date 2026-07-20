@@ -1,8 +1,5 @@
 @echo off
 REM VoiceType4TW Windows Launcher
-REM v2.8.2-stable
-
-echo 🚀 嘴砲輸入法 (VoiceType4TW) 正在啟動...
-cd /d "%~dp0"
-python main.py
-pause
+REM Delegates to run_voicetype.bat, which picks the correct Python
+REM (.runtime embedded or venv) and runs setup automatically if needed.
+call "%~dp0run_voicetype.bat"

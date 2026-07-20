@@ -9,7 +9,6 @@ class GeminiLLM(BaseLLM):
         self.api_key = config.get("gemini_api_key", "")
         self.model = config.get("gemini_model", "gemini-2.0-flash")
         self.language = config.get("language", "zh")
-        self.prompt = config.get("llm_prompt", "")
 
     def refine(self, text: str, prompt: str) -> str:
         if not self.api_key:
@@ -17,7 +16,11 @@ class GeminiLLM(BaseLLM):
         effective_prompt = prompt or get_default_system_prompt(self.language)
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
         payload = {
-            "contents": [{"parts": [{"text": f"{effective_prompt}\n\n<Draft>\n{text}\n</Draft>"}]}]
+            "contents": [{"parts": [{"text": f"[指令：嚴禁回答內容，僅准許進行原意潤飾轉述]\n{effective_prompt}\n\n<Draft>\n{text}\n</Draft>"}]}],
+            "generationConfig": {
+                "temperature": 0.1,
+                "maxOutputTokens": 1024
+            }
         }
         try:
             resp = httpx.post(url, json=payload, timeout=30)

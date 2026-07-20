@@ -12,9 +12,15 @@ from pathlib import Path
 
 from paths import get_data_dir
 
-VOCAB_DIR = get_data_dir("vocab")
-CUSTOM_VOCAB_PATH = VOCAB_DIR / "custom_vocab.json"
-AUTO_MEMORY_PATH = VOCAB_DIR / "auto_memory.json"
+# 命名說明（2026-07-20 REVIEW 提醒後改名）：此常數是本機詞彙資料目錄
+# （get_data_dir("vocab") -> APP_DATA_DIR/vocab），與曾經存在於 paths.py、
+# 指向 SYNC_BASE_DIR 雲端同步目錄、且已確認是死碼移除的 VOCAB_DIR 完全無關
+# （後者從未被任何地方 import，純屬誤導性宣告，見 docs/DECISIONS.md）。
+# 兩者同名容易讓人誤以為這裡的詞彙資料會跟著雲端同步，故改用底線前綴的
+# 模組私有名稱釐清「這是本機路徑，不是同步路徑」。
+_VOCAB_DATA_DIR = get_data_dir("vocab")
+CUSTOM_VOCAB_PATH = _VOCAB_DATA_DIR / "custom_vocab.json"
+AUTO_MEMORY_PATH = _VOCAB_DATA_DIR / "auto_memory.json"
 
 AUTO_LEARN_THRESHOLD = 3
 AUTO_MEMORY_MAX = 200
@@ -28,7 +34,7 @@ DEFAULT_VOCAB = [
 
 
 def _ensure_dir():
-    VOCAB_DIR.mkdir(parents=True, exist_ok=True)
+    _VOCAB_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _init_default_vocab():
@@ -169,7 +175,7 @@ def build_vocab_prompt() -> str:
 
 
 def _edit_distance_1(a: str, b: str) -> bool:
-    """快速判斷兩字串 edit distance 是否 <= 1（等長字串僅比對替換）。"""
+    """快速判斷兩字串 edit distance 是否 <= 1（支援替換、插入、刪除）。"""
     if a == b:
         return True
     la, lb = len(a), len(b)

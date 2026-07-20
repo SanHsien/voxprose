@@ -1,0 +1,50 @@
+name: CI
+
+# Minimal, zero-cost safety net (see AGENTS.md/docs/DEVELOPMENT.md「測試」):
+# syntax-compile the whole repo and run the pytest suite on a Windows runner.
+# Deliberately does NOT install requirements-cuda-win.txt or download any
+# Whisper model weights — this is not meant to exercise real STT/LLM
+# behavior, only to catch "somebody pushed a syntax error / broken import"
+# before it lands on main.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install runtime dependencies (no CUDA, no bundled models)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-win.txt
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Compile-check the entire repo (py_compile)
+        shell: bash
+        run: |
+          set -e
+          find . -name "*.py" \
+            -not -path "./.git/*" \
+            -not -path "./venv/*" \
+            -not -path "./.venv/*" \
+            -not -path "./build/*" \
+            -not -path "./dist/*" \
+            -not -path "./.runtime/*" \
+            -not -path "./bundled_models/*" \
+            | xargs -I{} python -m py_compile {}
+
+      - name: Run pytest
+        run: python -m pytest tests/ -v

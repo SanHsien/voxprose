@@ -1,86 +1,144 @@
 import os
+import sys
+import platform
+import threading
 from typing import Callable, List, Dict, Optional
 
-import rumps
+import logging
 
+IS_WINDOWS = sys.platform == "win32"
 
 class TrayManager:
-    """macOS system tray manager using rumps."""
-
+    """
+    Windows system tray manager using QSystemTrayIcon (PyQt6).
+    """
     def __init__(self, title: str, icon_path: str, menu_items: List[Dict]):
         self.title = title
-        # Prefer template icon for automatic macOS theme switching
-        base_dir = os.path.dirname(icon_path) if icon_path else ""
-        templ = os.path.join(base_dir, "icon-menubarTemplate.png")
-        self.icon_path = templ if os.path.exists(templ) else icon_path
+        self.icon_path = icon_path
         self.menu_items = menu_items
         self._tray = None
+        self._qt_menu = None
 
     def start(self, on_tick: Optional[Callable] = None):
-        class App(rumps.App):
-            def __init__(self, title, icon_path, items, tick_callback):
-                super().__init__(title, icon=icon_path, quit_button=None)
-                self.items = items
-                self.tick_callback = tick_callback
-                self._stop_ticker = False
-                self._rebuild_menu()
-
-            def _rebuild_menu(self):
-                self.menu.clear()
-                self._add_items(self.menu, self.items)
-
-            def _add_items(self, menu_obj, items):
-                for item in items:
-                    name = item['label']
-                    callback = item['callback']
-                    submenu = item.get('submenu')
-
-                    if name == "---":
-                        menu_obj.add(None)
-                        continue
-
-                    if submenu:
-                        sub = rumps.MenuItem(name)
-                        menu_obj.add(sub)
-                        self._add_items(sub, submenu)
-                    else:
-                        btn = rumps.MenuItem(name, callback=callback)
-                        checked_val = item.get('checked', None)
-                        if checked_val is not None:
-                            btn.state = 1 if checked_val else 0
-                        menu_obj.add(btn)
-
-            @rumps.timer(0.1)
-            def drive_tick(self, _):
-                if not self._stop_ticker and self.tick_callback:
-                    try:
-                        self.tick_callback()
-                    except Exception:
-                        pass
-
-        self._tray = App(self.title, self.icon_path, self.menu_items, on_tick)
-        if self.icon_path and "Template" in self.icon_path:
-            self._tray.template = True
-        self._tray.run()
+        self._start_windows()
 
     def stop(self):
-        self.stop_ticker()
-        rumps.quit_application()
+        if self._tray:
+            self._tray.stop()
 
     def stop_ticker(self):
-        if self._tray:
-            self._tray._stop_ticker = True
+        """No-op on Windows (Qt handles its own event loop)."""
+        pass
 
     def update_menu(self, menu_items: List[Dict]):
         self.menu_items = menu_items
+        self._update_windows_menu()
+
+    def _start_windows(self):
+        try:
+            from PyQt6.QtWidgets import QSystemTrayIcon, QApplication
+            from PyQt6.QtGui import QIcon
+            t_log = logging.getLogger("voicetype.tray")
+
+            t_log.info(f"[tray] Starting Windows Tray (QSystemTrayIcon) with icon: {self.icon_path}")
+
+            app = QApplication.instance()
+            if not app:
+                t_log.error("[tray] Critical: QApplication not found. Tray cannot start.")
+                return
+
+            if not QSystemTrayIcon.isSystemTrayAvailable():
+                t_log.error("[tray] Critical: System tray is not available on this system.")
+                return
+
+            icon = QIcon(self.icon_path)
+            self._tray = QSystemTrayIcon(icon, app)
+            self._tray.setToolTip(self.title)
+
+            menu = self._build_qt_menu(self.menu_items)
+            self._tray.setContextMenu(menu)
+
+            self._tray.show()
+            t_log.info("[tray] QSystemTrayIcon shown successfully.")
+
+            # Store the menu to prevent garbage collection
+            self._qt_menu = menu
+
+        except Exception as e:
+            import traceback
+            msg = f"[tray] CRITICAL Windows QSystemTrayIcon error: {e}\n{traceback.format_exc()}"
+            print(msg)
+            logging.getLogger("voicetype").error(msg)
+
+    def _update_windows_menu(self):
         if self._tray:
-            self._tray.items = menu_items
-            self._tray._rebuild_menu()
+            try:
+                menu = self._build_qt_menu(self.menu_items)
+                self._tray.setContextMenu(menu)
+                self._qt_menu = menu
+                logging.getLogger("voicetype.tray").debug("[tray] Windows tray menu updated.")
+            except Exception as e:
+                print(f"[tray] Failed to update tray menu: {e}")
+
+    def _build_qt_menu(self, items, parent=None):
+        from PyQt6.QtWidgets import QMenu
+        from PyQt6.QtGui import QAction
+
+        menu = QMenu(parent)
+        for item in items:
+            label = item.get('label', '')
+            callback = item.get('callback')
+            checked = item.get('checked', None)
+            submenu = item.get('submenu')
+
+            if label == "---":
+                menu.addSeparator()
+                continue
+
+            if submenu:
+                sub_menu_obj = self._build_qt_menu(submenu, menu)
+                sub_menu_obj.setTitle(label)
+                menu.addMenu(sub_menu_obj)
+                continue
+
+            action = QAction(label, menu)
+
+            if checked is not None:
+                action.setCheckable(True)
+                action.setChecked(bool(checked))
+
+            if callback:
+                def make_handler(cb, lbl=label):
+                    def safe_handler():
+                        try:
+                            logging.getLogger("voicetype.tray").debug(f"[tray] QAction clicked: {lbl}")
+                            cb(action)
+                        except Exception as e:
+                            import traceback
+                            msg = f"[tray] Error in Qt callback for '{lbl}': {e}\n{traceback.format_exc()}"
+                            print(msg)
+                            logging.getLogger("voicetype.tray").error(msg)
+                    return safe_handler
+
+                action.triggered.connect(make_handler(callback))
+
+            menu.addAction(action)
+
+        return menu
 
     def set_icon(self, status: str):
-        """status: '🎙' | '🔴' | '⏳'"""
-        if self._tray:
-            self._tray.title = status
-
-    def flash(self):
+        """Windows: no-op (icon update requires image files)."""
         pass
+
+    def run(self):
+        """啟動 Qt 事件循環"""
+        self.start()
+        from PyQt6.QtWidgets import QApplication
+        import sys
+        app = QApplication.instance()
+        if app:
+            sys.exit(app.exec())
+        else:
+            app = QApplication(sys.argv)
+            self.start()
+            sys.exit(app.exec())

@@ -1,0 +1,64 @@
+name: Windows Portable Release Build
+
+# 建置 Windows 真可攜版 ZIP（Lite + NoModel 兩種版本）。
+# push tag v* 時建置並發佈到 GitHub Releases；也可手動觸發（workflow_dispatch），
+# 但手動觸發僅產生 artifact，不發佈 Release。
+#
+# 注意：release_win.ps1 會即時下載嵌入式 Python 與 pip 依賴（含 CUDA 函式庫），
+# 兩次建置皆需要網路。NoModel 版 ZIP 約 1-1.5GB，Lite 版更小，皆在 GitHub
+# Releases 單檔 2GB 上限內。本 workflow 不打包 Full 版（含 medium 模型，體積
+# 過大且需要本機事先下載模型快取，不適合在 CI runner 上執行）。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write     # 發佈 Release 需要
+
+jobs:
+  build-windows-release:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
+
+    steps:
+      - name: 檢出程式碼
+        uses: actions/checkout@v4
+
+      - name: 打包 Lite 版（無 CUDA、無模型）
+        shell: pwsh
+        run: .\release_win.ps1 -Lite
+
+      - name: 打包 NoModel 版（含 CUDA、無模型）
+        shell: pwsh
+        run: .\release_win.ps1 -NoModel
+
+      - name: 產生 SHA256 校驗檔
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path dist -Filter "*.zip" | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)" | Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii
+          }
+
+      - name: 上傳 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: voicetype-windows-portable
+          path: |
+            dist/*.zip
+            dist/*.zip.sha256
+
+      - name: 發佈到 Release（僅標籤觸發）
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.zip
+            dist/*.zip.sha256
+          generate_release_notes: true

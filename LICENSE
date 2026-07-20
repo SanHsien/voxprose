@@ -1,0 +1,33 @@
+MIT License
+
+Copyright (c) 2026 Jimmy Chiou, CC58TW, and VoiceType4TW contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+------------------------------------------------------------
+
+Fork additions Copyright (c) 2026 SanHsien, licensed under the same MIT terms
+above. This fork (`SanHsien/voicetype`) builds on the upstream project
+`jfamily4tw/voicetype4tw-mac` (VoiceType4TW / 嘴炮輸入法); see NOTICE.md for
+provenance details.
+
+本 fork（`SanHsien/voicetype`）新增部分版權為 (c) 2026 SanHsien，採用與上方
+相同的 MIT 授權條款。本 fork 基於上游專案
+`jfamily4tw/voicetype4tw-mac`（VoiceType4TW／嘴炮輸入法）開發；來源查證細節
+見 NOTICE.md。

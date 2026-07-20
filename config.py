@@ -6,13 +6,13 @@ DEFAULT_CONFIG = {
     "hotkey_toggle": "f13",
     "hotkey_llm": "f14",
     # STT
-    "stt_engine": "mlx_whisper",
+    "stt_engine": "local_whisper",
     "whisper_model": "medium",
     "groq_api_key": "",
     "language": "zh",
     # LLM
     "llm_enabled": False,
-    "llm_engine": "openrouter",
+    "llm_engine": "ollama",
     "llm_mode": "replace",   # "replace" | "fast"
     "llm_prompt": "",        # 留空使用內建 prompt
     "ollama_model": "llama3",
@@ -22,7 +22,7 @@ DEFAULT_CONFIG = {
     "anthropic_api_key": "",
     "anthropic_model": "claude-3-haiku-20240307",
     "openrouter_api_key": "",
-    "openrouter_model": "google/gemini-2.5-flash",
+    "openrouter_model": "google/gemini-2.5-flash",  # v2.9.16 Mac 主線 16-4：2.0-flash-001 已屬淘汰風險模型
     "gemini_api_key": "",
     "gemini_model": "gemini-2.0-flash",
     "gemini_stt_model": "gemini-2.0-flash",
@@ -30,8 +30,6 @@ DEFAULT_CONFIG = {
     "qwen_model": "qwen-plus",
     "deepseek_api_key": "",
     "deepseek_model": "deepseek-chat",
-    "minimax_api_key": "",
-    "minimax_model": "MiniMax-M2.5",
     # 記憶
     "memory_enabled": True,
     # v2.5 靈魂系統
@@ -44,22 +42,30 @@ DEFAULT_CONFIG = {
     # 其他
     "auto_paste": True,
     "magic_trigger": "嘿 VoiceType",
-    # UI
-    "ui_skin": "titanium",
-    # 麥克風
-    "mic_device": None,      # None = 系統預設
+    # v2.9.8 全時自動觸發 (VAD)
+    "auto_trigger_enabled": False,
+    "auto_trigger_sensitivity": 0.15,   # 0~1 觸發門檻（與音量條同尺度）
+    "auto_trigger_silence_sec": 1.5,    # 靜音多久視為一句結束
+    # Mac 主線 v2.9.7（7-1/7-2/7-3）移植：麥克風裝置選擇 + 增益 + AGC
+    "mic_device": None,      # None = 系統預設；否則為 sounddevice 裝置索引
     "mic_gain": 100,         # 手動基底放大倍率（50~300，100=×1.0 不變）
-    "mic_gain_auto": True,   # 啟用 AGC 自動微調
+    "mic_gain_auto": True,   # 啟用 AGC 自動微調（獨立 _agc_factor，不覆蓋手動 gain）
 }
+# 🔑 所有 *_api_key 欄位一律本地專屬，絕不進雲端同步（見 docs/DECISIONS.md 遷移決策）
+API_KEY_FIELDS = {k for k in DEFAULT_CONFIG if k.endswith("_api_key")}
+
 # 🗝️ 本地設定白名單 (不進行雲端同步的項目)
 LOCAL_KEYS = {
     "hotkey_ptt", "hotkey_toggle", "hotkey_llm", "hotkey",
     "trigger_mode", "show_floating_button", "completion_sound",
     "debug_mode", "is_demo", "output_prefix",
     "separate_keystrike_log", "showcase_mode",
-    "stt_engine", "whisper_model", "ui_skin",
+    "stt_engine", "whisper_model",
+    # 麥克風靈敏度與觸發習慣屬於機器特定設定，不做雲端同步
+    "auto_trigger_enabled", "auto_trigger_sensitivity", "auto_trigger_silence_sec",
+    # 麥克風裝置選擇 / 增益 / AGC 是機器特定設定，不做雲端同步
     "mic_device", "mic_gain", "mic_gain_auto",
-}
+} | API_KEY_FIELDS
 
 from paths import GLOBAL_CONFIG_PATH, LOCAL_CONFIG_PATH, APP_DATA_DIR
 
@@ -83,6 +89,7 @@ def load_config() -> dict:
             pass
 
     # 1. 載入全域設定 (Global) - 優先權低
+    global_data = None
     if os.path.exists(GLOBAL_CONFIG_PATH):
         try:
             with open(GLOBAL_CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -90,7 +97,38 @@ def load_config() -> dict:
             # 過濾掉不該出現在全域的本地 key
             config.update({k: v for k, v in global_data.items() if k not in LOCAL_KEYS})
         except Exception:
-            pass
+            global_data = None
+
+    # 1b. 一次性遷移：舊版曾把 API Key 等現已列入 LOCAL_KEYS 的欄位存進全域
+    # (雲端同步) 設定檔，這裡偵測到殘留就搬進本機、並從全域檔案移除，讓既有
+    # 使用者無感升級、金鑰不再落在同步資料夾（docs/DECISIONS.md 有記錄）。
+    if global_data:
+        leaked_to_local = {k: v for k, v in global_data.items() if k in LOCAL_KEYS}
+        if leaked_to_local:
+            config.update(leaked_to_local)
+
+            # 全域檔案立即改寫成不含這些 key 的版本，避免之後任何一次
+            # save_config() 之前，同步資料夾仍暫時含有金鑰。
+            remaining_global = {k: v for k, v in global_data.items() if k not in LOCAL_KEYS}
+            try:
+                GLOBAL_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+                with open(GLOBAL_CONFIG_PATH, "w", encoding="utf-8") as f:
+                    json.dump(remaining_global, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+
+            # 同步寫回本機設定檔，讓遷移的值立刻落地（不用等下一次
+            # save_config() 才產生 config_local.json）。
+            try:
+                existing_local = {}
+                if os.path.exists(LOCAL_CONFIG_PATH):
+                    with open(LOCAL_CONFIG_PATH, "r", encoding="utf-8") as f:
+                        existing_local = json.load(f)
+                existing_local.update(leaked_to_local)
+                with open(LOCAL_CONFIG_PATH, "w", encoding="utf-8") as f:
+                    json.dump(existing_local, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
 
     # 2. 載入本機設定 (Local) - 優先權高
     if os.path.exists(LOCAL_CONFIG_PATH):

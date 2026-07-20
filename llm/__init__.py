@@ -1,5 +1,4 @@
 from .base import BaseLLM
-from .prompts import get_default_system_prompt
 
 def get_llm(config: dict) -> BaseLLM:
     engine = config.get("llm_engine", "ollama")
@@ -22,9 +21,6 @@ def get_llm(config: dict) -> BaseLLM:
     elif engine == "deepseek":
         from .deepseek import DeepSeekLLM
         return DeepSeekLLM(config)
-    elif engine == "minimax":
-        from .minimax import MiniMaxLLM
-        return MiniMaxLLM(config)
     else:
         from .ollama import OllamaLLM
         return OllamaLLM(config)

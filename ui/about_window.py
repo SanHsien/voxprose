@@ -54,11 +54,11 @@ class AboutDialog(QDialog):
         credit_box = QVBoxLayout()
         credit_box.setSpacing(5)
         
-        dev_label = QLabel("主要開發者：吉米丘,CC58TW")
+        dev_label = QLabel("主要開發者：吉米丘")
         dev_label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
         dev_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        assist_label = QLabel("協助開發者：Gemini + Nebula")
+        assist_label = QLabel("協助開發者：Claude Code")
         assist_label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
         assist_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         

@@ -1,0 +1,28 @@
+[project]
+name = "voicetype"
+version = "3.1.0"
+description = "VoiceType4TW 嘴炮輸入法 — Windows-only fork of jfamily4tw/voicetype4tw-mac (win-stable), maintained by SanHsien"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = { text = "MIT" }
+
+# NOTE: this file exists to give the project standard Python packaging
+# metadata and a pytest configuration home — it does NOT replace the actual
+# install path. Real dependency installation is still driven by
+# requirements-win.txt (+ requirements-cuda-win.txt on machines with an
+# NVIDIA GPU), which setup_win.bat / release_win.ps1 depend on directly.
+# Keep [project.dependencies] empty/minimal; do not migrate the packaging
+# scripts to `pip install -e .` without updating AGENTS.md/DEVELOPMENT.md.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+norecursedirs = ["tests/manual", ".git", "build", "dist", ".runtime", "bundled_models", "venv", ".venv"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

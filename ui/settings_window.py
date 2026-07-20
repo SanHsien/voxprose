@@ -19,28 +19,10 @@ import shutil
 import logging
 from config import load_config, save_config
 from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR, BUILD_ID
-from ui.skin_manager import SkinManager, AVAILABLE_SKINS
 
 log = logging.getLogger("voicetype.ui")
-LLM_ENGINES = ["ollama", "openai", "claude", "openrouter", "gemini", "deepseek", "qwen", "minimax"]
-PROVIDER_MODELS = {
-    "ollama":     [],
-    "openai":     ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "o1-mini", "o3-mini"],
-    "claude":     ["claude-opus-4-5-20251101", "claude-sonnet-4-5-20251101", "claude-3-5-haiku-20241022"],
-    "openrouter": [
-        "google/gemini-2.5-flash",
-        "google/gemini-2.5-flash-lite",
-        "google/gemini-3.5-flash",
-        "~google/gemini-flash-latest",
-        "openai/gpt-4o-mini",
-    ],
-    "gemini":     ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-pro", "gemini-1.5-flash"],
-    "deepseek":   ["deepseek-chat", "deepseek-reasoner"],
-    "qwen":       ["qwen-plus", "qwen-turbo", "qwen-max", "qwen-long"],
-    "minimax":    ["MiniMax-M2.5", "MiniMax-Text-01", "abab6.5s-chat", "abab5.5-chat"],
-}
-# 使用本機 Base URL 的供應商（顯示 URL 輸入欄）
-LOCAL_URL_ENGINES = {"ollama"}
+STT_ENGINES = ["local_whisper", "groq", "gemini", "openrouter"]
+LLM_ENGINES = ["ollama", "openai", "claude", "openrouter", "gemini", "deepseek", "qwen"]
 WHISPER_MODELS = ["tiny", "base", "small", "medium", "large"]
 TRIGGER_MODES = ["push_to_talk", "toggle"]
 HOTKEYS = ["right_option", "left_option", "right_ctrl", "f13", "f14", "f15"]
@@ -48,107 +30,50 @@ LLM_MODES = ["replace", "fast"]
 
 from hotkey.listener import key_to_str, str_to_key
 
-# ── Material Symbols font loader ─────────────────────────────
-_MS_FONT_LOADED = False
-_MS_FONT_FAMILY = "Material Symbols Outlined"
-
-# Direct Unicode codepoints (no ligature needed)
-_MS_CODEPOINTS = {
-    "auto_awesome": "\ue65f", "balance": "\ueaf6", "bar_chart": "\ue26b",
-    "bolt": "\uea0b", "build": "\uf8cd", "cloud_sync": "\ueb5a",
-    "health_and_safety": "\ue1d5", "history": "\ue8b3", "home": "\ue9b2",
-    "keyboard": "\ue312", "lock_open": "\ue898", "manage_accounts": "\uf02e",
-    "menu_book": "\uea19", "mic": "\ue31d", "mic_external_on": "\uef5a",
-    "psychology": "\uea4a", "settings": "\ue8b8", "shield": "\ue9e0",
-    "refresh": "\ue5d5", "smart_toy": "\uf06c", "terminal": "\ueb8e", "tune": "\ue429",
-    "visibility": "\ue8f4",
-}
-
-def _load_ms_font():
-    global _MS_FONT_LOADED, _MS_FONT_FAMILY
-    if _MS_FONT_LOADED:
-        return
-    from PyQt6.QtGui import QFontDatabase
-    import os
-    # py2app bundle: RESOURCEPATH = Contents/Resources/
-    # dev: fall back to __file__-relative path
-    res_path = os.environ.get("RESOURCEPATH")
-    if res_path:
-        font_path = os.path.join(res_path, "assets", "fonts", "MaterialSymbolsOutlined.ttf")
-    else:
-        font_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                  "assets", "fonts", "MaterialSymbolsOutlined.ttf")
-    if os.path.exists(font_path):
-        font_id = QFontDatabase.addApplicationFont(font_path)
-        if font_id >= 0:
-            families = QFontDatabase.applicationFontFamilies(font_id)
-            if families:
-                _MS_FONT_FAMILY = families[0]
-    _MS_FONT_LOADED = True
-
-def _ms_char(name: str) -> str:
-    """Return the Unicode character for the given Material Symbol name."""
-    return _MS_CODEPOINTS.get(name, name)
-
-def ms_icon(name: str, size: int = 18, color: str = "") -> QLabel:
-    """Return a QLabel that renders a Material Symbol icon via codepoint."""
-    _load_ms_font()
-    lbl = QLabel(_ms_char(name))
-    # Must include font-family in stylesheet to override global QSS (which sets PingFang TC on all QLabel)
-    color_rule = f"color: {color};" if color else ""
-    lbl.setStyleSheet(
-        f"background: transparent; border: none; font-family: '{_MS_FONT_FAMILY}'; font-size: {size}pt; {color_rule}"
-    )
-    lbl.setFixedSize(size + 8, size + 8)
-    lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    return lbl
-
-def ms_icon_pixmap(name: str, size: int = 22, color: str = "#e4e1e6"):
-    """Render a Material Symbol to a HiDPI-aware QPixmap for use as QIcon."""
-    from PyQt6.QtGui import QPixmap, QPainter, QFont, QColor
-    _load_ms_font()
-    dpr = 3  # HiDPI: render at 3× for Retina
-    px_size = size * dpr
-    px = QPixmap(px_size, px_size)
-    px.setDevicePixelRatio(dpr)
-    px.fill(Qt.GlobalColor.transparent)
-    p = QPainter(px)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(QColor(color))
-    font = QFont(_MS_FONT_FAMILY)
-    font.setPixelSize(size - 2)  # logical pixel size (painter uses logical coords when DPR is set)
-    p.setFont(font)
-    from PyQt6.QtCore import QRect
-    p.drawText(QRect(0, 0, size, size), Qt.AlignmentFlag.AlignCenter, _ms_char(name))
-    p.end()
-    return px
-
 
 class GlassCard(QFrame):
-    """A premium looking card with subtle border and background.
-    Styling is controlled by global QSS via SkinManager (targets GlassCard class name)."""
+    """A premium looking card with subtle border and background."""
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setStyleSheet("""
+            GlassCard {
+                background-color: rgba(45, 45, 55, 180);
+                border: 1px solid rgba(255, 255, 255, 30);
+                border-radius: 12px;
+            }
+        """)
 
 class SidebarButton(QPushButton):
-    def __init__(self, icon_name, label, index, on_click, parent=None):
+    def __init__(self, icon_text, label, index, on_click, parent=None):
         super().__init__(parent)
         self.index = index
         self.setCheckable(True)
         import platform
         font_family = "Taipei Sans TC Beta" if platform.system() == "Darwin" else "Microsoft JhengHei"
-        self.setText(f"  {label}")
+        self.setText(f"{icon_text}  {label}")
         self.setFont(QFont(font_family, 16, QFont.Weight.Medium))
-        # Set Material Symbol as icon
-        from PyQt6.QtGui import QIcon
-        s = SkinManager.current()
-        px = ms_icon_pixmap(icon_name, 22, s.get("text_secondary", "#A1A1AA"))
-        self.setIcon(QIcon(px))
-        self.setIconSize(QSize(22, 22))
+
         self.setFixedHeight(60)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.clicked.connect(lambda: on_click(self.index))
-        # Styling via global QSS (SkinManager targets SidebarButton class name)
+        self.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                color: #8a8d91;
+                text-align: left;
+                padding-left: 20px;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background: rgba(255, 255, 255, 10);
+            }
+            QPushButton:checked {
+                background-color: #252a33;
+                color: #7c4dff;
+                font-weight: bold;
+            }
+        """)
 
 class SNSButton(QPushButton):
     def __init__(self, icon_path, url, parent=None):
@@ -191,6 +116,36 @@ CODE_TO_MAC_NAME = {
     106: "f16"
 }
 
+CODE_TO_WIN_NAME = {
+    16: "shift",
+    160: "shift_l (Shift 左)",
+    161: "shift_r (Shift 右)",
+    17: "ctrl",
+    162: "ctrl_l (Ctrl 左)",
+    163: "ctrl_r (Ctrl 右)",
+    18: "alt",
+    164: "alt_l (Alt 左)",
+    165: "alt_r (Alt 右)",
+    91: "win (Win左)",
+    92: "win (Win右)",
+    32: "space",
+    13: "enter",
+    27: "esc",
+    20: "caps_lock",
+    9: "tab",
+    8: "backspace",
+    46: "delete",
+    33: "page_up",
+    34: "page_down",
+    35: "end",
+    36: "home",
+    37: "left",
+    38: "up",
+    39: "right",
+    40: "down",
+    45: "insert"
+}
+
 def translate_key_string(key_str):
     import re
     if not key_str:
@@ -201,7 +156,11 @@ def translate_key_string(key_str):
         return key_str # fallback to literal if no code is present
         
     code = int(match.group(1))
-    main_name = CODE_TO_MAC_NAME.get(code, f"Key_{code}")
+    
+    if platform.system() == "Windows":
+        main_name = CODE_TO_WIN_NAME.get(code, f"Key {code}")
+    else:
+        main_name = CODE_TO_MAC_NAME.get(code, f"Key_{code}")
     
     parts = key_str.replace(f"(code:{code})", "").replace(f"code:{code}", "").split("+")
     mods = [p.strip() for p in parts if p.strip()]
@@ -272,6 +231,20 @@ class HotkeyRecorderButton(QPushButton):
             modifiers = event.modifiers()
             native_code = event.nativeVirtualKey()
             
+            # v2.8.27_V13: Request exact Left/Right modifier Virtual Keycode natively
+            if platform.system() == "Windows":
+                import ctypes
+                user32 = ctypes.windll.user32
+                if native_code == 18:
+                    if user32.GetAsyncKeyState(164) & 0x8000: native_code = 164
+                    elif user32.GetAsyncKeyState(165) & 0x8000: native_code = 165
+                elif native_code == 17:
+                    if user32.GetAsyncKeyState(162) & 0x8000: native_code = 162
+                    elif user32.GetAsyncKeyState(163) & 0x8000: native_code = 163
+                elif native_code == 16:
+                    if user32.GetAsyncKeyState(160) & 0x8000: native_code = 160
+                    elif user32.GetAsyncKeyState(161) & 0x8000: native_code = 161
+            
             log.info(f"[recorder] Captured QtKey={key}, NativeCode={native_code}")
             
             # Capture native modifiers for Fn key support
@@ -288,6 +261,7 @@ class HotkeyRecorderButton(QPushButton):
                 Qt.Key.Key_Alt: "alt",
                 Qt.Key.Key_Shift: "shift",
                 Qt.Key.Key_Meta: "cmd",
+                Qt.Key.Key_AltGr: "alt",
             }
             
             if key in SINGLE_MODIFIER_KEYS:
@@ -325,121 +299,6 @@ class HotkeyRecorderButton(QPushButton):
             self.clearFocus()
         else:
             pass  # keyAccepted
-
-
-class ToggleSwitch(QWidget):
-    """iOS 風格的開關元件，替代 QCheckBox 讓狀態更清晰可見。"""
-    toggled = pyqtSignal(bool)
-
-    def __init__(self, checked: bool = False, parent=None):
-        super().__init__(parent)
-        self._checked = checked
-        self.setFixedSize(48, 26)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-
-    def isChecked(self) -> bool:
-        return self._checked
-
-    def setChecked(self, val: bool):
-        self._checked = val
-        self.update()
-
-    def mousePressEvent(self, event):
-        self._checked = not self._checked
-        self.toggled.emit(self._checked)
-        self.update()
-
-    def paintEvent(self, event):
-        from PyQt6.QtGui import QPainter, QColor, QPen
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        s = SkinManager.current()
-        if self._checked:
-            track_color = QColor(s['accent'])
-        else:
-            track_color = QColor(s['bg_input_border'])
-        # Track
-        p.setBrush(track_color)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.drawRoundedRect(0, 3, 48, 20, 10, 10)
-        # Knob
-        knob_x = 26 if self._checked else 2
-        knob_color = QColor(s['bg_window']) if self._checked else QColor(s['text_secondary'])
-        p.setBrush(knob_color)
-        p.drawEllipse(knob_x, 5, 18, 16)
-        p.end()
-
-
-class StatusChip(QFrame):
-    """Titanium 風格的狀態晶片：圖示 + 標籤 + 狀態文字，實現 set_status() 介面。"""
-    def __init__(self, icon: str, label: str, preference_url: str = "", parent=None):
-        super().__init__(parent)
-        self.url = preference_url
-        s = SkinManager.current()
-
-        self.setStyleSheet(f"""
-            StatusChip {{
-                background-color: {s['bg_card']};
-                border: 1px solid {s['card_border']};
-                border-radius: 10px;
-            }}
-        """)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 14, 16, 14)
-        layout.setSpacing(6)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.lbl_icon = ms_icon(icon, size=22, color=s['text_primary'])
-        self.lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.lbl_icon, alignment=Qt.AlignmentFlag.AlignHCenter)
-
-        self.lbl_label = QLabel(label.upper())
-        self.lbl_label.setStyleSheet(f"font-size: 9px; font-weight: bold; letter-spacing: 1px; color: {s['text_secondary']}; background: transparent; border: none;")
-        self.lbl_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.lbl_label, alignment=Qt.AlignmentFlag.AlignHCenter)
-
-        self.lbl_status = QLabel("—")
-        self.lbl_status.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {s['text_primary']}; background: transparent; border: none;")
-        self.lbl_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.lbl_status, alignment=Qt.AlignmentFlag.AlignHCenter)
-
-        if preference_url:
-            self.fix_btn = QPushButton("修復")
-            self.fix_btn.setFixedHeight(22)
-            self.fix_btn.setStyleSheet(f"""
-                QPushButton {{
-                    background: transparent;
-                    border: 1px solid {s['text_secondary']};
-                    color: {s['text_secondary']};
-                    border-radius: 4px;
-                    font-size: 10px;
-                    padding: 2px 8px;
-                }}
-                QPushButton:hover {{ color: {s['text_primary']}; border-color: {s['text_primary']}; }}
-            """)
-            self.fix_btn.hide()
-            self.fix_btn.clicked.connect(self._open_preference)
-            layout.addWidget(self.fix_btn)
-        else:
-            self.fix_btn = None
-
-    def _open_preference(self):
-        import subprocess
-        subprocess.run(["open", self.url])
-
-    def set_status(self, authorized: bool):
-        s = SkinManager.current()
-        ok_color = s['success']
-        fail_color = s['danger']
-        if authorized:
-            self.lbl_status.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {ok_color}; background: transparent; border: none;")
-            self.lbl_status.setText("已授權")
-        else:
-            self.lbl_status.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {fail_color}; background: transparent; border: none;")
-            self.lbl_status.setText("未授權")
-        if self.fix_btn:
-            self.fix_btn.setVisible(not authorized)
 
 
 class PermissionLight(QWidget):
@@ -500,27 +359,27 @@ class ModelStatusLight(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 5, 0, 5)
         layout.setSpacing(2)
-        layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-
+        
         top_layout = QHBoxLayout()
-        top_layout.setSpacing(6)
         self.dot = QFrame()
         self.dot.setFixedSize(10, 10)
         self.dot.setStyleSheet("background-color: #555; border-radius: 5px;")
-        top_layout.addWidget(self.dot, alignment=Qt.AlignmentFlag.AlignVCenter)
-
+        top_layout.addWidget(self.dot)
+        
         self.label = QLabel(f"{model_name} ({size_info})")
         win_font = "Microsoft JhengHei" if platform.system() == "Windows" else ""
         self.label.setStyleSheet(f"color: #e2e4e7; font-size: 13px; font-weight: bold; font-family: '{win_font}';")
         top_layout.addWidget(self.label)
-        layout.addLayout(top_layout, stretch=0)
-        layout.setAlignment(top_layout, Qt.AlignmentFlag.AlignHCenter)
 
+        top_layout.addStretch()
+        layout.addLayout(top_layout)
+        
         self.desc = QLabel(desc_text)
         win_font = "Microsoft JhengHei" if platform.system() == "Windows" else ""
-        self.desc.setStyleSheet(f"color: #888; font-size: 11px; font-family: '{win_font}';")
-        self.desc.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        layout.addWidget(self.desc, alignment=Qt.AlignmentFlag.AlignHCenter)
+        self.desc.setStyleSheet(f"color: #888; font-size: 11px; margin-left: 18px; font-family: '{win_font}';")
+        self.desc.setWordWrap(True)
+
+        layout.addWidget(self.desc)
 
     def set_status(self, downloaded: bool):
         # 綠色代表已就緒，灰色代表未下載
@@ -538,11 +397,14 @@ class SettingsWindow(QMainWindow):
         super().__init__()
         self.config = load_config()
         self.on_save = on_save
-        self._is_dark = True
-
-        # 載入 skin
-        skin_name = self.config.get("ui_skin", "titanium")
-        self.skin = SkinManager.load(skin_name)
+        self._is_dark = True # Pro mode is dark by default
+        
+        # Windows: Ensure window is popped up and focused (but not always on top)
+        if platform.system() == "Windows":
+             # v2.8.27_V87: Explicitly set window icon via branding utility
+             from utils.branding import apply_branding
+             apply_branding(self)
+             pass
 
         self._setup_ui()
         self._load_data()
@@ -565,15 +427,123 @@ class SettingsWindow(QMainWindow):
     def _setup_ui(self):
         from paths import VERSION_NAME
         self.setWindowTitle(f"VoiceType4TW {VERSION_NAME}")
-        self.setMinimumSize(900, 680)
+        # 最小寬度需容納側欄 240px + 三張卡片不被裁切
+        self.setMinimumSize(1080, 720)
+        self.resize(1200, 840)
         
         # Ensure it pops up correctly on Windows
         self.raise_()
         self.activateWindow()
         
-        # 全域 QSS 由 SkinManager 生成
-        font_family = "PingFang TC"
-        self.setStyleSheet(SkinManager.build_qss(font_family))
+        # Premium CSS
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "PingFang TC"
+        from utils.resources import get_resource_path
+        check_icon = get_resource_path("assets/check.png").replace("\\", "/")
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #0f1115;
+            }
+            QWidget#sidebar_container {
+                background-color: #16191f;
+                border-right: 1px solid #252a33;
+            }
+            QStackedWidget {
+                background-color: #0f1115;
+            }
+            QListWidget#sidebar {
+                background: transparent;
+                border: none;
+                outline: none;
+                padding: 15px;
+            }
+            QListWidget#sidebar::item {
+                padding: 20px;
+                color: #8a8d91;
+                border-radius: 12px;
+                margin-bottom: 10px;
+            }
+            QListWidget#sidebar::item:selected {
+                background-color: #252a33;
+                color: #7c4dff;
+                font-weight: bold;
+            }
+            QLabel {
+                color: #e2e4e7;
+                font-family: '""" + win_font + """';
+            }
+            QLineEdit, QComboBox, QTextEdit, QListWidget, QTreeWidget {
+                font-family: '""" + win_font + """';
+                background-color: #1c1f26;
+                border: 1px solid #2d333d;
+                border-radius: 8px;
+                color: #e2e4e7;
+                padding: 8px;
+                selection-background-color: #3d4452;
+            }
+            /* 強制選單彈出框也是深色 */
+            QAbstractItemView {
+                background-color: #1c1f26;
+                color: #e2e4e7;
+                border: 1px solid #2d333d;
+                selection-background-color: #3d4452;
+                outline: none;
+            }
+            QTreeWidget::item { padding: 4px; }
+            QHeaderView::section {
+                background-color: #1c1f26;
+                color: #8a8d91;
+                padding: 6px;
+                border: none;
+                font-weight: bold;
+            }
+            QPushButton {
+                background-color: #7c4dff;
+                color: white;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-weight: bold;
+                border: none;
+            }
+            QPushButton:hover { background-color: #9575cd; }
+            QPushButton#secondary {
+                background-color: #2d333d;
+                color: #e2e4e7;
+            }
+            QPushButton#danger {
+                background-color: transparent;
+                border: 1px solid #ff5252;
+                color: #ff5252;
+            }
+            QPushButton#danger:hover {
+                background-color: #ff5252;
+                color: white;
+            }
+            QScrollArea { border: none; background: transparent; }
+            QScrollBar:vertical {
+                border: none;
+                background: transparent;
+                width: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background: #3d3d4d;
+                border-radius: 3px;
+                min-height: 20px;
+            }
+            QCheckBox { color: #e2e4e7; spacing: 10px; }
+            /* 勾選框：深色背景上必須有明顯外框，否則與底色溶在一起 */
+            QCheckBox::indicator {
+                width: 18px; height: 18px;
+                border: 2px solid #5a6270;
+                border-radius: 4px;
+                background-color: #1c1f26;
+            }
+            QCheckBox::indicator:hover { border-color: #7c4dff; }
+            QCheckBox::indicator:checked {
+                background-color: #7c4dff;
+                border-color: #7c4dff;
+                image: url(\"""" + check_icon + """\");
+            }
+        """)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -584,7 +554,7 @@ class SettingsWindow(QMainWindow):
         # Sidebar
         sidebar_container = QWidget()
         sidebar_container.setObjectName("sidebar_container")
-        sidebar_container.setFixedWidth(self.skin.get("sidebar_width", 256))
+        sidebar_container.setFixedWidth(240)
         sidebar_layout = QVBoxLayout(sidebar_container)
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         
@@ -601,9 +571,10 @@ class SettingsWindow(QMainWindow):
         lbl_en.setStyleSheet("font-family: 'Myriad Pro'; font-weight: bold; font-size: 28px; color: white;")
         lbl_en.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        os_ver = "Mac version" if platform.system() == "Darwin" else "Windows version"
+        from paths import VERSION_NAME
+        os_ver = f"Windows Version" if platform.system() == "Windows" else f"macOS Version "
         lbl_os = QLabel(os_ver)
-        lbl_os.setStyleSheet("font-family: 'Myriad Pro'; font-style: italic; font-size: 14px; color: #8a8d91;")
+        lbl_os.setStyleSheet("font-family: 'Myriad Pro'; font-style: italic; font-size: 12px; color: #8a8d91;")
         lbl_os.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         logo_vbox.addWidget(lbl_en)
@@ -618,13 +589,13 @@ class SettingsWindow(QMainWindow):
         
         self.sidebar_buttons = []
         menus = [
-            ("home",       "Dashboard"),
-            ("mic",        "辨識 & AI"),
-            ("auto_awesome","靈魂設定"),
-            ("menu_book",  "詞彙 & 記憶"),
-            ("cloud_sync", "雲端同步"),
-            ("bar_chart",  "數據統計"),
-            ("settings",   "系統設定"),
+            ("🏠", "Dashboard"),
+            ("🎙", "辨識 & AI"),
+            ("✨", "靈魂設定"),
+            ("📚", "詞彙 & 記憶"),
+            ("☁️", "雲端同步"),
+            ("📊", "數據統計"),
+            ("⚙️", "系統設定")
         ]
         
         for i, (icon, label) in enumerate(menus):
@@ -638,8 +609,8 @@ class SettingsWindow(QMainWindow):
         sidebar_layout.addStretch()
         
         # Credits and SNS at Bottom
-        from paths import VERSION_NAME, BUILD_ID
-        credit_box = QLabel(f"{VERSION_NAME} | {BUILD_ID}\n主要開發者：吉米丘, CC58TW\n協助開發者：Gemini, Nebula")
+        from paths import VERSION_NAME
+        credit_box = QLabel(f"{VERSION_NAME}\n\n主要開發者：吉米丘, CC58TW\n協助開發者：Claude Code")
         credit_box.setStyleSheet("color: #555; font-size: 10px; margin-left: 25px; line-height: 1.2;")
         sidebar_layout.addWidget(credit_box)
         
@@ -670,7 +641,7 @@ class SettingsWindow(QMainWindow):
         # Content Area
         content_container = QWidget()
         self.content_layout = QVBoxLayout(content_container)
-        self.content_layout.setContentsMargins(40, 50, 40, 40) # 50px Top Margin
+        self.content_layout.setContentsMargins(32, 40, 32, 28)
         
         self.stack = QStackedWidget()
         self.content_layout.addWidget(self.stack)
@@ -688,13 +659,12 @@ class SettingsWindow(QMainWindow):
         self.footer_widget = QWidget()
         footer = QHBoxLayout(self.footer_widget)
         footer.setContentsMargins(0, 20, 0, 0)
-        footer.setSpacing(12)
         self.btn_save = QPushButton("儲存設定")
         self.btn_save.clicked.connect(self._save_action)
         self.btn_cancel = QPushButton("放棄設定")
         self.btn_cancel.setObjectName("secondary")
         self.btn_cancel.clicked.connect(self.close)
-
+        
         footer.addStretch()
         footer.addWidget(self.btn_cancel)
         footer.addWidget(self.btn_save)
@@ -715,1662 +685,843 @@ class SettingsWindow(QMainWindow):
         self.footer_widget.setVisible(idx not in [0, 5])
 
     def _create_sync_page(self):
-        s = self.skin
         page = QWidget()
         layout = QVBoxLayout(page)
+        # Shift everything UP
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(20)
 
-        # ── Header ────────────────────────────────────────────
-        hdr_row = QHBoxLayout()
-        hdr_left = QVBoxLayout()
-        hdr_left.setSpacing(3)
-        lbl_title = QLabel("雲端同步 & NAS")
-        lbl_title.setStyleSheet(f"font-size: 30px; font-weight: 800; color: {s['text_primary']}; letter-spacing: -1px; background: transparent;")
-        lbl_sub = QLabel("Cross-Platform Sync — 在多台裝置間共用靈魂、詞彙與 AI 記憶。")
-        lbl_sub.setStyleSheet(f"font-size: 12px; color: {s['text_secondary']}; background: transparent;")
-        hdr_left.addWidget(lbl_title)
-        hdr_left.addWidget(lbl_sub)
-        hdr_row.addLayout(hdr_left)
-        hdr_row.addStretch()
-        layout.addLayout(hdr_row)
-
-        # ── Two-column body ───────────────────────────────────
-        body = QHBoxLayout()
-        body.setSpacing(16)
-
-        # ─ Left: 同步狀態 ─
-        sync_card = GlassCard()
-        sync_layout = QVBoxLayout(sync_card)
-        sync_layout.setContentsMargins(24, 24, 24, 24)
-        sync_layout.setSpacing(16)
-
-        # Card header
-        card_hdr = QHBoxLayout()
-        card_title = QLabel("同步狀態")
-        card_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        card_sub = QLabel("Sync Configuration")
-        card_sub.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        card_hdr_v = QVBoxLayout()
-        card_hdr_v.setSpacing(2)
-        card_hdr_v.addWidget(card_title)
-        card_hdr_v.addWidget(card_sub)
-        card_hdr.addLayout(card_hdr_v)
-        card_hdr.addStretch()
-
-        from paths import SYNC_POINTER_PATH
-        is_synced = SYNC_POINTER_PATH.exists()
-        dot_color = "#00e676" if is_synced else s['text_secondary']
-        txt_color = s['text_primary'] if is_synced else s['text_secondary']
-        status_badge = QLabel()
-        status_badge.setTextFormat(Qt.TextFormat.RichText)
-        status_badge.setText(
-            f"<span style='color:{dot_color}'>●</span>"
-            f"<span style='color:{txt_color}'> {'ACTIVE' if is_synced else 'LOCAL'}</span>"
+        layout.addWidget(self._page_section_header("☁️ 雲端同步 & NAS (Cross-Platform Sync)"))
+        
+        desc = QLabel(
+            "透過設定同步目錄，您可以在多台 Mac 或 PC 之間共用「靈魂情境」、「詞彙」與「AI 記憶」。\n"
+            "建議選擇您的 NAS 同步資料夾、iCloud 或 Google Drive 目錄。\n\n"
+            "※ 注意：本機「控制熱鍵」與硬體偏好設定仍會保持各機獨立，不會互相干擾。"
         )
-        status_badge.setStyleSheet(f"""
-            background: {s['bg_input']};
-            border: 1px solid {s['bg_input_border']};
-            border-radius: 6px;
-            font-size: 10px; font-weight: bold; padding: 3px 10px;
-        """)
-        card_hdr.addWidget(status_badge)
-        sync_layout.addLayout(card_hdr)
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color: #8a8d91; line-height: 1.6; font-size: 14px;")
+        layout.addWidget(desc)
 
-        # Current path label
-        lbl_path_label = QLabel("當前路徑")
-        lbl_path_label.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        sync_layout.addWidget(lbl_path_label)
-
-        self.sync_status_lbl = QLabel("本地存儲 (Local Only)")
-        self.sync_status_lbl.setStyleSheet(f"""
-            background: {s['bg_input']};
-            border: 1px solid {s['bg_input_border']};
-            border-radius: 8px;
-            color: {s['text_primary']};
-            padding: 10px 14px;
-            font-size: 13px;
+        sync_panel = QFrame()
+        sync_panel.setStyleSheet("""
+            QFrame {
+                background-color: rgba(124, 77, 255, 15); 
+                border: 1px solid rgba(124, 77, 255, 40); 
+                border-radius: 12px; 
+            }
         """)
-        self.sync_status_lbl.setWordWrap(True)
+        sync_layout = QVBoxLayout(sync_panel)
+        sync_layout.setContentsMargins(25, 25, 25, 25)
+        sync_layout.setSpacing(20)
+        
+        self.sync_status_lbl = QLabel("目前狀態：本地存儲 (Local Only)")
+        self.sync_status_lbl.setStyleSheet("color: #ccc; font-weight: bold; font-size: 16px;")
         sync_layout.addWidget(self.sync_status_lbl)
-
-        try:
-            if is_synced:
-                path_str = SYNC_POINTER_PATH.read_text(encoding="utf-8").strip()
-                if path_str:
-                    self.sync_status_lbl.setText(path_str)
-        except: pass
-
-        # Buttons
+        
         sync_btns = QHBoxLayout()
-        sync_btns.setSpacing(10)
-        self.btn_set_sync_dir = QPushButton("連結同步目錄 (Connect Sync Folder)")
-        self.btn_set_sync_dir.setFixedHeight(44)
+        self.btn_set_sync_dir = QPushButton("🔗 連結同步目錄 (Connect Sync Folder)")
+        self.btn_set_sync_dir.setMinimumHeight(45)
         self.btn_set_sync_dir.clicked.connect(self._set_sync_directory)
-        sync_btns.addWidget(self.btn_set_sync_dir, stretch=1)
-
-        self.btn_clear_sync = QPushButton("取消同步 (Disconnect)")
-        self.btn_clear_sync.setFixedHeight(44)
-        self.btn_clear_sync.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent;
-                color: {s['text_secondary']};
-                border: 1px solid {s['bg_input_border']};
-                border-radius: 8px;
-                font-size: 13px; font-weight: bold;
-            }}
-            QPushButton:hover {{ color: {s['text_primary']}; border-color: {s['text_secondary']}; }}
-        """)
+        sync_btns.addWidget(self.btn_set_sync_dir)
+        
+        self.btn_clear_sync = QPushButton("🔌 取消同步")
+        self.btn_clear_sync.setObjectName("danger")
+        self.btn_clear_sync.setFixedWidth(130)
+        self.btn_clear_sync.setMinimumHeight(45)
         self.btn_clear_sync.clicked.connect(self._clear_sync_directory)
         sync_btns.addWidget(self.btn_clear_sync)
         sync_layout.addLayout(sync_btns)
+        
+        from paths import SYNC_POINTER_PATH
+        if SYNC_POINTER_PATH.exists():
+            try:
+                path_str = SYNC_POINTER_PATH.read_text(encoding="utf-8").strip()
+                if path_str:
+                    self.sync_status_lbl.setText(f"✅ 已連結同步：{path_str}")
+                    self.sync_status_lbl.setStyleSheet("color: #00e676; font-weight: bold; font-size: 16px;")
+            except: pass
 
-        body.addWidget(sync_card, stretch=3)
-
-        # ─ Right: 安全提醒 ─
-        sec_card = GlassCard()
-        sec_layout = QVBoxLayout(sec_card)
-        sec_layout.setContentsMargins(24, 24, 24, 24)
-        sec_layout.setSpacing(12)
-
-        shield_box = QFrame()
-        shield_box.setStyleSheet(f"""
-            background: {s['bg_input']}; border: 1px solid {s['bg_input_border']}; border-radius: 12px;
-        """)
-        shield_box.setFixedSize(56, 56)
-        shield_bl = QVBoxLayout(shield_box)
-        shield_bl.setContentsMargins(0, 0, 0, 0)
-        shield_ic = ms_icon("shield", 26, s['text_secondary'])
-        shield_ic.setFixedSize(56, 56)
-        shield_bl.addWidget(shield_ic)
-        sec_layout.addWidget(shield_box)
-
-        sec_title = QLabel("安全性提醒")
-        sec_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        sec_layout.addWidget(sec_title)
-
-        sec_body = QLabel(
-            "同步目錄包含您的 AI API Key 設定，請確保該空間僅由您本人存取。\n\n"
-            "建議使用加密的 NAS 磁碟或具備多重驗證的雲端硬碟。"
-        )
-        sec_body.setStyleSheet(f"font-size: 12px; color: {s['text_secondary']}; background: transparent; line-height: 1.5;")
-        sec_body.setWordWrap(True)
-        sec_layout.addWidget(sec_body)
-        sec_layout.addStretch()
-
-        body.addWidget(sec_card, stretch=2)
-        layout.addLayout(body)
-
-        # ── Bottom: Feature cards ─────────────────────────────
-        feat_row = QHBoxLayout()
-        feat_row.setSpacing(12)
-        features = [
-            ("manage_accounts", "靈魂情境", "同步自定義寫作風格與性格設定檔，讓 AI 在不同裝置間保持一致語氣。"),
-            ("menu_book",       "詞彙同步", "專業術語與個人校正詞庫即時同步，多端協作不中斷。"),
-            ("smart_toy",       "AI 記憶", "累積個人化 AI 學習數據，打造跨裝置的數位第二大腦。"),
-        ]
-        for icon, title, desc in features:
-            fc = GlassCard()
-            fl = QVBoxLayout(fc)
-            fl.setContentsMargins(18, 18, 18, 18)
-            fl.setSpacing(8)
-            fi = ms_icon(icon, 20, s['text_secondary'])
-            ft = QLabel(title)
-            ft.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-            fd = QLabel(desc)
-            fd.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-            fd.setWordWrap(True)
-            fl.addWidget(fi)
-            fl.addWidget(ft)
-            fl.addWidget(fd)
-            feat_row.addWidget(fc, stretch=1)
-        layout.addLayout(feat_row)
+        layout.addWidget(sync_panel)
+        
+        warning_box = GlassCard()
+        w_layout = QVBoxLayout(warning_box)
+        w_layout.setContentsMargins(15, 15, 15, 15)
+        w_lbl = QLabel("🛡️ 安全性提醒：AI API Key 一律只存在本機，不會進入同步目錄；同步目錄仍包含 Prompt、靈魂設定等其他資料，請確保該空間僅由您本人存取。")
+        w_lbl.setStyleSheet("color: #ffab40; font-size: 13px;")
+        w_lbl.setWordWrap(True)
+        w_layout.addWidget(w_lbl)
+        layout.addWidget(warning_box)
 
         layout.addStretch()
         return page
 
     def _create_dashboard_page(self):
-        from PyQt6.QtWidgets import QProgressBar
-        s = self.skin
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        # QScrollArea：內容超過視窗高度時捲動，而不是被 Qt 壓縮到文字重疊
+        page = QScrollArea()
+        page.setWidgetResizable(True)
+        page.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        page.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        container = QWidget()
+        container.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 12, 0)
+        layout.setSpacing(18)
 
-        # ── Header ────────────────────────────────────────────
-        header_row = QHBoxLayout()
-        header_left = QVBoxLayout()
-        header_left.setSpacing(3)
+        dash_header = QHBoxLayout()
+        header = QLabel("Dashboard")
+        header.setStyleSheet("font-size: 28px; font-weight: bold; color: #ffffff;")
+        dash_header.addWidget(header)
+        
+        dash_header.addStretch()
+        
+        title_cn = QLabel("嘴炮輸入法")
+        win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "Taipei Sans TC Beta"
+        title_cn.setStyleSheet(f"font-family: '{win_font}'; font-size: 22px; font-weight: bold; color: #7c4dff;")
+        dash_header.addWidget(title_cn)
 
-        lbl_title = QLabel("嘴炮輸入法")
-        lbl_title.setStyleSheet(f"font-size: 30px; font-weight: 800; color: {s['text_primary']}; letter-spacing: -1px; background: transparent;")
-        lbl_subtitle = QLabel("即時狀態監控")
-        lbl_subtitle.setStyleSheet(f"font-size: 12px; color: {s['text_secondary']}; background: transparent;")
-        header_left.addWidget(lbl_title)
-        header_left.addWidget(lbl_subtitle)
-        header_row.addLayout(header_left)
-        header_row.addStretch()
+        
+        # Add side margins to content but not to the header text alignment if needed
+        dash_header_container = QWidget()
+        dash_header_v = QVBoxLayout(dash_header_container)
+        dash_header_v.setContentsMargins(0, 0, 0, 0) # Tight
+        dash_header_v.addLayout(dash_header)
+        layout.addWidget(dash_header_container)
 
-        from paths import VERSION_NAME
-        version_badge = QLabel(f"  {VERSION_NAME}  ")
-        version_badge.setStyleSheet(f"""
-            color: {s['text_secondary']};
-            background: {s['bg_card']};
-            border: 1px solid {s['card_border']};
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: bold;
-            letter-spacing: 1px;
-            padding: 4px 0;
-        """)
-        header_row.addWidget(version_badge, alignment=Qt.AlignmentFlag.AlignVCenter)
-        layout.addLayout(header_row)
+        # Top Cards: Row 1
+        cards_row1 = QHBoxLayout()
+        cards_row1.setSpacing(15)
+        
+        # 1. Permission / System Environment Card
+        if platform.system() == "Windows":
+            # Windows: 顯示 GPU/CUDA 與麥克風資訊
+            env_card = GlassCard()
+            p_layout = QVBoxLayout(env_card)
+            p_layout.setContentsMargins(20, 18, 20, 18)
+            p_layout.setSpacing(8)
+            lbl_p = QLabel("🖥️ 系統環境")
+            lbl_p.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
+            p_layout.addWidget(lbl_p)
+            
+            # GPU / CUDA 偵測 (v2.8.27_V28: Robust check)
+            gpu_text = "⏳ 偵測中..."
+            cuda_color = "#888"
+            try:
+                # 優先檢查是否已有全域載入的 STT 實例可用於查詢
+                # 我們可以透過 QApplication 獲取主 App 實例的高級方法
+                # 或者直接嘗試導入 (現在有 libiomp5md.dll 了應該安全)
+                import ctranslate2
+                try:
+                    cuda_count = ctranslate2.get_cuda_device_count()
+                    if cuda_count > 0:
+                        gpu_text = f"✅ CUDA GPU × {cuda_count} (加速可用)"
+                        cuda_color = "#00e676"
+                    else:
+                        gpu_text = "⚠️ 未偵測到 CUDA GPU (CPU 模式)"
+                        cuda_color = "#ffab40"
+                except Exception as _inner_e:
+                    log.warning(f"[ui] get_cuda_device_count failed: {_inner_e}")
+                    gpu_text = "⚠️ GPU 偵測組件異常"
+                    cuda_color = "#ffab40"
+            except Exception as e:
+                log.error(f"[ui] ctranslate2 import error in dashboard: {e}")
+                gpu_text = "❌ 驅動組件遺失 (V28)"
+                cuda_color = "#ff5252"
+            
+            self.lbl_gpu = QLabel(gpu_text)
+            win_font = "Microsoft JhengHei" if platform.system() == "Windows" else ""
+            self.lbl_gpu.setStyleSheet(f"color: {cuda_color}; font-size: 14px; font-weight: bold; font-family: '{win_font}';")
+            self.lbl_gpu.setWordWrap(True)
+            p_layout.addWidget(self.lbl_gpu)
 
-        # ── 四個權限狀態晶片 ──────────────────────────────────
-        chips_row = QHBoxLayout()
-        chips_row.setSpacing(10)
+            
+            # 麥克風裝置偵測
+            mic_text = "未知裝置"
+            try:
+                import sounddevice
+                dev = sounddevice.query_devices(kind='input')
+                mic_text = dev.get('name', '未知裝置')
+            except Exception:
+                mic_text = "無法偵測"
+            
+            self.lbl_mic_device = QLabel(f"🎤 {mic_text}")
+            win_font = "Microsoft JhengHei" if platform.system() == "Windows" else ""
+            self.lbl_mic_device.setStyleSheet(f"color: #e2e4e7; font-size: 13px; font-family: '{win_font}';")
+            self.lbl_mic_device.setWordWrap(True)
 
-        self.light_acc = StatusChip("lock_open", "輔助功能",
-            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-        self.light_input = StatusChip("visibility", "輸入監聽",
-            "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
-        self.light_mic = StatusChip("mic", "麥克風",
-            "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
+            p_layout.addWidget(self.lbl_mic_device)
+            p_layout.addStretch()
 
-        # macOS 系統授權狀態晶片（固定顯示 Apple Silicon）
-        chip_system = StatusChip("shield", "晶片組", "")
-        chip_system.lbl_status.setText("Apple Silicon")
-        chip_system.lbl_status.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {s['text_primary']}; background: transparent; border: none;")
+            cards_row1.addWidget(env_card, 1)
+            
+            # 建立隱藏的權限燈號（讓 _check_all_permissions 不炸）
+            self.light_acc = PermissionLight("輔助功能", "")
+            self.light_acc.hide()
+            self.light_input = PermissionLight("輸入監聽", "")
+            self.light_input.hide()
+            self.light_mic = PermissionLight("麥克風", "")
+            self.light_mic.hide()
 
-        chips_row.addWidget(chip_system)
-        chips_row.addWidget(self.light_acc)
-        chips_row.addWidget(self.light_input)
-        chips_row.addWidget(self.light_mic)
-        layout.addLayout(chips_row)
+        # 2. Model Card (New)
+        model_card = GlassCard()
+        m_layout = QVBoxLayout(model_card)
+        m_layout.setContentsMargins(20, 18, 20, 18)
+        m_layout.setSpacing(6)
+        lbl_m = QLabel("🧠 AI 本地模型 (Faster-Whisper)")
+        lbl_m.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
+        m_layout.addWidget(lbl_m)
 
-        # ── 主要內容區：左側 AI 配置 + 右側統計 ──────────────
-        main_row = QHBoxLayout()
-        main_row.setSpacing(12)
+        self.light_model_small = ModelStatusLight("Small", "500MB", "輕快，但精準度稍遜。")
+        self.light_model_medium = ModelStatusLight("Medium", "1.5GB", "均衡型，首選推薦 (精準)。")
+        self.light_model_large = ModelStatusLight("Large", "3.0GB", "極致精準，背景嘈雜也能辨識。")
+        m_layout.addWidget(self.light_model_small)
+        m_layout.addWidget(self.light_model_medium)
+        m_layout.addWidget(self.light_model_large)
+        m_layout.addStretch()
+        cards_row1.addWidget(model_card, 1)
 
-        # ─ 左側：AI 配置卡片 ─
-        ai_card = GlassCard()
-        ai_layout = QVBoxLayout(ai_card)
-        ai_layout.setContentsMargins(20, 18, 20, 18)
-        ai_layout.setSpacing(14)
+        # 3. Status Card
+        status_card = GlassCard()
+        status_layout = QVBoxLayout(status_card)
+        status_layout.setContentsMargins(20, 18, 20, 18)
+        status_layout.setSpacing(8)
+        lbl_s = QLabel("📺 運行狀態")
+        lbl_s.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
+        status_layout.addWidget(lbl_s)
 
-        # 卡片 header
-        ai_header = QHBoxLayout()
-        lbl_ai_title = QLabel("AI 配置")
-        lbl_ai_title.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        ai_header.addWidget(lbl_ai_title)
-        ai_header.addStretch()
+        self.lbl_status_ai = QLabel("AI 潤飾: 已開啟")
+        self.lbl_status_ai.setStyleSheet("color: #7c4dff; font-weight: bold; font-size: 16px;")
+        status_layout.addWidget(self.lbl_status_ai)
 
-        self.lbl_status_stt = QLabel("MLX_WHISPER")
-        self.lbl_status_stt.setStyleSheet(f"""
-            color: {s['text_secondary']};
-            background: {s['bg_input']};
-            border: 1px solid {s['bg_input_border']};
-            border-radius: 5px;
-            font-size: 9px;
-            font-weight: bold;
-            letter-spacing: 1px;
-            padding: 3px 8px;
-        """)
-        ai_header.addWidget(self.lbl_status_stt)
-        ai_layout.addLayout(ai_header)
+        self.lbl_status_stt = QLabel("引擎: Local Whisper")
+        self.lbl_status_stt.setStyleSheet("color: #888; font-size: 13px;")
+        status_layout.addWidget(self.lbl_status_stt)
 
-        # 模型大小選擇器（分段控制）
-        lbl_model_size = QLabel("模型大小")
-        lbl_model_size.setStyleSheet(f"font-size: 9px; font-weight: bold; letter-spacing: 1px; color: {s['text_secondary']}; text-transform: uppercase; background: transparent;")
-        ai_layout.addWidget(lbl_model_size)
+        self.lbl_status_auto = QLabel("全時模式: 關")
+        self.lbl_status_auto.setStyleSheet("color: #888; font-size: 13px;")
+        status_layout.addWidget(self.lbl_status_auto)
+        status_layout.addStretch()
+        cards_row1.addWidget(status_card, 1)
 
-        seg_container = QWidget()
-        seg_container.setStyleSheet(f"background: {s['bg_input']}; border-radius: 10px;")
-        seg_layout = QHBoxLayout(seg_container)
-        seg_layout.setContentsMargins(4, 4, 4, 4)
-        seg_layout.setSpacing(2)
+        layout.addLayout(cards_row1)
 
-        current_model = self.config.get("whisper_model", "medium")
-        self._model_seg_btns = {}
-        for model_key, model_label in [("small", "Small"), ("medium", "Medium"), ("large", "Large")]:
-            btn = QPushButton(model_label)
-            btn.setCheckable(True)
-            btn.setChecked(model_key == current_model)
-            if btn.isChecked():
-                btn.setStyleSheet(f"""
-                    QPushButton {{
-                        background: {s['bg_card']};
-                        color: {s['text_primary']};
-                        border: none;
-                        border-radius: 7px;
-                        font-size: 12px;
-                        font-weight: bold;
-                        padding: 6px 0;
-                    }}
-                """)
-            else:
-                btn.setStyleSheet(f"""
-                    QPushButton {{
-                        background: transparent;
-                        color: {s['text_secondary']};
-                        border: none;
-                        font-size: 12px;
-                        font-weight: bold;
-                        padding: 6px 0;
-                    }}
-                    QPushButton:hover {{ color: {s['text_primary']}; }}
-                """)
-            self._model_seg_btns[model_key] = btn
-            seg_layout.addWidget(btn)
-        ai_layout.addWidget(seg_container)
+        # Bottom Cards: Row 2
+        cards_row2 = QHBoxLayout()
+        cards_row2.setSpacing(15)
 
-        # 模型下載狀態指示（三個模型的燈號，沿用舊有 ModelStatusLight 介面）
-        model_status_row = QHBoxLayout()
-        model_status_row.setSpacing(8)
-        self.light_model_small = ModelStatusLight("Small", "~500MB", "輕快版")
-        self.light_model_medium = ModelStatusLight("Medium", "~1.5GB", "均衡版")
-        self.light_model_large = ModelStatusLight("Large", "~3GB", "極致版")
-        model_status_row.addWidget(self.light_model_small)
-        model_status_row.addWidget(self.light_model_medium)
-        model_status_row.addWidget(self.light_model_large)
-        ai_layout.addLayout(model_status_row)
+        # 3. Quick Stats Card
+        stats_card = GlassCard()
+        sq_layout = QVBoxLayout(stats_card)
+        sq_layout.setContentsMargins(20, 18, 20, 18)
+        sq_layout.setSpacing(6)
+        lbl_sq = QLabel("📈 今日語效")
+        lbl_sq.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
+        sq_layout.addWidget(lbl_sq)
+        self.lbl_today_count = QLabel("0 次錄音")
+        self.lbl_today_count.setStyleSheet("color: #00e5ff; font-weight: bold; font-size: 26px;")
+        sq_layout.addWidget(self.lbl_today_count)
+        self.lbl_today_chars = QLabel("錄製約 0 字")
+        self.lbl_today_chars.setStyleSheet("color: #888; font-size: 13px;")
+        sq_layout.addWidget(self.lbl_today_chars)
+        cards_row2.addWidget(stats_card, 1)
 
-        # AI 潤飾開關列
-        ai_refine_row = QWidget()
-        ai_refine_row.setStyleSheet(f"background: {s['bg_input']}; border-radius: 8px;")
-        refine_h = QHBoxLayout(ai_refine_row)
-        refine_h.setContentsMargins(14, 10, 14, 10)
-
-        refine_left = QVBoxLayout()
-        refine_left.setSpacing(2)
-        lbl_refine_title = QLabel("AI 潤飾")
-        lbl_refine_title.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        lbl_refine_desc = QLabel("自動潤飾與語法修正")
-        lbl_refine_desc.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        refine_left.addWidget(lbl_refine_title)
-        refine_left.addWidget(lbl_refine_desc)
-        refine_h.addLayout(refine_left)
-        refine_h.addStretch()
-
-        llm_on = self.config.get("llm_enabled", False)
-        self.lbl_status_ai = QLabel("已開啟" if llm_on else "已關閉")
-        self.lbl_status_ai.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {s['success'] if llm_on else s['text_secondary']}; background: transparent;")
-        refine_h.addWidget(self.lbl_status_ai)
-        ai_layout.addWidget(ai_refine_row)
-
-        ai_layout.addStretch()
-        main_row.addWidget(ai_card, stretch=3)
-
-        # ─ 右側：統計卡片 ─
-        right_col = QVBoxLayout()
-        right_col.setSpacing(10)
-
-        # 累計省下時間
+        # 4. Time Saved Card
         time_card = GlassCard()
         t_layout = QVBoxLayout(time_card)
-        t_layout.setContentsMargins(18, 16, 18, 16)
-        t_layout.setSpacing(4)
-        lbl_t_cap = QLabel("累計省下時間")
-        lbl_t_cap.setStyleSheet(f"font-size: 9px; font-weight: bold; letter-spacing: 1px; color: {s['text_secondary']}; background: transparent;")
-        self.lbl_time_saved = QLabel("0")
-        self.lbl_time_saved.setStyleSheet(f"font-size: 36px; font-weight: 800; color: {s['text_primary']}; letter-spacing: -1px; background: transparent;")
-        lbl_t_unit = QLabel("小時")
-        lbl_t_unit.setStyleSheet(f"font-size: 12px; color: {s['text_secondary']}; background: transparent;")
-        self.lbl_total_chars_desc = QLabel("共辨識 0 字")
-        self.lbl_total_chars_desc.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        t_layout.addWidget(lbl_t_cap)
+        t_layout.setContentsMargins(20, 18, 20, 18)
+        t_layout.setSpacing(6)
+        lbl_tc = QLabel("⏱️ 累計省下時間")
+        lbl_tc.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
+        t_layout.addWidget(lbl_tc)
+        self.lbl_time_saved = QLabel("0 分鐘")
+        self.lbl_time_saved.setStyleSheet("color: #ffab40; font-weight: bold; font-size: 26px;")
         t_layout.addWidget(self.lbl_time_saved)
-        t_layout.addWidget(lbl_t_unit)
+        self.lbl_total_chars_desc = QLabel("共辨識 0 字")
+        self.lbl_total_chars_desc.setStyleSheet("color: #888; font-size: 13px;")
         t_layout.addWidget(self.lbl_total_chars_desc)
-        right_col.addWidget(time_card, stretch=2)
+        cards_row2.addWidget(time_card, 1)
 
-        # 今日錄音
-        today_card = GlassCard()
-        td_layout = QVBoxLayout(today_card)
-        td_layout.setContentsMargins(18, 16, 18, 16)
-        td_layout.setSpacing(4)
-        lbl_td_cap = QLabel("今日錄音")
-        lbl_td_cap.setStyleSheet(f"font-size: 9px; font-weight: bold; letter-spacing: 1px; color: {s['text_secondary']}; background: transparent;")
-        self.lbl_today_count = QLabel("0")
-        self.lbl_today_count.setStyleSheet(f"font-size: 36px; font-weight: 800; color: {s['text_primary']}; letter-spacing: -1px; background: transparent;")
-        lbl_td_unit = QLabel("次")
-        lbl_td_unit.setStyleSheet(f"font-size: 12px; color: {s['text_secondary']}; background: transparent;")
-        self.lbl_today_chars = QLabel("辨識約 0 字")
-        self.lbl_today_chars.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        td_layout.addWidget(lbl_td_cap)
-        td_layout.addWidget(self.lbl_today_count)
-        td_layout.addWidget(lbl_td_unit)
-        td_layout.addWidget(self.lbl_today_chars)
-        right_col.addWidget(today_card, stretch=2)
+        layout.addLayout(cards_row2)
 
-        main_row.addLayout(right_col, stretch=1)
-        layout.addLayout(main_row)
-
-        # ── 模型下載進度卡片（條件顯示）───────────────────────
+        # ── Model Download Progress Card ──────────────────────
+        from PyQt6.QtWidgets import QProgressBar
         self.download_card = GlassCard()
         dl_layout = QVBoxLayout(self.download_card)
-        dl_layout.setContentsMargins(20, 16, 20, 16)
+        dl_layout.setContentsMargins(20, 18, 20, 18)
         dl_layout.setSpacing(8)
-
-        dl_header = QHBoxLayout()
-        lbl_dl_title = QLabel("⬇  模型下載進度")
-        lbl_dl_title.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        dl_header.addWidget(lbl_dl_title)
-        dl_header.addStretch()
-        self.lbl_download_pct = QLabel("0%")
-        self.lbl_download_pct.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        dl_header.addWidget(self.lbl_download_pct)
-        dl_layout.addLayout(dl_header)
-
+        lbl_dl = QLabel("⬇️ 模型下載進度")
+        lbl_dl.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
+        dl_layout.addWidget(lbl_dl)
+        
         self.lbl_download_status = QLabel("等待模型載入...")
-        self.lbl_download_status.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
+        self.lbl_download_status.setStyleSheet("color: #00e5ff; font-size: 14px; font-weight: bold;")
         dl_layout.addWidget(self.lbl_download_status)
-
+        
         self.download_progress = QProgressBar()
-        self.download_progress.setRange(0, 100)
-        self.download_progress.setValue(0)
-        self.download_progress.setFixedHeight(4)
-        self.download_progress.setTextVisible(False)
-        self.download_progress.setStyleSheet(f"""
-            QProgressBar {{ background: {s['bg_input']}; border: none; border-radius: 2px; }}
-            QProgressBar::chunk {{ background: {s['accent']}; border-radius: 2px; }}
+        self.download_progress.setRange(0, 0)  # 不確定進度 → 跑馬燈模式
+        self.download_progress.setFixedHeight(8)
+        self.download_progress.setStyleSheet("""
+            QProgressBar { background: #1c1f26; border: 1px solid #2d333d; border-radius: 4px; }
+            QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #7c4dff, stop:1 #00e5ff); border-radius: 4px; }
         """)
         dl_layout.addWidget(self.download_progress)
-
+        
         self.lbl_download_detail = QLabel("首次啟動需要下載 AI 模型，請確保網路暢通。")
-        self.lbl_download_detail.setStyleSheet(f"font-size: 10px; color: {s['text_secondary']}; background: transparent;")
+        self.lbl_download_detail.setStyleSheet("color: #666; font-size: 11px;")
         dl_layout.addWidget(self.lbl_download_detail)
-
+        
         layout.addWidget(self.download_card)
+        # 預設隱藏：有模型就不需要看到
         self.download_card.setVisible(not self._is_model_present(self.config.get("whisper_model", "medium")))
 
-        # ── 麥克風資訊卡（warmup 完成後顯示）─────────────────
-        self.mic_info_card = GlassCard()
-        mic_il = QHBoxLayout(self.mic_info_card)
-        mic_il.setContentsMargins(20, 14, 20, 14)
-        mic_il.setSpacing(14)
-
-        mic_icon_box = QFrame()
-        mic_icon_box.setFixedSize(40, 40)
-        mic_icon_box.setStyleSheet(f"background: {s['bg_card']}; border: 1px solid {s['card_border']}; border-radius: 8px;")
-        mic_icon_lyt = QHBoxLayout(mic_icon_box)
-        mic_icon_lyt.setContentsMargins(0, 0, 0, 0)
-        mic_icon_lyt.addWidget(ms_icon("mic", 18, s['text_secondary']))
-        mic_il.addWidget(mic_icon_box)
-
-        mic_text_v = QVBoxLayout()
-        mic_text_v.setSpacing(2)
-        lbl_mic_caption = QLabel("目前錄音裝置")
-        lbl_mic_caption.setStyleSheet(f"font-size: 10px; color: {s['text_secondary']}; background: transparent;")
-        self.lbl_mic_current = QLabel("—")
-        self.lbl_mic_current.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        mic_text_v.addWidget(lbl_mic_caption)
-        mic_text_v.addWidget(self.lbl_mic_current)
-        mic_il.addLayout(mic_text_v, stretch=1)
-
-        btn_mic_switch = QPushButton("切換設定")
-        btn_mic_switch.setFixedHeight(32)
-        btn_mic_switch.setObjectName("secondary")
-        btn_mic_switch.clicked.connect(lambda: self._on_sidebar_changed(6))
-        mic_il.addWidget(btn_mic_switch)
-
-        layout.addWidget(self.mic_info_card)
-        self.mic_info_card.setVisible(False)
+        # Recent Activity Card
+        recent_card = GlassCard()
+        rc_layout = QVBoxLayout(recent_card)
+        rc_layout.setContentsMargins(20, 18, 20, 18)
+        rc_layout.setSpacing(8)
+        lbl_rc = QLabel("💡 最近學到的詞彙")
+        lbl_rc.setStyleSheet("font-weight: bold; color: #aaa; font-size: 13px;")
+        rc_layout.addWidget(lbl_rc)
+        self.dashboard_vocab = QListWidget()
+        self.dashboard_vocab.setStyleSheet("background: transparent; border: none; font-size: 13px;")
+        self.dashboard_vocab.setFixedHeight(120)
+        rc_layout.addWidget(self.dashboard_vocab)
+        layout.addWidget(recent_card)
 
         layout.addStretch()
+        page.setWidget(container)
         return page
 
     def _create_stt_llm_page(self):
-        s = self.skin
         page = QScrollArea()
         page.setWidgetResizable(True)
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setSpacing(24)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(25)
 
-        # ── Header ────────────────────────────────────────────
-        hdr_row = QHBoxLayout()
-        lbl_hdr = QLabel("辨識 AI 設定")
-        lbl_hdr.setStyleSheet(f"font-size: 22px; font-weight: 800; color: {s['text_primary']}; letter-spacing: -0.5px; background: transparent;")
-        hdr_row.addWidget(lbl_hdr)
-        hdr_row.addStretch()
-        engine_badge = QLabel("  MLX WHISPER — Apple M Chip  ")
-        engine_badge.setStyleSheet(f"""
-            color: {s['text_secondary']};
-            background: {s['bg_card']};
-            border: 1px solid {s['card_border']};
-            border-radius: 5px;
-            font-size: 9px; font-weight: bold; letter-spacing: 1px;
-            padding: 4px 0;
-        """)
-        hdr_row.addWidget(engine_badge, alignment=Qt.AlignmentFlag.AlignVCenter)
-        layout.addLayout(hdr_row)
-
-        # ── 模型選擇卡片區 ────────────────────────────────────
-        sec_model = QLabel("模型選擇  /  MODEL SELECTION")
-        sec_model.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {s['text_secondary']}; letter-spacing: 1px; background: transparent;")
-        layout.addWidget(sec_model)
-
-        model_cards_row = QHBoxLayout()
-        model_cards_row.setSpacing(12)
-
-        # 順序與 Dashboard 一致：Small → Medium → Large（左到右、由輕到重）
-        MODEL_META = {
-            "small":  ("bolt",        "輕量辨識", "Small",  "低延遲優先，適合簡單語句與快速記錄。",     "~500 MB"),
-            "medium": ("balance",     "平衡模式", "Medium", "速度與精準的完美平衡，適合日常對話。",     "~1.5 GB"),
-            "large":  ("psychology",  "精準辨識", "Large",  "最高精準度，適合複雜環境與專業術語辨識。", "~3.0 GB"),
+        layout.addWidget(self._page_section_header("🎙 語音辨識配置"))
+        self.stt_engine = self._add_grid_row(layout, "核心引擎", QComboBox())
+        engine_meta = {
+            "local_whisper": "Local Whisper (RTX顯卡加速, 也支援 CPU/GPU)",
+            "groq":          "Groq Whisper (神級雲端超極速)",
+            "gemini":        "Gemini (雲端 API)",
+            "openrouter":    "OpenRouter (雲端 API)",
         }
-        current_model = self.config.get("whisper_model", "medium")
-        self._model_cards = {}
+        for eng in STT_ENGINES:
+            self.stt_engine.addItem(engine_meta.get(eng, eng), eng)
+        
+        self.whisper_model = self._add_grid_row(layout, "Whisper 規格", QComboBox())
+        self._populate_whisper_models()
 
-        for key, (icon, mode_label, name, desc, size) in MODEL_META.items():
-            card = QFrame()
-            card.setObjectName(f"model_card_{key}")
-            is_active = (key == current_model)
-            border_color = s['accent'] if is_active else s['card_border']
-            card.setStyleSheet(f"""
-                QFrame#model_card_{key} {{
-                    background: {s['bg_card']};
-                    border: 1.5px solid {border_color};
-                    border-radius: 12px;
-                }}
-            """)
-            card.setCursor(Qt.CursorShape.PointingHandCursor)
-
-            c_layout = QVBoxLayout(card)
-            c_layout.setContentsMargins(18, 18, 18, 18)
-            c_layout.setSpacing(8)
-
-            # Icon box
-            icon_box = QFrame()
-            icon_box.setFixedSize(44, 44)
-            icon_box.setStyleSheet(f"background: {s['bg_input']}; border-radius: 8px;")
-            ib_l = QVBoxLayout(icon_box)
-            ib_l.setContentsMargins(0, 0, 0, 0)
-            ib_ic = ms_icon(icon, 22, s['text_primary'])
-            ib_ic.setFixedSize(44, 44)
-            ib_l.addWidget(ib_ic)
-            c_layout.addWidget(icon_box)
-
-            lbl_mode = QLabel(mode_label)
-            lbl_mode.setStyleSheet(f"font-size: 9px; font-weight: bold; letter-spacing: 1px; color: {s['text_secondary']}; background: transparent;")
-            c_layout.addWidget(lbl_mode)
-
-            lbl_name = QLabel(name)
-            lbl_name.setStyleSheet(f"font-size: 18px; font-weight: 800; color: {s['text_primary']}; letter-spacing: -0.5px; background: transparent;")
-            c_layout.addWidget(lbl_name)
-
-            lbl_desc = QLabel(desc)
-            lbl_desc.setWordWrap(True)
-            lbl_desc.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-            c_layout.addWidget(lbl_desc)
-
-            c_layout.addStretch()
-
-            status_row = QHBoxLayout()
-            is_ready = self._is_model_present(key)
-            if is_active:
-                active_badge = QLabel("ACTIVE")
-                active_badge.setStyleSheet(f"""
-                    font-size: 9px; font-weight: bold; letter-spacing: 1px;
-                    color: {s['bg_window']};
-                    background: {s['accent']};
-                    border-radius: 4px;
-                    padding: 2px 6px;
-                """)
-                status_row.addWidget(active_badge)
-            else:
-                placeholder = QLabel()
-                status_row.addWidget(placeholder)
-            status_row.addStretch()
-            dl_lbl = QLabel("✓ 就緒" if is_ready else f"↓ {size}")
-            dl_lbl.setStyleSheet(f"font-size: 10px; color: {s['success'] if is_ready else s['text_secondary']}; background: transparent;")
-            status_row.addWidget(dl_lbl)
-            c_layout.addLayout(status_row)
-
-            card.setMinimumHeight(230)
-            card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            self._model_cards[key] = card
-            model_cards_row.addWidget(card, stretch=1)
-
-            # Click to select
-            card.mousePressEvent = lambda e, k=key: self._select_model_card(k)
-
-        layout.addLayout(model_cards_row)
-
-        # ── 雙欄：左 API Keys ╱ 右 LLM 配置 ──────────────────
-        two_col = QHBoxLayout()
-        two_col.setSpacing(16)
-
-        # ─ 左欄：API Keys ─
-        keys_card = GlassCard()
-        keys_layout = QVBoxLayout(keys_card)
-        keys_layout.setContentsMargins(20, 18, 20, 18)
-        keys_layout.setSpacing(12)
-
-        lbl_keys_hdr = QLabel("使用大語言模型潤飾必填")
-        lbl_keys_hdr.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        keys_layout.addWidget(lbl_keys_hdr)
-
-        def _key_row(label, attr_name, prefix_hint):
-            lbl = QLabel(label)
-            lbl.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {s['text_secondary']}; background: transparent;")
-            keys_layout.addWidget(lbl)
-            field = QLineEdit()
-            field.setEchoMode(QLineEdit.EchoMode.Password)
-            field.setPlaceholderText(prefix_hint)
-            field.setFixedHeight(36)
-            keys_layout.addWidget(field)
-            setattr(self, attr_name, field)
-
-        _key_row("OpenAI API KEY",           "openai_key",     "sk-...")
-        _key_row("Anthropic (Claude) API KEY","anthropic_key",  "sk-ant-...")
-        _key_row("Gemini API KEY",            "gemini_key",     "AIzaSy...")
-        _key_row("OpenRouter API KEY",        "openrouter_key", "sk-or-...")
-        _key_row("通義千問 (Qwen) KEY",        "qwen_key",       "sk-...")
-        _key_row("DeepSeek API KEY",          "deepseek_key",   "sk-...")
-        _key_row("MiniMax API KEY",           "minimax_key",    "eyJhbGci...")
-        keys_layout.addStretch()
-        two_col.addWidget(keys_card, stretch=3)
-
-        # ─ 右欄：LLM 配置 ─
-        llm_card = GlassCard()
-        llm_layout = QVBoxLayout(llm_card)
-        llm_layout.setContentsMargins(20, 18, 20, 18)
-        llm_layout.setSpacing(14)
-
-        lbl_llm_hdr = QLabel("大語言模型潤飾（LLM REFINEMENT）")
-        lbl_llm_hdr.setStyleSheet(f"font-size: 9px; font-weight: bold; letter-spacing: 1px; color: {s['text_secondary']}; background: transparent;")
-        llm_layout.addWidget(lbl_llm_hdr)
-
-        # 啟用開關列
-        llm_toggle_row = QWidget()
-        llm_toggle_row.setStyleSheet(f"background: {s['bg_input']}; border-radius: 8px;")
-        lt_h = QHBoxLayout(llm_toggle_row)
-        lt_h.setContentsMargins(14, 12, 14, 12)
-        lt_left = QVBoxLayout()
-        lt_left.setSpacing(2)
-        lbl_lt_title = QLabel("啟用高階智慧潤飾與翻譯")
-        lbl_lt_title.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        lbl_lt_desc = QLabel("自動修正標點符號與語氣")
-        lbl_lt_desc.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        lt_left.addWidget(lbl_lt_title)
-        lt_left.addWidget(lbl_lt_desc)
-        lt_h.addLayout(lt_left)
-        lt_h.addStretch()
-        self.llm_enabled = ToggleSwitch(checked=self.config.get("llm_enabled", False))
-        lt_h.addWidget(self.llm_enabled)
-        llm_layout.addWidget(llm_toggle_row)
-
-        # 模型提供商
-        lbl_prov = QLabel("模型提供商（Provider）")
-        lbl_prov.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        llm_layout.addWidget(lbl_prov)
-        ENGINE_DISPLAY = {
-            "ollama": "Ollama（本機）", "openai": "OpenAI",
-            "claude": "Anthropic Claude", "openrouter": "OpenRouter", "gemini": "Google Gemini",
-            "deepseek": "DeepSeek", "qwen": "通義千問 Qwen", "minimax": "MiniMax",
+        self.groq_key = self._add_grid_row(layout, "Groq API Key (選填)", QLineEdit())
+        self.groq_key.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        self.language = self._add_grid_row(layout, "優先辨識語言", QComboBox())
+        lang_meta = {
+            "zh": "繁體中文",
+            "en": "英文",
+            "ja": "日文",
+            "ko": "韓文",
+            "yue": "粵語",
+            "auto": "自動偵測"
         }
-        self.llm_engine = QComboBox()
-        for eng in LLM_ENGINES:
-            self.llm_engine.addItem(ENGINE_DISPLAY.get(eng, eng.capitalize()), eng)
-        llm_layout.addWidget(self.llm_engine)
-
-        # 本機 Base URL（ollama / omlx）
-        lbl_base_url = QLabel("本機伺服器 URL")
-        lbl_base_url.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        llm_layout.addWidget(lbl_base_url)
-        self.llm_base_url = QLineEdit()
-        self.llm_base_url.setFixedHeight(36)
-        self.llm_base_url.setPlaceholderText("http://localhost:11434")
-        llm_layout.addWidget(self.llm_base_url)
-        self._lbl_base_url = lbl_base_url
-
-        # 模型選擇
-        lbl_model = QLabel("模型（Model）")
-        lbl_model.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        llm_layout.addWidget(lbl_model)
-        self.llm_model_combo = QComboBox()
-        self.llm_model_combo.setEditable(True)
-        llm_layout.addWidget(self.llm_model_combo)
-        self.llm_engine.currentIndexChanged.connect(self._on_llm_provider_changed)
-
-        # 注入模式
-        lbl_mode = QLabel("內容注入模式（Injection Mode）")
-        lbl_mode.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        llm_layout.addWidget(lbl_mode)
-        self.llm_mode = QComboBox()
-        self.llm_mode.addItem("覆蓋原文（Replace）", "replace")
-        self.llm_mode.addItem("快速附加（Fast）", "fast")
-        llm_layout.addWidget(self.llm_mode)
-
-        # 優先辨識語言
-        lbl_lang = QLabel("優先辨識語言")
-        lbl_lang.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        llm_layout.addWidget(lbl_lang)
-        self.language = QComboBox()
-        lang_meta = {"zh": "繁體中文", "en": "英文", "ja": "日文", "ko": "韓文", "yue": "粵語", "auto": "自動偵測"}
         for code, name in lang_meta.items():
             self.language.addItem(f"{name} ({code})", code)
-        llm_layout.addWidget(self.language)
 
-        llm_layout.addStretch()
-        two_col.addWidget(llm_card, stretch=2)
-        layout.addLayout(two_col)
+        # Mac 主線 v2.9.7（7-1/7-2/7-3）移植：麥克風裝置選擇 + 增益 + AGC
+        layout.addWidget(self._page_section_header("🎚 麥克風選擇與增益"))
+
+        self.mic_device_combo = self._add_grid_row(layout, "輸入裝置", QComboBox())
+        self._last_mic_device_names = []
+        self._populate_mic_devices()
+
+        # 每 2 秒偵測一次裝置清單是否變動（插拔耳機/USB 麥克風），與 Mac 版一致
+        self._mic_poll_timer = QTimer(self)
+        self._mic_poll_timer.timeout.connect(self._check_mic_devices_changed)
+        self._mic_poll_timer.start(2000)
+
+        gain_row = QHBoxLayout()
+        gain_lbl = QLabel("增益 / AGC")
+        gain_lbl.setFixedWidth(160)
+        self.mic_gain_slider = QSlider(Qt.Orientation.Horizontal)
+        self.mic_gain_slider.setRange(50, 300)  # 50=×0.5, 100=×1.0（不變）, 300=×3.0
+        self.mic_gain_slider.setValue(self.config.get("mic_gain", 100))
+        _gain_init = self.config.get("mic_gain", 100)
+        self.mic_gain_val_lbl = QLabel(f"×{_gain_init / 100:.1f}")
+        self.mic_gain_val_lbl.setFixedWidth(42)
+        self.mic_gain_slider.valueChanged.connect(
+            lambda v: self.mic_gain_val_lbl.setText(f"×{v / 100:.1f}")
+        )
+        self.mic_gain_auto_cb = QCheckBox("自動 (AGC)")
+        self.mic_gain_auto_cb.setChecked(self.config.get("mic_gain_auto", True))
+        gain_row.addWidget(gain_lbl)
+        gain_row.addWidget(self.mic_gain_slider, stretch=1)
+        gain_row.addWidget(self.mic_gain_val_lbl)
+        gain_row.addWidget(self.mic_gain_auto_cb)
+        layout.addLayout(gain_row)
+
+        layout.addWidget(self._page_section_header("🤖 大語言模型潤飾 (LLM) 配置"))
+        self.llm_enabled = QCheckBox("啟用高階智慧潤飾與翻譯")
+        layout.addWidget(self.llm_enabled)
+
+        self.llm_engine = self._add_grid_row(layout, "模型提供者", QComboBox())
+        self.llm_engine.addItems(LLM_ENGINES)
+
+        self.llm_mode = self._add_grid_row(layout, "內容注入模式", QComboBox())
+        self.llm_mode.addItems(LLM_MODES)
+
+        # API Keys
+        self.openai_key = self._add_grid_row(layout, "OpenAI API Key", QLineEdit())
+        self.openai_key.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        self.anthropic_key = self._add_grid_row(layout, "Anthropic (Claude) Key", QLineEdit())
+        self.anthropic_key.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        self.gemini_key = self._add_grid_row(layout, "Gemini API Key", QLineEdit())
+        self.gemini_key.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        self.openrouter_key = self._add_grid_row(layout, "OpenRouter API Key", QLineEdit())
+        self.openrouter_key.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        self.qwen_key = self._add_grid_row(layout, "通義千問 (Qwen) Key", QLineEdit())
+        self.qwen_key.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        self.deepseek_key = self._add_grid_row(layout, "DeepSeek API Key", QLineEdit())
+        self.deepseek_key.setEchoMode(QLineEdit.EchoMode.Password)
+
+        layout.addWidget(self._page_section_header("🪄 AI 魔術指令"))
+        self.magic_trigger = self._add_grid_row(layout, "啟動咒語 (例如: 嘿 助理)", QLineEdit())
+        self.magic_trigger.setPlaceholderText("預設為: 嘿 VoiceType")
 
         container.setLayout(layout)
         page.setWidget(container)
         return page
 
-    def _on_llm_provider_changed(self):
-        """依選擇的 LLM 供應商，動態更新模型選單與 Base URL 欄位。"""
-        eng = self.llm_engine.currentData() or ""
-        is_local = eng in LOCAL_URL_ENGINES
-        self._lbl_base_url.setVisible(is_local)
-        self.llm_base_url.setVisible(is_local)
-        if is_local:
-            url_key = f"{eng}_base_url"
-            self.llm_base_url.setPlaceholderText("http://localhost:11434")
-            self.llm_base_url.setText(self.config.get(url_key, ""))
-
-        models = PROVIDER_MODELS.get(eng, [])
-        self.llm_model_combo.blockSignals(True)
-        self.llm_model_combo.clear()
-        self.llm_model_combo.addItems(models)
-        default = models[0] if models else ""
-        saved = self.config.get(f"{eng}_model", default)
-        idx = self.llm_model_combo.findText(saved)
-        if idx >= 0:
-            self.llm_model_combo.setCurrentIndex(idx)
-        else:
-            self.llm_model_combo.setCurrentText(saved)
-        self.llm_model_combo.blockSignals(False)
-
-    def _select_model_card(self, selected_key: str):
-        """點選模型卡片時更新選取狀態與 config。"""
-        s = self.skin
-        for key, card in self._model_cards.items():
-            is_active = (key == selected_key)
-            border_color = s['accent'] if is_active else s['card_border']
-            card.setStyleSheet(f"""
-                QFrame#model_card_{key} {{
-                    background: {s['bg_card']};
-                    border: 1.5px solid {border_color};
-                    border-radius: 12px;
-                }}
-            """)
-        self.config["whisper_model"] = selected_key
-
     def _create_soul_page(self):
-        from PyQt6.QtWidgets import QTabWidget, QInputDialog
-        s = self.skin
+        from PyQt6.QtWidgets import QTabWidget
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(10)
 
-        # ── Header ────────────────────────────────────────────
-        lbl_title = QLabel("靈魂設定")
-        lbl_title.setStyleSheet(f"font-size: 30px; font-weight: 800; color: {s['text_primary']}; letter-spacing: -1px; background: transparent;")
-        lbl_sub = QLabel("配置 AI 的人格模組與情境治理。")
-        lbl_sub.setStyleSheet(f"font-size: 12px; color: {s['text_secondary']}; background: transparent;")
-        layout.addWidget(lbl_title)
-        layout.addWidget(lbl_sub)
-
-        # ── Tabs（底線樣式）──────────────────────────────────
+        layout.addWidget(self._page_section_header("✨ AI 靈魂與情境治理"))
+        
         self.soul_tabs = QTabWidget()
-        self.soul_tabs.setStyleSheet(f"""
-            QTabWidget::pane {{
-                border: none;
-                background: transparent;
-            }}
-            QTabBar::tab {{
-                background: transparent;
-                color: {s['text_secondary']};
-                padding: 10px 20px 10px 0;
-                font-size: 14px;
-                font-weight: bold;
-                border: none;
-                margin-right: 8px;
-            }}
-            QTabBar::tab:selected {{
-                color: {s['text_primary']};
-                border-bottom: 2px solid {s['accent']};
-            }}
-            QTabBar::tab:hover {{
-                color: {s['text_primary']};
-            }}
+        self.soul_tabs.setStyleSheet("""
+            QTabWidget::pane { border: 1px solid rgba(255,255,255,10); border-radius: 8px; background: rgba(30,30,40,100); }
+            QTabBar::tab { background: transparent; color: #8a8d91; padding: 10px 20px; font-size: 14px; }
+            QTabBar::tab:selected { color: #7c4dff; border-bottom: 2px solid #7c4dff; font-weight: bold; }
         """)
-
-        # ── Tab 1：性格模式（兩欄佈局）───────────────────────
-        scenario_tab = self._create_soul_scenario_tab()
-        self.soul_tabs.addTab(scenario_tab, "性格模式")
-
-        # ── Tab 2：基礎靈魂（純編輯器）───────────────────────
+        
+        # 1. 基底靈魂
         base_tab = QWidget()
         base_layout = QVBoxLayout(base_tab)
-        base_layout.setContentsMargins(0, 12, 0, 0)
         self.soul_prompt = QTextEdit()
-        self.soul_prompt.setFont(QFont("Monaco", 12))
-        self.soul_prompt.setPlaceholderText("輸入 AI 的基底靈魂提示詞（人格、風格、去贅詞規則）...")
-        self.soul_prompt.setStyleSheet(f"""
-            QTextEdit {{
-                background: {s['bg_card']};
-                border: 1px solid {s['card_border']};
-                border-radius: 10px;
-                color: {s['text_primary']};
-                padding: 12px;
-                font-family: Monaco, Menlo, monospace;
-            }}
-        """)
+        # Monaco 是 macOS 專屬字型（Mac 版複製殘留）；Windows 內建等寬字型用 Consolas
+        self.soul_prompt.setFont(QFont("Consolas", 12))
+        self.soul_prompt.setPlaceholderText("輸入 AI 的基底靈魂提示詞 (人格、風格、去贅詞規則)...")
+        self.soul_prompt.setStyleSheet("background: rgba(20,20,30,150); border: 1px solid rgba(255,255,255,10); border-radius: 8px; color: #eee;")
         base_layout.addWidget(self.soul_prompt)
-        self.soul_tabs.addTab(base_tab, "基礎靈魂")
+        self.soul_tabs.addTab(base_tab, "🏠 基底靈魂")
+
+        # 2. 情境瀏覽 (v2.7.32: 改名為性格模式)
+        scenario_tab = self._create_file_list_tab(SOUL_SCENARIO_DIR, "這裡存放不同場景的提示詞（性格模式），例如：社群貼文、商務回應。") #咖啡版功能
+        self.soul_tabs.addTab(scenario_tab, "🎭 性格模式") #咖啡版功能
+
+        # 3. 格式瀏覽 (v2.7.32: 隱藏)
+        # format_tab = self._create_file_list_tab(SOUL_FORMAT_DIR, "這裡決定輸出的格式。")
+        # self.soul_tabs.addTab(format_tab, "📝 輸出格式")
+
+        # 4. 模板管理 (v2.7.32: 隱藏)
+        # template_tab = self._create_file_list_tab(SOUL_TEMPLATE_DIR, "這裡存放儲存過的範例。")
+        # self.soul_tabs.addTab(template_tab, "📌 我的模板")
 
         layout.addWidget(self.soul_tabs)
         return page
 
-    def _create_soul_scenario_tab(self):
-        from PyQt6.QtWidgets import QInputDialog
-        s = self.skin
-        directory = SOUL_SCENARIO_DIR
-
+    def _create_file_list_tab(self, directory: Path, desc: str, is_json: bool = False):
         tab = QWidget()
-        tab_layout = QVBoxLayout(tab)
-        tab_layout.setContentsMargins(0, 12, 0, 0)
-        tab_layout.setSpacing(0)
-
-        # ── 兩欄佈局 ──────────────────────────────────────────
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setHandleWidth(1)
-        splitter.setStyleSheet(f"QSplitter::handle {{ background: {s['card_border']}; }}")
-
-        # ─ 左欄：搜尋 + 列表 + 按鈕 ─
-        left_panel = QWidget()
-        left_panel.setStyleSheet(f"background: {s['bg_card']}; border-radius: 12px;")
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(12, 12, 12, 12)
-        left_layout.setSpacing(8)
-
-        # 搜尋框
-        self._soul_search = QLineEdit()
-        self._soul_search.setPlaceholderText("搜尋人格模組...")
-        self._soul_search.setFixedHeight(36)
-        self._soul_search.setStyleSheet(f"""
-            QLineEdit {{
-                background: {s['bg_input']};
-                border: 1px solid {s['bg_input_border']};
-                border-radius: 8px;
-                color: {s['text_primary']};
-                padding: 0 10px;
-                font-size: 12px;
-            }}
-        """)
-        left_layout.addWidget(self._soul_search)
-
-        # 檔案列表
-        self._soul_list = QListWidget()
-        self._soul_list.setStyleSheet(f"""
-            QListWidget {{
-                background: transparent;
-                border: none;
-                color: {s['text_primary']};
-                font-size: 13px;
-                outline: none;
-            }}
-            QListWidget::item {{
-                padding: 10px 8px;
-                border-radius: 8px;
-            }}
-            QListWidget::item:selected {{
-                background: {s['bg_input']};
-                color: {s['text_primary']};
-            }}
-            QListWidget::item:hover {{
-                background: {s['bg_input']};
-            }}
-        """)
-        left_layout.addWidget(self._soul_list)
-
-        # 底部按鈕
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(8)
-        btn_add = QPushButton("＋  新增項目")
-        btn_add.setFixedHeight(36)
-        btn_add.setStyleSheet(f"""
-            QPushButton {{
-                background: {s['bg_input']};
-                color: {s['text_primary']};
-                border: 1px solid {s['bg_input_border']};
-                border-radius: 8px;
-                font-size: 12px;
-                font-weight: bold;
-                padding: 0 12px;
-            }}
-            QPushButton:hover {{ background: {s['selection_bg']}; }}
-        """)
-        btn_del = QPushButton("⊟  刪除所選")
-        btn_del.setFixedHeight(36)
-        btn_del.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent;
-                color: {s['danger']};
-                border: 1px solid {s['danger']};
-                border-radius: 8px;
-                font-size: 12px;
-                font-weight: bold;
-                padding: 0 12px;
-            }}
-            QPushButton:hover {{ background: {s['danger']}; color: {s['bg_window']}; }}
-        """)
-        btn_row.addWidget(btn_add)
-        btn_row.addWidget(btn_del)
-        left_layout.addLayout(btn_row)
-
-        splitter.addWidget(left_panel)
-
-        # ─ 右欄：編輯區 ─
-        right_panel = QWidget()
-        right_panel.setStyleSheet("background: transparent;")
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(12, 0, 0, 0)
-        right_layout.setSpacing(8)
-
-        # 右側 header
-        editor_header = QHBoxLayout()
-        self._soul_editor_label = QLabel("選擇左側檔案以開始編輯")
-        self._soul_editor_label.setStyleSheet(f"""
-            font-size: 12px; color: {s['text_secondary']}; background: transparent;
-        """)
-        editor_header.addWidget(self._soul_editor_label)
-        editor_header.addStretch()
-        btn_open_finder = QPushButton("  在 Finder 中打開資料夾")
-        btn_open_finder.setFixedHeight(28)
-        btn_open_finder.setStyleSheet(f"""
-            QPushButton {{
-                background: {s['bg_card']};
-                color: {s['text_secondary']};
-                border: 1px solid {s['card_border']};
-                border-radius: 6px;
-                font-size: 10px;
-                padding: 0 10px;
-            }}
-            QPushButton:hover {{ color: {s['text_primary']}; }}
-        """)
-        btn_open_finder.clicked.connect(lambda: os.system(f"open '{directory}'"))
-        editor_header.addWidget(btn_open_finder)
-        right_layout.addLayout(editor_header)
-
-        # 編輯器
-        self._soul_editor = QTextEdit()
-        self._soul_editor.setFont(QFont("Monaco", 12))
-        self._soul_editor.setPlaceholderText("選擇左側的人格模組以編輯內容...")
-        self._soul_editor.setStyleSheet(f"""
-            QTextEdit {{
-                background: {s['bg_card']};
-                border: 1px solid {s['card_border']};
-                border-radius: 10px;
-                color: {s['text_primary']};
-                padding: 14px;
-                font-family: Monaco, Menlo, monospace;
-            }}
-        """)
-        right_layout.addWidget(self._soul_editor)
-
-        # 儲存按鈕
-        self._soul_save_btn = QPushButton("儲存修改")
-        self._soul_save_btn.setFixedHeight(36)
-        self._soul_save_btn.hide()
-        right_layout.addWidget(self._soul_save_btn)
-
-        splitter.addWidget(right_panel)
-        splitter.setSizes([260, 600])
-        tab_layout.addWidget(splitter)
-
-        # ── 邏輯 ─────────────────────────────────────────────
-        def refresh(filter_text=""):
-            self._soul_list.clear()
+        layout = QVBoxLayout(tab)
+        
+        # 頂部操作區
+        controls_layout = QVBoxLayout()
+        desc_lbl = QLabel(desc)
+        desc_lbl.setStyleSheet("color: #888; font-size: 12px;")
+        controls_layout.addWidget(desc_lbl)
+        
+        create_layout = QHBoxLayout()
+        new_item_name = QLineEdit()
+        new_item_name.setPlaceholderText("輸入新項目名稱...")
+        new_item_name.setStyleSheet("background: rgba(0,0,0,50); border: 1px solid #444; border-radius: 4px; padding: 4px; color: #fff;")
+        
+        btn_add = QPushButton("➕ 新增項目")
+        btn_add.setFixedWidth(100)
+        btn_add.setStyleSheet("background: #2e7d32; color: white; padding: 5px; border-radius: 4px;")
+        
+        btn_del = QPushButton("🗑 刪除所選")
+        btn_del.setFixedWidth(100)
+        btn_del.setStyleSheet("background: #c62828; color: white; padding: 5px; border-radius: 4px;")
+        
+        create_layout.addWidget(new_item_name)
+        create_layout.addWidget(btn_add)
+        create_layout.addWidget(btn_del)
+        controls_layout.addLayout(create_layout)
+        
+        layout.addLayout(controls_layout)
+        
+        lst = QListWidget()
+        lst.setStyleSheet("background: rgba(20,20,30,150); border: 1px solid rgba(255,255,255,10); border-radius: 8px; color: #eee;")
+        layout.addWidget(lst)
+        
+        def refresh():
+            lst.clear()
             if not directory.exists(): return
-            for f in sorted(directory.glob("*.md")):
-                if f.name == "default.md": continue
-                if filter_text and filter_text.lower() not in f.name.lower(): continue
-                item = QListWidgetItem(f"  {f.name}")
-                item.setData(Qt.ItemDataRole.UserRole, f.name)
-                self._soul_list.addItem(item)
-
+            ext = "*.json" if is_json else "*.md"
+            for f in sorted(directory.glob(ext)):
+                if f.name == "default.md": continue # v2.7.32: 隱藏預設靈魂以免使用者誤改
+                lst.addItem(f.name)
+        
+        QTimer.singleShot(100, refresh)
+        
+        # 內容編輯區 (不再是純預覽，改為可編輯)
+        layout.addWidget(QLabel("內容編輯："))
+        editor = QTextEdit()
+        editor.setFont(QFont("Consolas", 11))  # 同上：Monaco 為 macOS 字型，改用 Windows 內建 Consolas
+        editor.setStyleSheet("background: rgba(40,40,50,150); color: #fff; border: 1px solid rgba(255,255,255,20); border-radius: 8px;")
+        layout.addWidget(editor)
+        
+        btn_save = QPushButton("💾 儲存修改")
+        btn_save.setStyleSheet("background: #7c4dff; color: white; padding: 10px; border-radius: 6px; font-weight: bold;")
+        btn_save.hide() # 初始隱藏
+        layout.addWidget(btn_save)
+        
         def on_item_clicked(item):
-            fname = item.data(Qt.ItemDataRole.UserRole)
-            fpath = directory / fname
+            fpath = directory / item.text()
             if fpath.exists():
-                self._soul_editor.setPlainText(fpath.read_text(encoding="utf-8"))
-                self._soul_editor_label.setText(f"編輯中   {fname}")
-                self._soul_editor_label.setStyleSheet(f"""
-                    font-size: 12px; color: {s['text_primary']}; font-weight: bold; background: transparent;
-                """)
-                self._soul_save_btn.show()
-
+                text = fpath.read_text(encoding="utf-8")
+                if is_json:
+                    import json
+                    try:
+                        data = json.loads(text)
+                        text = json.dumps(data, indent=2, ensure_ascii=False)
+                    except: pass
+                editor.setPlainText(text)
+                btn_save.show()
+        
         def on_save():
-            item = self._soul_list.currentItem()
+            item = lst.currentItem()
             if not item: return
-            fname = item.data(Qt.ItemDataRole.UserRole)
-            fpath = directory / fname
+            fpath = directory / item.text()
             try:
-                fpath.write_text(self._soul_editor.toPlainText(), encoding="utf-8")
+                fpath.write_text(editor.toPlainText(), encoding="utf-8")
+                QMessageBox.information(self, "成功", f"「{item.text()}」已儲存。")
             except Exception as e:
                 QMessageBox.critical(self, "錯誤", f"儲存失敗：{e}")
-
+        
         def on_add():
-            name, ok = QInputDialog.getText(self, "新增人格模組", "請輸入模組名稱：")
-            if not ok or not name.strip(): return
-            filename = f"{name.strip()}.md"
+            name = new_item_name.text().strip()
+            if not name:
+                QMessageBox.warning(self, "提示", "請輸入項目名稱。")
+                return
+            
+            filename = f"{name}.json" if is_json else f"{name}.md"
             fpath = directory / filename
             if fpath.exists():
-                QMessageBox.warning(self, "警告", "名稱已存在！"); return
+                QMessageBox.warning(self, "警告", "名稱已存在！")
+                return
+            
             try:
-                directory.mkdir(parents=True, exist_ok=True)
-                fpath.write_text(f"# {name}\n\n[設定]\n- 語氣：\n- 行為：\n", encoding="utf-8")
+                fpath.write_text("# 新項目\n在此輸入設定...", encoding="utf-8")
+                new_item_name.clear()
                 refresh()
-                items = self._soul_list.findItems(f"  {filename}", Qt.MatchFlag.MatchExactly)
+                # 選中新項目
+                items = lst.findItems(filename, Qt.MatchFlag.MatchExactly)
                 if items:
-                    self._soul_list.setCurrentItem(items[0])
+                    lst.setCurrentItem(items[0])
                     on_item_clicked(items[0])
             except Exception as e:
                 QMessageBox.critical(self, "錯誤", f"建立失敗：{e}")
 
         def on_delete():
-            item = self._soul_list.currentItem()
+            item = lst.currentItem()
             if not item: return
-            fname = item.data(Qt.ItemDataRole.UserRole)
-            reply = QMessageBox.question(self, "確認刪除", f"確定要刪除「{fname}」嗎？",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            reply = QMessageBox.question(self, "確認刪除", f"確定要刪除「{item.text()}」嗎？", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
-                (directory / fname).unlink(missing_ok=True)
+                (directory / item.text()).unlink()
                 refresh()
-                self._soul_editor.clear()
-                self._soul_editor_label.setText("選擇左側檔案以開始編輯")
-                self._soul_editor_label.setStyleSheet(f"font-size: 12px; color: {s['text_secondary']}; background: transparent;")
-                self._soul_save_btn.hide()
+                editor.clear()
+                btn_save.hide()
 
-        def on_search(text):
-            refresh(filter_text=text)
-
-        self._soul_list.itemClicked.connect(on_item_clicked)
-        self._soul_save_btn.clicked.connect(on_save)
+        lst.itemClicked.connect(on_item_clicked)
         btn_add.clicked.connect(on_add)
         btn_del.clicked.connect(on_delete)
-        self._soul_search.textChanged.connect(on_search)
+        btn_save.clicked.connect(on_save)
+        
+        open_label = "📂 從檔案總管開啟資料夾" if platform.system() == "Windows" else "📂 在 Finder 中打開資料夾"
+        btn_open = QPushButton(open_label)
+        btn_open.setStyleSheet("background: transparent; border: 1px solid #3d4452; color: #888; font-size: 11px;")
 
-        QTimer.singleShot(100, lambda: refresh())
+        def _open_folder():
+            try:
+                directory.mkdir(parents=True, exist_ok=True)
+                if platform.system() == "Windows":
+                    os.startfile(str(directory))  # 原本的 `open` 是 macOS 指令，Windows 上無效
+                else:
+                    os.system(f"open '{directory}'")
+            except Exception as e:
+                QMessageBox.warning(self, "嘴炮輸入法", f"無法開啟資料夾：{e}")
+
+        btn_open.clicked.connect(_open_folder)
+        layout.addWidget(btn_open)
+
         return tab
 
-    def _create_file_list_tab(self, directory: Path, desc: str, is_json: bool = False):
-        """Legacy method — kept for compatibility, not used in current UI."""
-        return QWidget()
-
     def _create_vocab_mem_page(self):
-        s = self.skin
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        layout.addWidget(splitter)
 
-        # ── Header ────────────────────────────────────────────
-        hdr_row = QHBoxLayout()
-        lbl_title = QLabel("詞彙與記憶管理")
-        lbl_title.setStyleSheet(f"font-size: 30px; font-weight: 800; color: {s['text_primary']}; letter-spacing: -1px; background: transparent;")
-        hdr_row.addWidget(lbl_title)
-        hdr_row.addStretch()
-        layout.addLayout(hdr_row)
-
-        # ── Two columns ───────────────────────────────────────
-        body = QHBoxLayout()
-        body.setSpacing(16)
-
-        # ─ Left: 私人詞庫 ─
-        vocab_card = GlassCard()
-        vl = QVBoxLayout(vocab_card)
-        vl.setContentsMargins(20, 20, 20, 20)
-        vl.setSpacing(12)
-
-        v_hdr = QHBoxLayout()
-        v_hdr.setSpacing(8)
-        v_title = QLabel("私人詞庫")
-        v_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        v_hdr.addWidget(v_title)
-        v_hdr.addStretch()
-
-        self.btn_del_vocab = QPushButton("⊟  刪除已選")
-        self.btn_del_vocab.setFixedHeight(32)
-        self.btn_del_vocab.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; color: {s['danger']};
-                border: 1px solid {s['danger']}; border-radius: 8px;
-                font-size: 12px; font-weight: bold; padding: 0 12px;
-            }}
-            QPushButton:hover {{ background: {s['danger']}; color: {s['bg_window']}; }}
-        """)
-        self.btn_del_vocab.clicked.connect(self._del_vocab)
-        v_hdr.addWidget(self.btn_del_vocab)
-
-        self.btn_add_vocab = QPushButton("+  新增")
-        self.btn_add_vocab.setFixedHeight(32)
-        self.btn_add_vocab.setStyleSheet(f"""
-            QPushButton {{
-                background: {s['accent']}; color: {s['btn_text']};
-                border: none; border-radius: 8px;
-                font-size: 12px; font-weight: bold; padding: 0 14px;
-            }}
-            QPushButton:hover {{ background: {s['accent_hover']}; }}
-        """)
-        self.btn_add_vocab.clicked.connect(self._add_vocab_dialog)
-        v_hdr.addWidget(self.btn_add_vocab)
-        vl.addLayout(v_hdr)
-
-        vocab_search = QLineEdit()
-        vocab_search.setPlaceholderText("搜尋專有名詞或技術術語...")
-        vocab_search.setFixedHeight(36)
-        vocab_search.textChanged.connect(self._search_vocab)
-        vl.addWidget(vocab_search)
-
+        # Left: Vocab
+        v_box = QWidget()
+        v_layout = QVBoxLayout(v_box)
+        v_layout.addWidget(QLabel("✏️ 私人詞庫"))
         self.vocab_list = QListWidget()
-        vl.addWidget(self.vocab_list)
-
-        # Hidden input (used by legacy _add_vocab)
+        v_layout.addWidget(self.vocab_list)
+        
+        vh = QHBoxLayout()
         self.vocab_input = QLineEdit()
-        self.vocab_input.hide()
-        vl.addWidget(self.vocab_input)
+        self.vocab_input.setPlaceholderText("新增...")
+        self.btn_add_vocab = QPushButton("+")
+        self.btn_add_vocab.setFixedWidth(50)
+        self.btn_add_vocab.clicked.connect(self._add_vocab)
+        vh.addWidget(self.vocab_input)
+        vh.addWidget(self.btn_add_vocab)
+        v_layout.addLayout(vh)
+        
+        self.btn_del_vocab = QPushButton("刪除已選")
+        self.btn_del_vocab.setObjectName("danger")
+        self.btn_del_vocab.clicked.connect(self._del_vocab)
+        v_layout.addWidget(self.btn_del_vocab)
 
-        body.addWidget(vocab_card, stretch=3)
-
-        # ─ Right: AI 學習清單 + 長期記憶 ─
-        right_col = QVBoxLayout()
-        right_col.setSpacing(16)
-
-        # AI 學習清單
-        ai_card = GlassCard()
-        al = QVBoxLayout(ai_card)
-        al.setContentsMargins(20, 20, 20, 20)
-        al.setSpacing(12)
-
-        ai_hdr = QHBoxLayout()
-        ai_title = QLabel("AI 學習清單")
-        ai_title.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        ai_hdr.addWidget(ai_title)
-        ai_hdr.addStretch()
-        sync_badge = QLabel("SYNC_ACTIVE")
-        sync_badge.setStyleSheet(f"""
-            color: {s['text_secondary']}; background: {s['bg_input']};
-            border: 1px solid {s['bg_input_border']}; border-radius: 4px;
-            font-size: 9px; font-weight: bold; padding: 2px 6px;
-        """)
-        ai_hdr.addWidget(sync_badge)
-        al.addLayout(ai_hdr)
-
+        # Right: Learned & Memory
+        right_box = QWidget()
+        rl = QVBoxLayout(right_box)
+        
+        rl.addWidget(QLabel("💡 AI 學習清單"))
         self.learned_list = QListWidget()
-        self.learned_list.setFixedHeight(120)  # ~6 rows visible
-        al.addWidget(self.learned_list)
-
-        promote_row = QHBoxLayout()
-        promote_row.addStretch()
-        self.btn_delete_learned = QPushButton("刪除")
-        self.btn_delete_learned.setFixedHeight(32)
-        self.btn_delete_learned.setObjectName("danger")
-        self.btn_delete_learned.clicked.connect(self._delete_learned_word)
-        promote_row.addWidget(self.btn_delete_learned)
-        self.btn_promote = QPushButton("升格至自訂詞庫")
-        self.btn_promote.setFixedHeight(32)
-        self.btn_promote.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; color: {s['text_secondary']};
-                border: 1px solid {s['bg_input_border']}; border-radius: 8px;
-                font-size: 12px; padding: 0 14px;
-            }}
-            QPushButton:hover {{ color: {s['text_primary']}; border-color: {s['text_secondary']}; }}
-        """)
+        rl.addWidget(self.learned_list)
+        lh = QHBoxLayout()
+        self.btn_promote = QPushButton("升格自訂")
         self.btn_promote.clicked.connect(self._promote_vocab)
-        promote_row.addWidget(self.btn_promote)
-        al.addLayout(promote_row)
-        right_col.addWidget(ai_card)
+        lh.addWidget(self.btn_promote)
+        self.btn_delete_learned = QPushButton("刪除")
+        self.btn_delete_learned.setObjectName("danger")
+        self.btn_delete_learned.setMinimumHeight(40)  # 32px 會把中文字上下裁切
+        self.btn_delete_learned.clicked.connect(self._delete_learned_word)
+        lh.addWidget(self.btn_delete_learned)
+        rl.addLayout(lh)
 
-        # 長期記憶快照
-        mem_card = GlassCard()
-        ml = QVBoxLayout(mem_card)
-        ml.setContentsMargins(20, 20, 20, 20)
-        ml.setSpacing(12)
-
-        mem_hdr = QHBoxLayout()
-        mem_title = QLabel("長期記憶快照")
-        mem_title.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        mem_hdr.addWidget(mem_title)
-        mem_hdr.addStretch()
-        self.lbl_mem_count = QLabel("")
-        self.lbl_mem_count.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-        mem_hdr.addWidget(self.lbl_mem_count)
-        ml.addLayout(mem_hdr)
-
-        # 摘要顯示區
-        self.mem_summary_lbl = QLabel("（尚無摘要）")
-        self.mem_summary_lbl.setWordWrap(True)
-        self.mem_summary_lbl.setStyleSheet(
-            f"font-size: 11px; color: {s['text_secondary']}; background: {s['bg_input']};"
-            f"border-radius: 8px; padding: 8px; border: none;"
-        )
-        self.mem_summary_lbl.setMinimumHeight(50)
-        ml.addWidget(self.mem_summary_lbl)
-
+        rl.addWidget(QLabel("🧠 長期記憶"))
         self.mem_tree = QTreeWidget()
         self.mem_tree.setHeaderLabels(["時間", "快照"])
-        self.mem_tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        ml.addWidget(self.mem_tree)
+        rl.addWidget(self.mem_tree)
 
-        # Purge 按鈕列
-        purge_row = QHBoxLayout()
-        mem_inject_lbl = QLabel("記憶注入")
-        mem_inject_lbl.setStyleSheet(f"font-size: 12px; color: {s['text_secondary']}; background: transparent;")
-        self.memory_inject_toggle = ToggleSwitch(checked=self.config.get("memory_enabled", True))
-        purge_row.addWidget(mem_inject_lbl)
-        purge_row.addWidget(self.memory_inject_toggle)
-        purge_row.addStretch()
+        mem_ctrl_row = QHBoxLayout()
+        self.memory_inject_cb = QCheckBox("注入 LLM 記憶")
+        self.memory_inject_cb.setChecked(False)
+        mem_ctrl_row.addWidget(self.memory_inject_cb)
+        mem_ctrl_row.addStretch()
+        self.btn_del_memory = QPushButton("刪除選取")
+        self.btn_del_memory.setObjectName("danger")
+        self.btn_del_memory.setMinimumHeight(40)
+        self.btn_del_memory.clicked.connect(self._delete_memory_entry)
+        mem_ctrl_row.addWidget(self.btn_del_memory)
         self.btn_purge_memory = QPushButton("壓縮本週記憶")
-        self.btn_purge_memory.setFixedHeight(32)
         self.btn_purge_memory.setObjectName("danger")
+        self.btn_purge_memory.setMinimumHeight(40)
         self.btn_purge_memory.clicked.connect(self._purge_memory)
-        purge_row.addWidget(self.btn_purge_memory)
-        ml.addLayout(purge_row)
+        mem_ctrl_row.addWidget(self.btn_purge_memory)
+        rl.addLayout(mem_ctrl_row)
 
-        right_col.addWidget(mem_card, stretch=1)
-
-        body.addLayout(right_col, stretch=2)
-        layout.addLayout(body)
+        splitter.addWidget(v_box)
+        splitter.addWidget(right_box)
         return page
 
     def _create_stats_page(self):
-        s = self.skin
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
-
-        # ── Header ────────────────────────────────────────────
-        hdr_row = QHBoxLayout()
-        hdr_left = QVBoxLayout()
-        hdr_left.setSpacing(3)
-        lbl_title = QLabel("效能總覽")
-        lbl_title.setStyleSheet(f"font-size: 30px; font-weight: 800; color: {s['text_primary']}; letter-spacing: -1px; background: transparent;")
-        lbl_sub = QLabel("VoiceType4TW 語音轉錄精度與使用統計。")
-        lbl_sub.setStyleSheet(f"font-size: 12px; color: {s['text_secondary']}; background: transparent;")
-        hdr_left.addWidget(lbl_title)
-        hdr_left.addWidget(lbl_sub)
-        hdr_row.addLayout(hdr_left)
-        hdr_row.addStretch()
-        self.btn_refresh_stats = QPushButton("↺  重新整理數據")
-        self.btn_refresh_stats.setFixedHeight(36)
-        self.btn_refresh_stats.setStyleSheet(f"""
-            QPushButton {{
-                background: {s['bg_card']}; color: {s['text_primary']};
-                border: 1px solid {s['card_border']}; border-radius: 8px;
-                font-size: 13px; font-weight: bold; padding: 0 16px;
-            }}
-            QPushButton:hover {{ background: {s['selection_bg']}; }}
-        """)
-        self.btn_refresh_stats.clicked.connect(self._refresh_stats)
-        hdr_row.addWidget(self.btn_refresh_stats)
-        layout.addLayout(hdr_row)
-
-        # ── Stats summary cards ───────────────────────────────
-        summary_row = QHBoxLayout()
-        summary_row.setSpacing(12)
-
-        def _make_big_card(label, value_attr, unit, desc_attr):
-            c = GlassCard()
-            cl = QVBoxLayout(c)
-            cl.setContentsMargins(20, 20, 20, 20)
-            cl.setSpacing(4)
-            lbl = QLabel(label)
-            lbl.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; letter-spacing: 1px; background: transparent;")
-            val = QLabel("—")
-            val.setStyleSheet(f"font-size: 40px; font-weight: 900; color: {s['text_primary']}; background: transparent;")
-            desc = QLabel("—")
-            desc.setStyleSheet(f"font-size: 11px; color: {s['text_secondary']}; background: transparent;")
-            cl.addWidget(lbl)
-            cl.addWidget(val)
-            cl.addWidget(desc)
-            setattr(self, value_attr, val)
-            setattr(self, desc_attr, desc)
-            return c
-
-        summary_row.addWidget(_make_big_card("今日辨識次數", "lbl_stats_today_count", "", "lbl_stats_today_chars"), stretch=1)
-        summary_row.addWidget(_make_big_card("累積節省時間 (小時)", "lbl_stats_time_saved", "min", "lbl_stats_total_chars"), stretch=1)
-        layout.addLayout(summary_row)
-
-        # ── Detailed stats table ──────────────────────────────
-        table_card = GlassCard()
-        tl = QVBoxLayout(table_card)
-        tl.setContentsMargins(20, 20, 20, 20)
-        tl.setSpacing(12)
-
-        table_hdr = QLabel("數據統計")
-        table_hdr.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        tl.addWidget(table_hdr)
-
+        layout.addWidget(self._page_section_header("詳細分析數據"))
+        
         self.stats_tree = QTreeWidget()
-        self.stats_tree.setHeaderLabels(["分析範圍", "會話總數", "錄音時長", "轉錄字數", "節省時間"])
-        self.stats_tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.stats_tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.stats_tree.header().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.stats_tree.header().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        self.stats_tree.header().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
-        self.stats_tree.setAlternatingRowColors(False)
-        self.stats_tree.setRootIsDecorated(False)
-        tl.addWidget(self.stats_tree)
-        layout.addWidget(table_card)
-
+        self.stats_tree.setHeaderLabels(["範圍", "對話數", "語音長度", "轉錄字數", "省下時間"])
+        layout.addWidget(self.stats_tree)
+        
+        self.btn_refresh_stats = QPushButton("重新整理數據")
+        self.btn_refresh_stats.setObjectName("secondary")
+        self.btn_refresh_stats.clicked.connect(self._refresh_stats)
+        layout.addWidget(self.btn_refresh_stats)
+        
         layout.addStretch()
         return page
 
     def _create_general_page(self):
-        from PyQt6.QtWidgets import QGridLayout
-        s = self.skin
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
-
-        # ── Header ────────────────────────────────────────────
-        hdr_row = QHBoxLayout()
-        hdr_left = QVBoxLayout()
-        hdr_left.setSpacing(3)
-        lbl_title = QLabel("系統設定")
-        lbl_title.setStyleSheet(f"font-size: 30px; font-weight: 800; color: {s['text_primary']}; letter-spacing: -1px; background: transparent;")
-        lbl_sub = QLabel("配置您的錄音環境，優化工作流程與硬體性能。")
-        lbl_sub.setStyleSheet(f"font-size: 12px; color: {s['text_secondary']}; background: transparent;")
-        hdr_left.addWidget(lbl_title)
-        hdr_left.addWidget(lbl_sub)
-        hdr_row.addLayout(hdr_left)
-        hdr_row.addStretch()
-        layout.addLayout(hdr_row)
-
-        # ── Row 1: Hotkeys (left) + Diagnostics (right) ──────
-        top_row = QHBoxLayout()
-        top_row.setSpacing(16)
-
-        # ─ 設定錄音按鍵 ─
-        hotkey_card = GlassCard()
-        hl = QVBoxLayout(hotkey_card)
-        hl.setContentsMargins(20, 20, 20, 20)
-        hl.setSpacing(6)
-
-        hk_hdr = QHBoxLayout()
-        hk_icon = ms_icon("keyboard", 18, s['text_secondary'])
-        hk_title = QLabel("設定錄音按鍵")
-        hk_title.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        hk_hdr.addWidget(hk_icon)
-        hk_hdr.addWidget(hk_title)
-        hk_hdr.addStretch()
-        hl.addLayout(hk_hdr)
-
-        # ─ 統一 Grid：保證所有子項目欄位對齊 ─
-        row_grid = QGridLayout()
-        row_grid.setContentsMargins(0, 0, 0, 0)
-        row_grid.setHorizontalSpacing(10)
-        row_grid.setVerticalSpacing(14)
-        row_grid.setColumnMinimumWidth(0, 130)
-        row_grid.setColumnStretch(1, 1)   # 輸入欄拉伸
-        row_grid.setColumnMinimumWidth(2, 54)  # 右側按鈕欄固定最小寬
-
-        _lbl_style = f"font-size: 13px; font-weight: bold; color: {s['text_primary']}; background: transparent;"
-        _test_style = f"""
-            QPushButton {{
-                background: {s['btn_secondary_bg']}; color: {s['text_secondary']};
-                border: none; border-radius: 8px; font-size: 11px; font-weight: bold; padding: 0;
-            }}
-            QPushButton:hover {{ background: {s['selection_bg']}; color: {s['text_primary']}; }}
-        """
-
-        def _add_hotkey_row(grid_row, label_text, key_attr, test_btn_attr):
-            lbl = QLabel(label_text)
-            lbl.setStyleSheet(_lbl_style)
-            btn = HotkeyRecorderButton(self.config.get(key_attr, ""))
-            btn.setFixedHeight(36)
-            test_btn = QPushButton("測試")
-            test_btn.setFixedHeight(30)
-            test_btn.setFixedWidth(54)
-            test_btn.setStyleSheet(_test_style)
-            setattr(self, test_btn_attr, test_btn)
-            row_grid.addWidget(lbl, grid_row, 0)
-            row_grid.addWidget(btn, grid_row, 1)
-            row_grid.addWidget(test_btn, grid_row, 2)
-            return btn
-
-        self.btn_ptt = _add_hotkey_row(0, "ㅤㅤㅤPTT 按住通話", "hotkey_ptt", "btn_test_rec")
+        
+        layout.addWidget(self._page_section_header("⌨️ 設定錄音按鍵"))
+        
+        hotkey_grid = QFrame()
+        grid_layout = QVBoxLayout(hotkey_grid)
+        
+        row_ptt = QHBoxLayout()
+        self.btn_ptt = HotkeyRecorderButton(self.config.get("hotkey_ptt", "alt_r"))
+        self.btn_ptt.setFixedHeight(32)
+        # v2.9.1: Fixed width so it's not too long and doesn't overlap
+        self.btn_ptt.setFixedWidth(160)
+        
+        self.btn_test_rec = QPushButton("🚀 測試")
+        self.btn_test_rec.setToolTip("按住測試 PTT 收音")
+        self.btn_test_rec.setFixedWidth(85) # v2.9.1: Wider for label visibility
+        self.btn_test_rec.setFixedHeight(32)
+        self.btn_test_rec.setStyleSheet("background: #444; border-radius: 4px; font-size: 13px; font-weight: bold;")
         self.btn_test_rec.pressed.connect(self.test_start.emit)
         self.btn_test_rec.released.connect(self.test_stop.emit)
+        
+        lbl_ptt = QLabel("錄音按住 (PTT)")
+        lbl_ptt.setFixedWidth(120) 
+        row_ptt.addWidget(lbl_ptt)
+        row_ptt.addWidget(self.btn_ptt)
+        row_ptt.addWidget(self.btn_test_rec)
+        row_ptt.addStretch(1) # Ensure alignment
+        grid_layout.addLayout(row_ptt)
 
-        self.btn_toggle = _add_hotkey_row(1, "ㅤㅤㅤToggle 切換錄音", "hotkey_toggle", "btn_test_toggle")
-        self.btn_test_toggle.clicked.connect(self.test_toggle.emit)
-
-        self.btn_llm = _add_hotkey_row(2, "ㅤㅤㅤLLM 強啟PTT", "hotkey_llm", "btn_test_llm")
+        # v2.8.15: Re-add LLM Hotkey
+        row_llm = QHBoxLayout()
+        self.btn_llm = HotkeyRecorderButton(self.config.get("hotkey_llm", "f14"))
+        self.btn_llm.setFixedHeight(32)
+        self.btn_llm.setFixedWidth(160)
+        
+        self.btn_test_llm = QPushButton("🚀 測試")
+        self.btn_test_llm.setFixedWidth(85)
+        self.btn_test_llm.setFixedHeight(32)
+        self.btn_test_llm.setStyleSheet("background: #444; border-radius: 4px; font-size: 13px; font-weight: bold;")
         self.btn_test_llm.clicked.connect(self.test_llm.emit)
 
-        # ─ 麥克風選擇 header（橫跨全欄）─
-        mic_hdr = QHBoxLayout()
-        mic_hdr.setContentsMargins(0, 0, 0, 0)
-        mic_hdr.setSpacing(6)
-        mic_hdr_icon = ms_icon("mic", 18, s['text_secondary'])
-        mic_hdr_title = QLabel("麥克風選擇")
-        mic_hdr_title.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        mic_hdr.addWidget(mic_hdr_icon)
-        mic_hdr.addWidget(mic_hdr_title)
-        mic_hdr.addStretch()
-        row_grid.addLayout(mic_hdr, 3, 0, 1, 3)
+        lbl_llm = QLabel("潤飾模式 (LLM)")
+        lbl_llm.setFixedWidth(120)
+        row_llm.addWidget(lbl_llm)
+        row_llm.addWidget(self.btn_llm)
+        row_llm.addWidget(self.btn_test_llm)
+        row_llm.addStretch(1)
+        grid_layout.addLayout(row_llm)
+        
+        row_toggle = QHBoxLayout()
+        self.btn_toggle = HotkeyRecorderButton(self.config.get("hotkey_toggle", "f13"))
+        self.btn_toggle.setFixedHeight(32)
+        self.btn_toggle.setFixedWidth(160)
+        
+        self.btn_test_toggle = QPushButton("🚀 測試")
+        self.btn_test_toggle.setToolTip("點按測試 Toggle 收音")
+        self.btn_test_toggle.setFixedWidth(85) # v2.9.1: Wider
+        self.btn_test_toggle.setFixedHeight(32)
+        self.btn_test_toggle.setStyleSheet("background: #444; border-radius: 4px; font-size: 13px; font-weight: bold;")
+        self.btn_test_toggle.clicked.connect(self.test_toggle.emit)
 
-        # 輸入裝置列
-        mic_dev_lbl = QLabel("ㅤㅤㅤ輸入裝置")
-        mic_dev_lbl.setStyleSheet(_lbl_style)
-        self.mic_device_combo = QComboBox()
-        self.mic_device_combo.setFixedHeight(36)
-        self._last_mic_device_names = []
-        self._populate_mic_devices()
-        btn_refresh_mic = QPushButton()
-        btn_refresh_mic.setFixedSize(36, 30)
-        btn_refresh_mic.setToolTip("重新偵測麥克風裝置")
-        btn_refresh_mic.setLayout(QHBoxLayout())
-        btn_refresh_mic.layout().setContentsMargins(0, 0, 0, 0)
-        refresh_icon = ms_icon("refresh", 16, s['text_secondary'])
-        btn_refresh_mic.layout().addWidget(refresh_icon)
-        btn_refresh_mic.setStyleSheet(f"""
-            QPushButton {{ background: {s['btn_secondary_bg']}; border: none; border-radius: 8px; }}
-            QPushButton:hover {{ background: {s['selection_bg']}; }}
-        """)
-        btn_refresh_mic.clicked.connect(self._populate_mic_devices)
-        row_grid.addWidget(mic_dev_lbl, 4, 0)
-        row_grid.addWidget(self.mic_device_combo, 4, 1)
-        row_grid.addWidget(btn_refresh_mic, 4, 2, Qt.AlignmentFlag.AlignVCenter)
+        lbl_toggle = QLabel("錄音開關 (Toggle)")
+        lbl_toggle.setFixedWidth(120) 
+        row_toggle.addWidget(lbl_toggle)
+        row_toggle.addWidget(self.btn_toggle)
+        row_toggle.addWidget(self.btn_test_toggle)
+        row_toggle.addStretch(1)
+        grid_layout.addLayout(row_toggle)
+        
+        layout.addWidget(hotkey_grid)
+        
+        layout.addWidget(self._page_section_header("⚙️ 偏好設定"))
+        self.auto_paste = QCheckBox("結果自動貼上 (Paste automatically)")
+        self.auto_paste.setChecked(self.config.get("auto_paste", True))
+        layout.addWidget(self.auto_paste)
 
-        # 自動偵測插拔
-        self._mic_poll_timer = QTimer(self)
-        self._mic_poll_timer.timeout.connect(self._check_mic_devices_changed)
-        self._mic_poll_timer.start(2000)
+        self.show_floating_button = QCheckBox("顯示浮動按鈕 (Show Floating Button)")
+        self.show_floating_button.setChecked(self.config.get("show_floating_button", True))
+        layout.addWidget(self.show_floating_button)
+        
+        self.completion_sound = QCheckBox("錄音完成時播放音效 (Play sound on completion)")
+        self.completion_sound.setChecked(self.config.get("completion_sound", True))
+        layout.addWidget(self.completion_sound)
 
-        # 音量感度列
-        mic_gain_lbl = QLabel("ㅤㅤㅤ音量感度")
-        mic_gain_lbl.setStyleSheet(_lbl_style)
-        self.mic_gain_slider = QSlider(Qt.Orientation.Horizontal)
-        self.mic_gain_slider.setRange(50, 300)   # 50=×0.5，100=×1.0（不變），300=×3.0
-        self.mic_gain_slider.setValue(self.config.get("mic_gain", 100))
-        self.mic_gain_slider.setFixedHeight(36)
-        self.mic_gain_slider.setStyleSheet(f"""
-            QSlider::groove:horizontal {{
-                height: 4px; background: {s['bg_input_border']}; border-radius: 2px;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {s['text_primary']}; border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                background: {s['text_primary']}; width: 14px; height: 14px;
-                margin: -5px 0; border-radius: 7px;
-            }}
-        """)
-        _gain_init = self.config.get("mic_gain", 100)
-        self.mic_gain_val_lbl = QLabel(f"×{_gain_init / 100:.1f}")
-        self.mic_gain_val_lbl.setFixedWidth(42)
-        self.mic_gain_val_lbl.setStyleSheet(f"font-size: 12px; color: {s['text_secondary']}; background: transparent;")
-        self.mic_gain_slider.valueChanged.connect(
-            lambda v: self.mic_gain_val_lbl.setText(f"×{v / 100:.1f}")
-        )
-        self.mic_gain_auto_toggle = ToggleSwitch(checked=self.config.get("mic_gain_auto", True))
-        auto_lbl = QLabel("自動")
-        auto_lbl.setStyleSheet(f"font-size: 12px; color: {s['text_secondary']}; background: transparent;")
+        self.debug_mode = QCheckBox("啟用詳細日誌輸出 (Debug logging)")
+        self.debug_mode.setChecked(self.config.get("debug_mode", False))
+        layout.addWidget(self.debug_mode)
+       
+        self.separate_keystrike_log = QCheckBox("獨立記錄熱鍵事件 (Separate KeyStrike Log to keystrike.log)")
+        self.separate_keystrike_log.setChecked(self.config.get("separate_keystrike_log", False))
+        layout.addWidget(self.separate_keystrike_log) 
+        
+        self.debug_demo_mode = QCheckBox("情境模擬 Demo 版 (需API KEY連結雲端LLM) (Debug Scenario Demo Mode)") #咖啡版功能
+        self.debug_demo_mode.setChecked(self.config.get("is_demo", False)) #咖啡版功能
+        layout.addWidget(self.debug_demo_mode) #咖啡版功能
 
-        # 放大倍率右側：slider + 數值 + 自動 + toggle，橫跨第 1-2 欄
-        gain_right = QHBoxLayout()
-        gain_right.setContentsMargins(0, 0, 0, 0)
-        gain_right.setSpacing(10)
-        gain_right.addWidget(self.mic_gain_slider, stretch=1)
-        gain_right.addWidget(self.mic_gain_val_lbl)
-        gain_right.addWidget(auto_lbl)
-        gain_right.addWidget(self.mic_gain_auto_toggle)
-        row_grid.addWidget(mic_gain_lbl, 5, 0)
-        row_grid.addLayout(gain_right, 5, 1, 1, 2)
+        self.output_prefix = QCheckBox("顯示模式名稱前綴 (需API KEY連結雲端LLM)  (Output with Mode Prefix)") #咖啡版功能
+        self.output_prefix.setChecked(self.config.get("output_prefix", False)) #咖啡版功能
+        layout.addWidget(self.output_prefix) #咖啡版功能
 
-        hl.addLayout(row_grid)
+        self.showcase_mode = QCheckBox("LLM 展示版 (需API KEY連結雲端LLM)  (LLM Showcase Mode: [STT] + [LLM])") #咖啡版功能
+        self.showcase_mode.setChecked(self.config.get("showcase_mode", False)) #咖啡版功能
+        layout.addWidget(self.showcase_mode) #咖啡版功能
 
-        hl.addStretch()
-        top_row.addWidget(hotkey_card, stretch=3)
+        layout.addWidget(self._page_section_header("🛠️ 診斷與修復"))
+        
+        diag_grid = QGridLayout()
+        diag_grid.setContentsMargins(0, 5, 0, 5)
+        diag_grid.setSpacing(10)
 
-        # ─ 診斷與修復 ─
-        diag_card = GlassCard()
-        dl = QVBoxLayout(diag_card)
-        dl.setContentsMargins(20, 20, 20, 20)
-        dl.setSpacing(10)
+        # v2026-07-20: 麥克風測試按鈕本體邏輯（sd.rec + numpy RMS）本來就是跨平台
+        # 程式碼，未呼叫任何 macOS 專屬 API；先前 _run_mic_test() 內有一段
+        # `if platform.system() != "Darwin": 彈窗「此診斷功能目前專為 macOS 設計」`
+        # 的誤植擋板，導致這裡連按鈕都被藏起來（Windows 使用者完全看不到、也永遠
+        # 用不到一個其實能動的功能）。已移除該擋板（見 _run_mic_test 內註解與
+        # docs/DECISIONS.md），這裡同步取消 Windows 隱藏。
+        self.btn_mic_test = QPushButton("🎤 麥克風測試與診斷 (Mic Test)")
+        self.btn_mic_test.setObjectName("secondary")
+        self.btn_mic_test.clicked.connect(self._run_mic_test)
+        diag_grid.addWidget(self.btn_mic_test, 0, 0)
 
-        d_hdr = QHBoxLayout()
-        d_icon = ms_icon("build", 18, s['text_secondary'])
-        d_title = QLabel("診斷與修復")
-        d_title.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        d_hdr.addWidget(d_icon)
-        d_hdr.addWidget(d_title)
-        d_hdr.addStretch()
-        dl.addLayout(d_hdr)
+        self.btn_run_self_check = QPushButton("🔍 系統自我檢測 (Self-Check)")
+        self.btn_run_self_check.setObjectName("secondary")
+        self.btn_run_self_check.clicked.connect(self._run_self_check)
+        diag_grid.addWidget(self.btn_run_self_check, 0, 1)
 
-        def _diag_card(icon, title, desc, action):
-            dc = QPushButton()
-            dc.setStyleSheet(f"""
-                QPushButton {{
-                    background: {s['bg_input']}; border: 1px solid {s['bg_input_border']};
-                    border-radius: 10px; text-align: left; padding: 0;
-                }}
-                QPushButton:hover {{ border-color: {s['text_secondary']}; }}
-            """)
-            dc.setCursor(Qt.CursorShape.PointingHandCursor)
-            dc.setFixedHeight(56)
-            inner = QWidget(dc)
-            inner.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-            dcl = QHBoxLayout(inner)
-            dcl.setContentsMargins(12, 8, 12, 8)
-            dcl.setSpacing(12)
+        # 註：self_check.py 本身邏輯也是跨平台（下載 tiny whisper 模型做真實轉錄
+        # 測試），但這顆按鈕是否該在 Windows 顯示不在本次任務範圍內（任務只點名
+        # 麥克風測試/系統診斷 stub），維持原本的 Windows 隱藏，避免無關的範圍蔓延。
+        if platform.system() == "Windows":
+            self.btn_run_self_check.hide()
 
-            # Icon box
-            icon_box = QFrame(inner)
-            icon_box.setFixedSize(40, 40)
-            icon_box.setStyleSheet(f"""
-                background: {s['bg_card']}; border: 1px solid {s['card_border']}; border-radius: 8px;
-            """)
-            icon_layout = QHBoxLayout(icon_box)
-            icon_layout.setContentsMargins(0, 0, 0, 0)
-            icon_lbl = ms_icon(icon, 18, s['text_secondary'])
-            icon_lbl.setFixedSize(40, 40)
-            icon_layout.addWidget(icon_lbl)
-            dcl.addWidget(icon_box)
+        # Mac 主線 11-3（v2.9.11 崩潰診斷管道，docs/mac-mainline-absorption-analysis.md）
+        # 移植 + Windows 化改寫：一鍵匯出診斷包（環境資訊＋裝置清單＋日誌＋脫敏設定）
+        self.btn_export_diagnostics = QPushButton("📦 匯出診斷包 (Export Diagnostics)")
+        self.btn_export_diagnostics.setObjectName("secondary")
+        self.btn_export_diagnostics.clicked.connect(self._run_export_diagnostics)
+        diag_grid.addWidget(self.btn_export_diagnostics, 1, 0, 1, 2)  # Span 2 columns
 
-            text_v = QVBoxLayout()
-            text_v.setSpacing(1)
-            t = QLabel(title)
-            t.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-            d = QLabel(desc)
-            d.setStyleSheet(f"font-size: 10px; color: {s['text_secondary']}; background: transparent;")
-            text_v.addWidget(t)
-            text_v.addWidget(d)
-            dcl.addLayout(text_v)
-            dcl.addStretch()
+        self.btn_view_logs = QPushButton("📄 檢視詳細日誌 (View Detail Logs)")
+        self.btn_view_logs.setObjectName("secondary")
+        self.btn_view_logs.clicked.connect(self._view_debug_log)
+        diag_grid.addWidget(self.btn_view_logs, 2, 0)
 
-            # Fit inner widget to button
-            dc.resizeEvent = lambda e, w=inner, b=dc: w.setGeometry(b.rect())
-            dc.clicked.connect(action)
-            return dc, dc
+        self.btn_view_keystrike = QPushButton("📄 檢視熱鍵紀錄 (View Keys Logs)")
+        self.btn_view_keystrike.setObjectName("secondary")
+        self.btn_view_keystrike.clicked.connect(self._view_keystrike_log)
+        diag_grid.addWidget(self.btn_view_keystrike, 2, 1)
 
-        mic_dc, self.btn_mic_test = _diag_card("mic_external_on", "麥克風測試與診斷", "檢查輸入音量與取樣頻率", self._run_mic_test)
-        dl.addWidget(mic_dc)
-        chk_dc, self.btn_run_self_check = _diag_card("health_and_safety", "系統自我檢測", "分析服務可用性與 API 連接", self._run_self_check)
-        dl.addWidget(chk_dc)
-        log_dc, self.btn_view_logs = _diag_card("terminal", "檢視詳細日誌", "開啟除錯日誌主面板", self._view_debug_log)
-        dl.addWidget(log_dc)
-        key_dc, self.btn_view_keystrike = _diag_card("history", "檢視熱鍵紀錄", "排查按鍵衝突與覆載狀態", self._view_keystrike_log)
-        dl.addWidget(key_dc)
+        self.btn_open_folder = QPushButton("📂 開啟數據與模型目錄 (Open Data/Models)")
+        self.btn_open_folder.setObjectName("secondary")
+        self.btn_open_folder.clicked.connect(self._open_data_folder)
+        diag_grid.addWidget(self.btn_open_folder, 3, 0, 1, 2) # Span 2 columns
 
-        # v2.9.11: 匯出診斷包（回報崩潰用）
-        diag_dc, self.btn_export_diagnostics = _diag_card(
-            "download", "匯出診斷包",
-            "一鍵打包日誌與系統資訊到桌面 zip",
-            self._export_diagnostics,
-        )
-        dl.addWidget(diag_dc)
-
-        dl.addStretch()
-        top_row.addWidget(diag_card, stretch=2)
-        layout.addLayout(top_row)
-
-        # ── Row 2: 偏好設定 (left) + 進階 (right) ────────────
-        bot_row = QHBoxLayout()
-        bot_row.setSpacing(16)
-
-        # ─ 偏好設定 ─
-        pref_card = GlassCard()
-        pl = QVBoxLayout(pref_card)
-        pl.setContentsMargins(20, 20, 20, 20)
-        pl.setSpacing(12)
-
-        p_hdr = QHBoxLayout()
-        p_icon = ms_icon("tune", 18, s['text_secondary'])
-        p_title = QLabel("偏好設定")
-        p_title.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {s['text_primary']}; background: transparent;")
-        p_hdr.addWidget(p_icon)
-        p_hdr.addWidget(p_title)
-        p_hdr.addStretch()
-        pl.addLayout(p_hdr)
-
-        def _toggle_item(label, config_key, default):
-            item = QFrame()
-            item.setStyleSheet(f"""
-                QFrame {{
-                    background: {s['bg_input']}; border: none;
-                    border-radius: 10px;
-                }}
-            """)
-            il = QHBoxLayout(item)
-            il.setContentsMargins(14, 10, 14, 10)
-            lbl = QLabel(label)
-            lbl.setStyleSheet(f"font-size: 13px; color: {s['text_primary']}; background: transparent;")
-            toggle = ToggleSwitch(self.config.get(config_key, default))
-            il.addWidget(lbl)
-            il.addStretch()
-            il.addWidget(toggle)
-            return item, toggle
-
-        pref_grid = QGridLayout()
-        pref_grid.setSpacing(10)
-
-        ap_item, self.auto_paste = _toggle_item("結果自動貼上", "auto_paste", True)
-        fb_item, self.show_floating_button = _toggle_item("顯示浮動按鈕", "show_floating_button", True)
-        cs_item, self.completion_sound = _toggle_item("錄音完成播放音效", "completion_sound", True)
-        dm_item, self.debug_mode = _toggle_item("啟用詳細日誌輸出", "debug_mode", False)
-
-        pref_grid.addWidget(ap_item, 0, 0)
-        pref_grid.addWidget(fb_item, 0, 1)
-        pref_grid.addWidget(cs_item, 1, 0)
-        pref_grid.addWidget(dm_item, 1, 1)
-        pl.addLayout(pref_grid)
-
-        bot_row.addWidget(pref_card, stretch=3)
-
-        # ─ 咖啡版進階設定 ─
-        adv_card = GlassCard()
-        av = QVBoxLayout(adv_card)
-        av.setContentsMargins(20, 20, 20, 20)
-        av.setSpacing(12)
-
-        # Hidden skin combo (kept for save/load compatibility)
-        self.ui_skin_combo = QComboBox()
-        self.ui_skin_combo.hide()
-        for skin_key, skin_label in AVAILABLE_SKINS.items():
-            self.ui_skin_combo.addItem(skin_label, skin_key)
-        current_skin = self.config.get("ui_skin", "titanium")
-        idx = list(AVAILABLE_SKINS.keys()).index(current_skin) if current_skin in AVAILABLE_SKINS else 0
-        self.ui_skin_combo.setCurrentIndex(idx)
-        av.addWidget(self.ui_skin_combo)
-
-        adv_title = QLabel("咖啡版進階設定")
-        adv_title.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {s['text_secondary']}; background: transparent;")
-        av.addWidget(adv_title)
-
-        self.showcase_mode = QCheckBox("靈魂展示版 - 單一靈魂輸出")
-        self.showcase_mode.setChecked(self.config.get("showcase_mode", False))
-        av.addWidget(self.showcase_mode)
-
-        self.debug_demo_mode = QCheckBox("情境展示版 - 所有靈魂輸出")
-        self.debug_demo_mode.setChecked(self.config.get("is_demo", False))
-        av.addWidget(self.debug_demo_mode)
-
-        self.output_prefix = QCheckBox("顯示靈魂前綴")
-        self.output_prefix.setChecked(self.config.get("output_prefix", False))
-        av.addWidget(self.output_prefix)
-
-
-
-        av.addStretch()
-        bot_row.addWidget(adv_card, stretch=2)
-        layout.addLayout(bot_row)
-
+        layout.addLayout(diag_grid)
+        
         layout.addStretch()
         return page
     # ── 同步邏輯 (Sync Logic) ────────────────────────────────────
@@ -2401,7 +1552,8 @@ class SettingsWindow(QMainWindow):
             self._migrate_to_sync(Path(dir_path))
         
         QMessageBox.information(self, "成功", "同步路徑已設定完成！請重啟應用程式以生效。")
-        self.sync_status_lbl.setText(dir_path)
+        self.sync_status_lbl.setText(f"✅ 已同步至：{dir_path}")
+        self.sync_status_lbl.setStyleSheet("color: #00e676; font-weight: bold;")
 
     def _migrate_to_sync(self, target_base: Path):
         """將本地資料搬移至同步目錄。"""
@@ -2434,13 +1586,13 @@ class SettingsWindow(QMainWindow):
         if SYNC_POINTER_PATH.exists():
             SYNC_POINTER_PATH.unlink()
             QMessageBox.information(self, "重設", "已取消同步，改回使用本地存儲。請重啟程式。")
-            self.sync_status_lbl.setText("本地存儲 (Local Only)")
+            self.sync_status_lbl.setText("目前狀態：本地存儲 (Local Only)")
+            self.sync_status_lbl.setStyleSheet("color: #aaa; font-weight: bold;")
 
 
     def _page_section_header(self, text):
-        s = self.skin
         l = QLabel(text)
-        l.setStyleSheet(f"font-weight: bold; font-size: 16px; color: {s['text_primary']}; background: transparent; margin-top: 10px; margin-bottom: 5px;")
+        l.setStyleSheet("font-weight: bold; font-size: 16px; color: #7c4dff; margin-top: 10px; margin-bottom: 5px;")
         return l
 
     def _add_grid_row(self, layout, label_text, widget):
@@ -2468,8 +1620,23 @@ class SettingsWindow(QMainWindow):
                 content = raw_bytes.decode("utf-8", errors="replace")
             self.soul_prompt.setPlainText(content)
         
-        # 1. 語音辨識（MLX 固定，模型由卡片選取）
-        self._select_model_card(self.config.get("whisper_model", "medium"))
+        # 1. 語音辨識
+        stt_val = self.config.get("stt_engine", "local_whisper")
+        stt_idx = self.stt_engine.findData(stt_val)
+        if stt_idx >= 0: self.stt_engine.setCurrentIndex(stt_idx)
+        else: self.stt_engine.setCurrentText(stt_val)
+            
+        m_val = self.config.get("whisper_model", "medium")
+        m_idx = self.whisper_model.findData(m_val)
+        if m_idx >= 0: self.whisper_model.setCurrentIndex(m_idx)
+        else: self.whisper_model.setCurrentText(m_val)
+        
+        self.groq_key.setText(self.config.get("groq_api_key", ""))
+
+        # 麥克風裝置 / 增益 / AGC
+        self._populate_mic_devices()
+        self.mic_gain_slider.setValue(self.config.get("mic_gain", 100))
+        self.mic_gain_auto_cb.setChecked(self.config.get("mic_gain_auto", True))
 
         # 2. 語言與 AI 配置
         lang_val = self.config.get("language", "zh")
@@ -2478,12 +1645,9 @@ class SettingsWindow(QMainWindow):
         else: self.language.setCurrentText(lang_val)
         
         self.llm_enabled.setChecked(self.config.get("llm_enabled", False))
-        llm_eng_idx = self.llm_engine.findData(self.config.get("llm_engine", "ollama"))
-        if llm_eng_idx >= 0: self.llm_engine.setCurrentIndex(llm_eng_idx)
-        self._on_llm_provider_changed()
-        llm_mode_idx = self.llm_mode.findData(self.config.get("llm_mode", "replace"))
-        if llm_mode_idx >= 0: self.llm_mode.setCurrentIndex(llm_mode_idx)
-
+        self.llm_engine.setCurrentText(self.config.get("llm_engine", "ollama"))
+        self.llm_mode.setCurrentText(self.config.get("llm_mode", "replace"))
+        
         # API Keys
         self.openai_key.setText(self.config.get("openai_api_key", ""))
         self.anthropic_key.setText(self.config.get("anthropic_api_key", ""))
@@ -2491,7 +1655,8 @@ class SettingsWindow(QMainWindow):
         self.openrouter_key.setText(self.config.get("openrouter_api_key", ""))
         self.qwen_key.setText(self.config.get("qwen_api_key", ""))
         self.deepseek_key.setText(self.config.get("deepseek_api_key", ""))
-        self.minimax_key.setText(self.config.get("minimax_api_key", ""))
+        
+        self.magic_trigger.setText(self.config.get("magic_trigger", "嘿 VoiceType"))
         
         # 3. 系統設定 (Critical: fix UI overwriting disk with stale state)
         self.btn_ptt.key_str = self.config.get("hotkey_ptt", "alt_r")
@@ -2502,14 +1667,11 @@ class SettingsWindow(QMainWindow):
         self.show_floating_button.setChecked(self.config.get("show_floating_button", True))
         self.completion_sound.setChecked(self.config.get("completion_sound", True))
         self.debug_mode.setChecked(self.config.get("debug_mode", False))
-        self.memory_inject_toggle.setChecked(self.config.get("memory_enabled", True))
-        # 麥克風設定
-        self._populate_mic_devices()
-        self.mic_gain_slider.setValue(self.config.get("mic_gain", 100))
-        self.mic_gain_auto_toggle.setChecked(self.config.get("mic_gain_auto", True))
         self.debug_demo_mode.setChecked(self.config.get("is_demo", False))
         self.output_prefix.setChecked(self.config.get("output_prefix", False))
+        self.separate_keystrike_log.setChecked(self.config.get("separate_keystrike_log", False))
         self.showcase_mode.setChecked(self.config.get("showcase_mode", False))
+        self.memory_inject_cb.setChecked(self.config.get("memory_enabled", False))
 
         # Refreshes
         self._refresh_vocab()
@@ -2524,69 +1686,39 @@ class SettingsWindow(QMainWindow):
         self._load_data()
 
     def _update_dashboard_status(self):
-        s = self.skin
-        llm_on = self.config.get("llm_enabled", False)
-        self.lbl_status_ai.setText("已開啟" if llm_on else "已關閉")
-        self.lbl_status_ai.setStyleSheet(
-            f"font-size: 12px; font-weight: bold; color: {s['success'] if llm_on else s['text_secondary']}; background: transparent;"
-        )
+        ai = "已開啟" if self.config.get("llm_enabled") else "已關閉"
+        self.lbl_status_ai.setText(f"AI 潤飾: {ai}")
+        self.lbl_status_ai.setStyleSheet(f"color: {'#7c4dff' if ai == '已開啟' else '#666'}; font-weight: bold; font-size: 16px;")
+        
+        eng = self.config.get("stt_engine", "local_whisper")
+        self.lbl_status_stt.setText(f"引擎: {eng.upper()}")
 
-        eng = self.config.get("stt_engine", "mlx_whisper")
-        self.lbl_status_stt.setText(eng.upper())
+        auto_on = self.config.get("auto_trigger_enabled", False)
+        self.lbl_status_auto.setText(f"全時模式: {'開 (免按鍵)' if auto_on else '關'}")
+        self.lbl_status_auto.setStyleSheet(
+            f"color: {'#00e676' if auto_on else '#888'}; font-size: 13px;"
+            + ("font-weight: bold;" if auto_on else ""))
 
         # 檢查權限與模型狀態
         self._check_all_permissions()
         self._check_local_models()
 
-    def update_download_progress(self, status: str, pct: int = -1, done: bool = False):
-        """由 main.py 呼叫，更新模型下載 / 預熱進度卡片。
-        pct = 0-100 實際進度, -1 = 不確定（indeterminate）, done=True 完成。
-        """
+    def update_download_progress(self, status: str, value: int = -1, done: bool = False):
+        """由 main.py 呼叫，更新模型下載進度卡片。"""
         try:
             if done:
-                self.download_progress.setRange(0, 100)
-                self.download_progress.setValue(100)
-                self.lbl_download_pct.setText("100%")
-                QTimer.singleShot(600, self._on_warmup_done)
-                return
-
-            self.download_card.setVisible(True)
-            self.lbl_download_status.setText(status)
-
-            if pct < 0:
-                # 不確定進度 → Qt 原生 indeterminate 動畫
-                self.download_progress.setRange(0, 0)
-                self.lbl_download_pct.setText("⏳")
+                self.download_card.setVisible(False)
+                self._check_local_models()  # 刷新模型綠燈
             else:
-                self.download_progress.setRange(0, 100)
-                self.download_progress.setValue(pct)
-                self.lbl_download_pct.setText(f"{pct}%")
+                self.download_card.setVisible(True)
+                self.lbl_download_status.setText(status)
+                if value >= 0:
+                    self.download_progress.setRange(0, 100)
+                    self.download_progress.setValue(value)
+                else:
+                    self.download_progress.setRange(0, 0) # Indeterminate
         except Exception:
             pass
-
-    def _on_warmup_done(self):
-        """進度條完成後：隱藏 download_card，顯示麥克風資訊卡。"""
-        try:
-            self.download_card.setVisible(False)
-            self._check_local_models()
-            self._update_mic_info_card()
-            self.mic_info_card.setVisible(True)
-        except Exception:
-            pass
-
-    def _update_mic_info_card(self):
-        """更新麥克風資訊卡顯示的裝置名稱。"""
-        try:
-            device_idx = self.config.get("mic_device")
-            if device_idx is None:
-                name = "系統預設 (System Default)"
-            else:
-                import sounddevice as sd
-                dev = sd.query_devices(device_idx)
-                name = dev['name'] if dev else f"裝置 #{device_idx}"
-            self.lbl_mic_current.setText(name)
-        except Exception:
-            self.lbl_mic_current.setText("系統預設 (System Default)")
 
     def _check_all_permissions(self):
         import logging
@@ -2600,18 +1732,7 @@ class SettingsWindow(QMainWindow):
             log.info("[PERM] Windows: All permissions auto-granted.")
             return
 
-        from utils.permissions import check_accessibility, check_microphone
-        
-        # 1. Accessibility (also covers Input Monitoring for pynput)
-        trusted = check_accessibility()
-        self.light_acc.set_status(trusted)
-        self.light_input.set_status(trusted)
-        log.info(f"[PERM] Accessibility: {trusted}")
-
-        # 2. Microphone
-        mic_ok = check_microphone()
-        self.light_mic.set_status(mic_ok)
-        log.info(f"[PERM] Microphone Authorized: {mic_ok}")
+        log.info("[PERM] Windows: All permissions auto-granted.")
 
     def _check_local_models(self):
         """檢查 Faster-Whisper 模型是否已下載到本機快取"""
@@ -2621,26 +1742,22 @@ class SettingsWindow(QMainWindow):
 
     def _is_model_present(self, size: str) -> bool:
         try:
-            cache_path = Path.home() / ".cache" / "huggingface" / "hub"
-            if not cache_path.exists():
-                return False
-            
-            # support both faster-whisper and mlx-community naming structures
-            # faster-whisper: models--Systran--faster-whisper-<size>
-            # mlx-community: models--mlx-community--whisper-<size>-mlx (where large is large-v3-mlx)
-            
-            mlx_size = "large-v3" if size == "large" else size
-            prefixes = [
-                f"models--Systran--faster-whisper-{size}",
-                f"models--mlx-community--whisper-{mlx_size}-mlx"
+            from paths import APP_DATA_DIR
+            # 先查 App 實際的 download_root（%APPDATA%/VoiceType4TW/whisper_models），
+            # 再退回 HuggingFace 預設快取（手動裝過的人可能放這）
+            candidates = [
+                APP_DATA_DIR / "whisper_models",
+                Path.home() / ".cache" / "huggingface" / "hub",
             ]
-            
-            for p in cache_path.iterdir():
-                if p.is_dir() and any(p.name.startswith(pref) for pref in prefixes):
-                    # 檢查是否有 snapshot
-                    snap = p / "snapshots"
-                    if snap.exists() and any(snap.iterdir()):
-                        return True
+            prefix = f"models--Systran--faster-whisper-{size}"
+            for cache_path in candidates:
+                if not cache_path.exists():
+                    continue
+                for p in cache_path.iterdir():
+                    if p.is_dir() and p.name.startswith(prefix):
+                        snap = p / "snapshots"
+                        if snap.exists() and any(snap.iterdir()):
+                            return True
             return False
         except Exception:
             return False
@@ -2664,6 +1781,41 @@ class SettingsWindow(QMainWindow):
                 label = f"{m.upper():<8} [{size}] - {desc}{status}"
                 self.whisper_model.addItem(label, m) # m 為內部代號，例如 "medium"
 
+    def _check_mic_devices_changed(self):
+        """2 秒輪詢：裝置清單（名稱序列）若變動就重新整理下拉選單（插拔偵測）。"""
+        try:
+            import sounddevice as sd
+            devices = sd.query_devices()
+            names = [d["name"] for d in devices if d.get("max_input_channels", 0) > 0]
+        except Exception:
+            names = []
+        if names != self._last_mic_device_names:
+            self._populate_mic_devices()
+
+    def _populate_mic_devices(self):
+        """列舉 sounddevice 輸入裝置，保留目前選取項（或 config 裡的值）。"""
+        prev_selection = self.mic_device_combo.currentData() if self.mic_device_combo.count() else None
+        self.mic_device_combo.clear()
+        self.mic_device_combo.addItem("系統預設 (System Default)", None)
+        names = []
+        try:
+            import sounddevice as sd
+            devices = sd.query_devices()
+            for i, dev in enumerate(devices):
+                if dev.get("max_input_channels", 0) > 0:
+                    names.append(dev["name"])
+                    self.mic_device_combo.addItem(f"{dev['name']}  (#{i})", i)
+        except Exception as e:
+            log.warning(f"[settings] 無法列舉麥克風裝置: {e}")
+        self._last_mic_device_names = names
+
+        restore = prev_selection if prev_selection is not None else self.config.get("mic_device")
+        if restore is not None:
+            idx = self.mic_device_combo.findData(restore)
+            if idx >= 0:
+                self.mic_device_combo.setCurrentIndex(idx)
+            # 裝置不存在了（拔線）：保持索引 0（系統預設），呼應 recorder 端的 fallback
+
     def _refresh_vocab(self):
         self.vocab_list.clear()
         try:
@@ -2674,6 +1826,7 @@ class SettingsWindow(QMainWindow):
 
     def _refresh_learned_vocab(self):
         self.learned_list.clear()
+        self.dashboard_vocab.clear()
         try:
             from vocab.manager import load_all_learned_words, load_auto_memory
             memory = load_auto_memory()
@@ -2681,6 +1834,9 @@ class SettingsWindow(QMainWindow):
             for word in words:
                 count = memory.get(word, 0)
                 self.learned_list.addItem(f"{word} ({count})")
+            # Dashboard only show top 5
+            for word in words[:5]:
+                self.dashboard_vocab.addItem(word)
         except: pass
 
     def _promote_vocab(self):
@@ -2711,20 +1867,41 @@ class SettingsWindow(QMainWindow):
         try:
             from memory.manager import load_memory
             memory = load_memory()
-            entries = memory.get("entries", [])
             summary = memory.get("summary", "")
-
-            # 摘要顯示
-            self.mem_summary_lbl.setText(summary if summary else "（尚無摘要，壓縮後會在此顯示）")
-
-            # 計數標籤
-            self.lbl_mem_count.setText(f"{len(entries)} 筆原始記錄")
-
-            for entry in reversed(entries):
-                ts = entry.get("ts", "")[:16]
+            if summary:
+                item = QTreeWidgetItem(["[摘要]", summary[:60] + "..."])
+                item.setData(0, Qt.ItemDataRole.UserRole, "__summary__")
+                self.mem_tree.addTopLevelItem(item)
+            for entry in reversed(memory.get("entries", [])):
+                ts = entry.get("ts", "")
                 text = (entry.get("llm") or entry.get("stt", ""))[:40]
-                self.mem_tree.addTopLevelItem(QTreeWidgetItem([ts, text + ("..." if len(entry.get("llm") or entry.get("stt", "")) > 40 else "")]))
+                item = QTreeWidgetItem([ts[:16], text + "..."])
+                item.setData(0, Qt.ItemDataRole.UserRole, ts)  # 完整 ts 作為刪除 key
+                self.mem_tree.addTopLevelItem(item)
         except: pass
+
+    def _delete_memory_entry(self):
+        item = self.mem_tree.currentItem()
+        if not item:
+            QMessageBox.information(self, "嘴炮輸入法", "請先在長期記憶清單中選取一筆記錄。")
+            return
+        key = item.data(0, Qt.ItemDataRole.UserRole)
+        if key == "__summary__":
+            reply = QMessageBox.question(
+                self, "確認刪除", "確定要清除長期記憶摘要嗎？（歸檔備份不受影響）",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                from memory.manager import clear_summary
+                clear_summary()
+                self._refresh_memory()
+            return
+        reply = QMessageBox.question(
+            self, "確認刪除", f"確定要刪除「{item.text(1)}」這筆記憶嗎？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            from memory.manager import delete_entry
+            delete_entry(key)
+            self._refresh_memory()
 
     def _purge_memory(self):
         from memory.manager import load_memory
@@ -2734,8 +1911,7 @@ class SettingsWindow(QMainWindow):
             return
         reply = QMessageBox.question(
             self, "確認壓縮記憶",
-            f"將 {count} 筆原始記錄壓縮為摘要，並清除原始條目。\n"
-            f"原始資料會備份至 archive 目錄，此操作不可復原。\n\n確定執行？",
+            f"將 {count} 筆原始記錄壓縮為摘要，原始資料將歸檔保留。確定？",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel
         )
         if reply != QMessageBox.StandardButton.Yes:
@@ -2753,45 +1929,31 @@ class SettingsWindow(QMainWindow):
         try:
             from stats.tracker import get_summary
             s = get_summary()
-            today_sessions = str(s['today']['sessions'])
-            today_chars_txt = f"辨識約 {s['today']['chars']} 字"
-
-            # Dashboard labels
-            self.lbl_today_count.setText(today_sessions)
-            self.lbl_today_chars.setText(today_chars_txt)
-
+            self.lbl_today_count.setText(f"{s['today']['sessions']} 次錄音")
+            self.lbl_today_chars.setText(f"錄製約 {s['today']['chars']} 字")
+            
             # 計算省下時間 (以一般人打字速度 40字/分 計算)
             total_chars = s['total']['chars']
             saved_mins = total_chars / 40.0
-            saved_txt = f"{saved_mins:.1f}" if saved_mins < 60 else f"{saved_mins/60.0:.1f}"
-            total_desc = f"共辨識 {total_chars} 字"
-
-            self.lbl_time_saved.setText(saved_txt)
-            self.lbl_total_chars_desc.setText(total_desc)
-
-            # Stats page labels (separate attributes to avoid overwrite)
-            if hasattr(self, "lbl_stats_today_count"):
-                self.lbl_stats_today_count.setText(today_sessions)
-            if hasattr(self, "lbl_stats_today_chars"):
-                self.lbl_stats_today_chars.setText(today_chars_txt)
-            if hasattr(self, "lbl_stats_time_saved"):
-                self.lbl_stats_time_saved.setText(saved_txt)
-            if hasattr(self, "lbl_stats_total_chars"):
-                self.lbl_stats_total_chars.setText(total_desc)
-
+            if saved_mins < 60:
+                self.lbl_time_saved.setText(f"{saved_mins:.1f} 分鐘")
+            else:
+                self.lbl_time_saved.setText(f"{saved_mins/60.0:.1f} 小時")
+            self.lbl_total_chars_desc.setText(f"累計辨識 {total_chars} 字")
+            
             def format_saved(chars):
                 mins = chars / 40.0
                 if mins < 60: return f"{mins:.1f}m"
                 return f"{mins/60.0:.1f}h"
 
             self.stats_tree.addTopLevelItem(QTreeWidgetItem([
-                "本日 (Today)", str(s["today"]["sessions"]), f"{s['today']['duration']}s", str(s["today"]["chars"]), format_saved(s["today"]["chars"])
+                "今日", str(s["today"]["sessions"]), f"{s['today']['duration']}s", str(s["today"]["chars"]), format_saved(s["today"]["chars"])
             ]))
             self.stats_tree.addTopLevelItem(QTreeWidgetItem([
-                "本週 (This Week)", str(s["week"]["sessions"]), f"{s['week']['duration']}s", str(s["week"]["chars"]), format_saved(s["week"]["chars"])
+                "本週", str(s["week"]["sessions"]), f"{s['week']['duration']}s", str(s["week"]["chars"]), format_saved(s["week"]["chars"])
             ]))
             self.stats_tree.addTopLevelItem(QTreeWidgetItem([
-                "累計 (Cumulative)", str(s["total"]["sessions"]), f"{s['total']['duration']}s", str(s["total"]["chars"]), format_saved(s["total"]["chars"])
+                "累積", str(s["total"]["sessions"]), f"{s['total']['duration']}s", str(s["total"]["chars"]), format_saved(s["total"]["chars"])
             ]))
         except: pass
 
@@ -2803,19 +1965,6 @@ class SettingsWindow(QMainWindow):
         self.vocab_input.clear()
         self._refresh_vocab()
 
-    def _add_vocab_dialog(self):
-        from PyQt6.QtWidgets import QInputDialog
-        word, ok = QInputDialog.getText(self, "新增詞彙", "請輸入新詞彙：")
-        if ok and word.strip():
-            from vocab.manager import add_custom_word
-            add_custom_word(word.strip())
-            self._refresh_vocab()
-
-    def _search_vocab(self, text: str):
-        for i in range(self.vocab_list.count()):
-            item = self.vocab_list.item(i)
-            item.setHidden(text.lower() not in item.text().lower())
-
     def _del_vocab(self):
         item = self.vocab_list.currentItem()
         if not item: return
@@ -2824,44 +1973,38 @@ class SettingsWindow(QMainWindow):
         self._refresh_vocab()
 
     def _save_action(self):
-        self.config["stt_engine"] = "mlx_whisper"
-        # whisper_model 由 _select_model_card() 即時寫入 self.config，這裡只確保同步
+        self.config["stt_engine"] = self.stt_engine.currentData() or self.stt_engine.currentText()
+        # 使用 currentData 取得內部代號如 "medium" 而非顯示文字
+        self.config["whisper_model"] = self.whisper_model.currentData() or self.whisper_model.currentText()
+        self.config["groq_api_key"] = self.groq_key.text().strip()
+        self.config["mic_device"] = self.mic_device_combo.currentData()
+        self.config["mic_gain"] = self.mic_gain_slider.value()
+        self.config["mic_gain_auto"] = self.mic_gain_auto_cb.isChecked()
         self.config["language"] = self.language.currentData() or self.language.currentText()
         self.config["llm_enabled"] = self.llm_enabled.isChecked()
-        llm_eng = self.llm_engine.currentData() or self.llm_engine.currentText()
-        self.config["llm_engine"] = llm_eng
-        self.config["llm_mode"] = self.llm_mode.currentData() or self.llm_mode.currentText()
-        if llm_eng:
-            self.config[f"{llm_eng}_model"] = self.llm_model_combo.currentText().strip()
-        if llm_eng in LOCAL_URL_ENGINES:
-            url = self.llm_base_url.text().strip()
-            if url:
-                self.config[f"{llm_eng}_base_url"] = url
+        self.config["llm_engine"] = self.llm_engine.currentText()
+        self.config["llm_mode"] = self.llm_mode.currentText()
         self.config["openai_api_key"] = self.openai_key.text().strip()
         self.config["anthropic_api_key"] = self.anthropic_key.text().strip()
         self.config["gemini_api_key"] = self.gemini_key.text().strip()
         self.config["openrouter_api_key"] = self.openrouter_key.text().strip()
         self.config["qwen_api_key"] = self.qwen_key.text().strip()
         self.config["deepseek_api_key"] = self.deepseek_key.text().strip()
-        self.config["minimax_api_key"] = self.minimax_key.text().strip()
+        self.config["magic_trigger"] = self.magic_trigger.text().strip() or "嘿 VoiceType"
         self.config["hotkey_ptt"] = self.btn_ptt.key_str
         self.config["hotkey_toggle"] = self.btn_toggle.key_str
         self.config["hotkey_llm"] = self.btn_llm.key_str
-        self.config["ui_skin"] = self.ui_skin_combo.currentData() or "titanium"
         
         log.info(f"[save] Writing UI hotkeys to config: PTT={self.config['hotkey_ptt']}, Toggle={self.config['hotkey_toggle']}, LLM={self.config['hotkey_llm']}")
         self.config["auto_paste"] = self.auto_paste.isChecked()
         self.config["completion_sound"] = self.completion_sound.isChecked()
         self.config["debug_mode"] = self.debug_mode.isChecked()
-        self.config["separate_keystrike_log"] = self.debug_mode.isChecked()  # merged into debug toggle
-        self.config["memory_enabled"] = self.memory_inject_toggle.isChecked()
-        self.config["is_demo"] = self.debug_demo_mode.isChecked()
+        self.config["is_demo"] = self.debug_demo_mode.isChecked() # Match key used in main.py
         self.config["output_prefix"] = self.output_prefix.isChecked()
-        self.config["showcase_mode"] = self.showcase_mode.isChecked()
+        self.config["separate_keystrike_log"] = self.separate_keystrike_log.isChecked()
         self.config["show_floating_button"] = self.show_floating_button.isChecked()
-        self.config["mic_device"] = self.mic_device_combo.currentData()
-        self.config["mic_gain"] = self.mic_gain_slider.value()
-        self.config["mic_gain_auto"] = self.mic_gain_auto_toggle.isChecked()
+        self.config["showcase_mode"] = self.showcase_mode.isChecked()
+        self.config["memory_enabled"] = self.memory_inject_cb.isChecked()
 
         try:
             SOUL_BASE_PATH.write_text(self.soul_prompt.toPlainText().strip(), encoding="utf-8")
@@ -2886,6 +2029,30 @@ class SettingsWindow(QMainWindow):
                 subprocess.Popen([sys.executable, script_path])
         else:
             QMessageBox.warning(self, "錯誤", f"找不到檢測程式：{script_path}")
+
+    def _run_export_diagnostics(self):
+        """Mac 主線 11-3（v2.9.11 崩潰診斷管道）移植＋Windows 化：一鍵匯出診斷包
+        （環境資訊＋音訊裝置清單＋debug.log/keystrike.log/main_crash.log 尾段＋
+        脫敏設定摘要）到桌面 zip，方便回報問題。實際邏輯在 utils/diagnostics.py。"""
+        from paths import APP_DATA_DIR
+        from utils.diagnostics import export_diagnostic_bundle
+
+        try:
+            zip_path = export_diagnostic_bundle(APP_DATA_DIR, self.config)
+        except Exception as e:
+            QMessageBox.critical(self, "匯出失敗", f"匯出診斷包時發生錯誤：{e}")
+            return
+
+        if zip_path is None:
+            QMessageBox.critical(self, "匯出失敗", "無法產生診斷包，請查看 debug.log 了解詳情。")
+            return
+
+        QMessageBox.information(
+            self, "匯出成功",
+            f"診斷包已匯出至：\n{zip_path}\n\n"
+            "內含環境資訊、麥克風裝置清單、日誌片段與已去除 API Key 的設定摘要，"
+            "可直接提供給支援人員協助排查問題。"
+        )
 
     def _view_debug_log(self):
         from paths import APP_DATA_DIR
@@ -2912,79 +2079,32 @@ class SettingsWindow(QMainWindow):
         else:
             QMessageBox.information(self, "資訊", f"熱鍵日誌檔案尚未建立：\n{KEYSTRIKE_LOG_PATH}")
 
-    def _export_diagnostics(self):
-        """v2.9.11: 一鍵匯出診斷包到桌面（含 debug.log / crash reports / 環境資訊）。"""
+    def _open_data_folder(self):
         from paths import APP_DATA_DIR
-        from utils.diagnostics import export_diagnostic_bundle
-        try:
-            zip_path = export_diagnostic_bundle(APP_DATA_DIR, self.config)
-            if zip_path and zip_path.exists():
-                QMessageBox.information(
-                    self, "診斷包已匯出",
-                    f"已儲存至桌面：\n{zip_path.name}\n\n"
-                    f"請將此 zip 檔傳給開發者協助排查問題。\n\n"
-                    f"（Finder 已自動反白顯示此檔）"
-                )
+        if APP_DATA_DIR.exists():
+            import os, platform
+            if platform.system() == "Windows":
+                os.startfile(str(APP_DATA_DIR))
             else:
-                QMessageBox.warning(self, "匯出失敗", "診斷包建立失敗，請查看 debug.log。")
-        except Exception as e:
-            import traceback
-            QMessageBox.critical(
-                self, "匯出錯誤",
-                f"匯出診斷包時發生錯誤：\n{e}\n\n{traceback.format_exc()}"
-            )
+                import subprocess
+                subprocess.run(["open", str(APP_DATA_DIR)])
+        else:
+            QMessageBox.information(self, "資訊", f"數據目錄尚未建立：\n{APP_DATA_DIR}")
 
     def run(self):
         self.show()
 
-    def _get_current_mic_names(self):
-        try:
-            import sounddevice as sd
-            devices = sd.query_devices()
-            return [dev['name'] for dev in devices if dev['max_input_channels'] > 0]
-        except Exception:
-            return []
-
-    def _check_mic_devices_changed(self):
-        current = self._get_current_mic_names()
-        if current != self._last_mic_device_names:
-            self._populate_mic_devices()
-
-    def _populate_mic_devices(self):
-        prev_selection = self.mic_device_combo.currentData()
-        self.mic_device_combo.clear()
-        self.mic_device_combo.addItem("系統預設 (System Default)", None)
-        try:
-            import sounddevice as sd
-            devices = sd.query_devices()
-            names = []
-            for i, dev in enumerate(devices):
-                if dev['max_input_channels'] > 0:
-                    names.append(dev['name'])
-                    self.mic_device_combo.addItem(f"{dev['name']}  (#{i})", i)
-            self._last_mic_device_names = names
-        except Exception as e:
-            log.error(f"[mic] Failed to enumerate devices: {e}")
-            self._last_mic_device_names = []
-        # 還原上次的選擇（或從 config 讀取）
-        restore = prev_selection if prev_selection is not None else self.config.get("mic_device")
-        if restore is not None:
-            idx = self.mic_device_combo.findData(restore)
-            if idx >= 0:
-                self.mic_device_combo.setCurrentIndex(idx)
-
     def _run_mic_test(self):
+        # 2026-07-20：移除「非 macOS 就拒絕」的誤植擋板。以下測試邏輯
+        # （sd.rec + numpy RMS）本來就不含任何 macOS 專屬 API，下面的錯誤訊息
+        # 原本就已經是針對 Windows 隱私權設定寫的（見 energy < 1e-7 分支），
+        # 擋板本身才是不一致的地方。詳見 docs/DECISIONS.md 2026-07-20 條目。
         from PyQt6.QtWidgets import QMessageBox, QProgressDialog
         import sounddevice as sd
         import numpy as np
-        import platform
         import time
 
-        if platform.system() != "Darwin":
-            QMessageBox.information(self, "系統診斷", "此診斷功能目前專為 macOS 設計。")
-            return
-
-        reply = QMessageBox.question(self, "麥克風測試", 
+        reply = QMessageBox.question(self, "麥克風測試",
                                    "即將開始 3 秒鐘的錄音測試，請對著麥克風說話。\n\n準備好了嗎？",
                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
@@ -3000,10 +2120,8 @@ class SettingsWindow(QMainWindow):
         fs = 16000
         duration = 3.0
         
-        mic_dev = self.mic_device_combo.currentData()
-        dev_name = self.mic_device_combo.currentText()
         try:
-            recording = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='float32', device=mic_dev)
+            recording = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='float32')
             
             for i in range(3):
                 progress.setValue(i)
@@ -3017,24 +2135,24 @@ class SettingsWindow(QMainWindow):
             energy = np.sqrt(np.mean(recording**2))
             
             if energy < 1e-7:
-                QMessageBox.critical(self, "測試失敗", 
-                    "偵測到【完全靜音】(Silence)。\n\n這通常代表 macOS TCC 權限異常，請嘗試在終端機執行：\ntccutil reset Microphone\n然後重啟 App。")
+                QMessageBox.critical(self, "測試失敗",
+                    "偵測到【完全靜音】(Silence)。\n\n請至 Windows 設定 → 隱私權 → 麥克風，確認已授權本程式存取麥克風。")
             elif energy < 1e-3:
                 QMessageBox.warning(self, "測試警告", 
                     f"音訊能源過低 ({energy:.6f})。\n\n請檢查系統輸入音量設定。")
             else:
-                QMessageBox.information(self, "測試成功",
-                    f"成功接收音訊資料！\n裝置：{dev_name}\n能源強度: {energy:.6f}\n您的麥克風運作正常。")
+                QMessageBox.information(self, "測試成功", 
+                    f"成功接收音訊資料！\n能源強度: {energy:.6f}\n您的麥克風運作正常。")
                 
         except Exception as e:
             if 'progress' in locals(): progress.close()
             QMessageBox.critical(self, "錯誤", f"錄音測試失敗: {str(e)}")
 
 def has_api_key(config: dict) -> bool:
-    if not config.get("llm_enabled") or config.get("llm_engine") == "ollama":
+    stt = config.get("stt_engine", "local_whisper")
+    if stt == "local_whisper" and (not config.get("llm_enabled") or config.get("llm_engine") == "ollama"):
         return True
-    for k in ["openai_api_key", "anthropic_api_key", "gemini_api_key",
-              "openrouter_api_key", "qwen_api_key", "deepseek_api_key", "minimax_api_key"]:
+    for k in ["groq_api_key", "openai_api_key", "openrouter_api_key"]:
         if config.get(k): return True
     return False
 

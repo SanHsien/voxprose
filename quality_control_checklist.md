@@ -1,6 +1,6 @@
 # VoiceType4TW 軟體品質管控流程 (QC Checklist)
 
-本清單用於每次發布新版本前，確保核心功能在 Windows/macOS 上的穩定性。
+本清單用於每次發布新版本前，確保核心功能在 Windows 上的穩定性。（本 repo 為 Windows 專用版）
 
 ## 1. 啟動與初始化 (Startup)
 - [ ] **模型預載**: 啟動時是否正確顯示「載入中」指示器？
@@ -29,5 +29,6 @@
 - [ ] **長時間運行**: 背景待機 1 小時後，熱鍵功能是否依然靈敏？
 
 ## 6. 打包與部署 (Release)
-- [ ] **PyInstaller/py2app**: 打包後的 .exe 或 .app 是否具備正確的圖示與版本號？
-- [ ] **路徑檢查**: 資料是否正確寫入 `%APPDATA%` 或 `Application Support` 而非唯讀的安裝目錄？
+- [ ] **Starter EXE**: `setup_win.bat` 是否成功編譯 `VoiceType4TW.exe`？桌面捷徑是否指向 EXE 且圖示正確？
+- [ ] **乾淨安裝**: 刪除 `venv`/`.runtime` 後執行 `setup_win.bat` 全流程是否通過（Python 偵測、CUDA 條件安裝、模型下載）？
+- [ ] **路徑檢查**: 資料是否正確寫入 `%APPDATA%\VoiceType4TW` 而非唯讀的安裝目錄？

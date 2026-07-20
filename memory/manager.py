@@ -130,6 +130,25 @@ def clear_memory():
     save_memory({"entries": [], "summary": "", "last_archive": ""})
 
 
+def delete_entry(ts: str) -> bool:
+    """刪除指定時間戳的單筆記憶。回傳是否有刪到。"""
+    memory = load_memory()
+    entries = memory.get("entries", [])
+    remaining = [e for e in entries if e.get("ts") != ts]
+    if len(remaining) == len(entries):
+        return False
+    memory["entries"] = remaining
+    save_memory(memory)
+    return True
+
+
+def clear_summary():
+    """清除長期記憶摘要（entries 與歸檔不受影響）"""
+    memory = load_memory()
+    memory["summary"] = ""
+    save_memory(memory)
+
+
 def _generate_digest(entries: list, old_summary: str = "") -> str:
     """
     從一組 entries 產生緊湊的文字摘要，無需 LLM。
@@ -152,7 +171,7 @@ def _generate_digest(entries: list, old_summary: str = "") -> str:
             part = part.strip()
             if 5 <= len(part) <= 35:
                 sentences.append(part)
-    representative = list(dict.fromkeys(sentences))  # deduplicate
+    representative = list(dict.fromkeys(sentences))
     representative = sorted(representative, key=len)[:5]
 
     date_start = entries[0].get("ts", "")[:10] if entries else ""
@@ -167,7 +186,6 @@ def _generate_digest(entries: list, old_summary: str = "") -> str:
         parts.append("代表語句：" + "；".join(representative))
 
     new_digest = "\n".join(parts)
-    # 保留舊摘要（追加在後，避免歷史流失）
     if old_summary:
         return old_summary + "\n\n" + new_digest
     return new_digest
@@ -189,8 +207,7 @@ def purge_and_summarize() -> int:
     week_str = datetime.now().strftime("%Y-W%W")
     archive_path = ARCHIVE_DIR / f"memory_{week_str}_purge.json"
     with open(archive_path, "w", encoding="utf-8") as f:
-        import json as _json
-        _json.dump({
+        json.dump({
             "archived_at": datetime.now().isoformat(timespec="seconds"),
             "entries": entries,
             "previous_summary": memory.get("summary", ""),
