@@ -46,6 +46,30 @@ class WhisperHallucinationFilterTest(unittest.TestCase):
 
         self.assertTrue(is_hallucination(text))
 
+    def test_single_filler_word_is_dropped(self):
+        """REVIEW.md 24-3: a lone filler word ("嗯") is the intended-to-drop case."""
+        self.assertTrue(is_hallucination("嗯"))
+
+    def test_single_filler_word_with_trailing_punctuation_is_dropped(self):
+        """Trailing punctuation/comma noise around a lone filler word should
+        still match — Whisper often appends a stray period/comma to a bare
+        filler-word hallucination."""
+        self.assertTrue(is_hallucination("嗯。"))
+        self.assertTrue(is_hallucination("嗯，"))
+
+    def test_sentence_containing_filler_word_mid_sentence_is_kept(self):
+        """REVIEW.md 24-3: filler words embedded in a real sentence must NOT
+        be dropped. is_hallucination() requires the whole (punctuation-
+        trimmed) text to exactly match a blacklist entry -- not substring
+        containment -- so a genuine sentence that happens to start with a
+        filler word survives."""
+        self.assertFalse(is_hallucination("嗯，我想想這個問題"))
+
+    def test_sentence_ending_with_filler_word_is_kept(self):
+        """Same guarantee as above but with the filler word trailing a real
+        sentence instead of leading it."""
+        self.assertFalse(is_hallucination("今天天氣真好啊"))
+
 
 if __name__ == "__main__":
     unittest.main()
