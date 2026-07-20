@@ -1,5 +1,4 @@
 PyQt6>=6.6.0
-pystray>=0.19.5
 Pillow>=10.2.0
 pywin32>=306
 pyperclip>=1.8.2

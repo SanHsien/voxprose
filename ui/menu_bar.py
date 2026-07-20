@@ -192,12 +192,7 @@ class VoiceTypeMenuBar:
                     raw_val = val()
                 else:
                     raw_val = val
-            # 2. pystray check (label)
-            elif hasattr(sender, "text"):
-                raw_val = sender.text
-            # 3. String fallback
-            elif isinstance(sender, str) and False:  # legacy fallback (unused)
-                raw_val = sender
+            # 2. String fallback
             elif isinstance(sender, str):
                 raw_val = sender
         except Exception:
