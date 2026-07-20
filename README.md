@@ -1,12 +1,29 @@
-# VoiceType4TW 嘴炮輸入法 — Windows 專用版 (V3.0.0)
+# VoiceType4TW 嘴炮輸入法 — Windows 專用版 (V3.0.1)
 
 主要開發者：吉米丘 , CC58TW 
 協助開發者：Claude Code
 
 吉米與女兒CC58TW全新開發的嘴炮輸入法，讓你出一張嘴就能打字的輸入法
 
-> **📌 本 repo 為 Windows 10/11 專用開發版**（win-stable 分支），已移除所有 macOS 專屬程式碼與打包腳本，針對 Windows 環境深度優化安裝與相容性。
+> **📌 本分支為 Windows 10/11 專用版**，已移除所有 macOS 專屬程式碼與打包腳本，針對 Windows 環境深度優化安裝與相容性。
 > macOS 版請見原作者專案：[jfamily4tw/voicetype4tw-mac](https://github.com/jfamily4tw/voicetype4tw-mac)
+
+## 🚀 快速安裝（三步驟，不需要懂程式）
+
+**1. 下載 ZIP**：[👉 點我直接下載](https://github.com/jfamily4tw/voicetype4tw-mac/archive/refs/heads/win-go-mask-202607.zip)（或按上方綠色 **Code** 按鈕 → **Download ZIP**）
+
+**2. 解壓縮**到簡單的路徑，例如 `D:\VoiceType4TW`
+   - 請避開 `C:\Program Files`（寫入權限不足會被環境檢查擋下）
+
+**3. 雙擊 `setup_win.bat`**，接下來全自動：
+   - 沒裝 Python？自動下載可攜式 Python（免管理員權限、不污染系統）
+   - 有 NVIDIA 顯示卡自動啟用 CUDA 加速，沒有就用 CPU 模式（省 800MB 下載）
+   - 自動下載語音辨識模型（約 1.5GB）、編譯啟動器、建立桌面捷徑
+
+需要網路，視網速約 10～30 分鐘。完成後雙擊桌面「嘴炮輸入法」捷徑即可使用。
+
+> 💡 若雙擊時 Windows 跳出藍色「已保護您的電腦」視窗，點「其他資訊」→「仍要執行」即可（網路下載的檔案都會如此，之後不會再出現）。
+> 安裝疑難排解請見下方「安裝失敗排除」章節與 [安裝下載教學](安裝下載教學.MD)。
 
 免費版歡迎大家測試使用，GitHub開源的Python版，想自己抓下來研究、裝在電腦裡都OK
 
