@@ -1,19 +1,28 @@
-PyQt6>=6.6.0
-Pillow>=10.2.0
-pywin32>=306
-pyperclip>=1.8.2
-faster-whisper>=1.0.0
-httpx>=0.27.0
-certifi>=2024.2.2
-numpy>=1.26.0
-sounddevice>=0.4.6
-requests>=2.31.0
-soundfile>=0.12.1
+# Version ceilings pin the next major release above the newest version known
+# to build cleanly in CI as of 2026-07-20 (see docs/DECISIONS.md). Lower
+# bounds are unchanged; ceilings only block untested major upgrades, not
+# routine patch/minor updates.
+PyQt6>=6.6.0,<7
+Pillow>=10.2.0,<13
+# pywin32 has no major.minor.patch scheme — each release is a bare build
+# number (currently 312) bumped roughly annually alongside new Python
+# versions. "<400" is a generous ceiling on that build-number series rather
+# than a semver major bound; see docs/DECISIONS.md.
+pywin32>=306,<400
+pyperclip>=1.8.2,<2
+faster-whisper>=1.0.0,<2
+httpx>=0.27.0,<1
+# certifi uses calendar versioning (YYYY.MM.DD); the ceiling caps the year.
+certifi>=2024.2.2,<2027
+numpy>=1.26.0,<3
+sounddevice>=0.4.6,<1
+requests>=2.31.0,<3
+soundfile>=0.12.1,<1
 # Optional cloud engine SDKs — imported when the user selects these engines
 # (llm/claude.py, llm/openai_llm.py, stt/groq_whisper.py). Small wheels, so
 # install them up front instead of crashing on engine switch.
-anthropic>=0.25.0
-openai>=1.30.0
-groq>=0.9.0
+anthropic>=0.25.0,<1
+openai>=1.30.0,<3
+groq>=0.9.0,<2
 # NVIDIA CUDA wheels moved to requirements-cuda-win.txt —
 # installed by setup_win.bat only when an NVIDIA GPU is detected.
