@@ -4,6 +4,8 @@
 
 完整的、逐版對照使用者需求與驗證證據的詳細歷史，見 [`VERSIONS.md`](VERSIONS.md)（本 fork 沿用上游既有格式，兩份文件並存、各司其職：`CHANGELOG.md` 給快速掃描，`VERSIONS.md` 給深入回溯）。版本號遵循 [Semantic Versioning](https://semver.org/lang/zh-TW/)。
 
+> **關於歷史 commit hash**：v3.1.0 發版時已把 fork 的開發歷史 squash 成單一 commit（`84d1b28`，見 `docs/UPSTREAM.md`）。本檔與 `docs/DECISIONS.md`、`REVIEW.md` 中引用的更早 hash（如 `04d82cc`、`aee3973` 等）屬 squash 前的開發過程紀錄，**已不存在於 git 歷史**，僅作為文件內的變更對照識別碼保留，無法 `git show`。
+
 ## [Unreleased]
 
 ## [3.1.0] - 2026-07-20

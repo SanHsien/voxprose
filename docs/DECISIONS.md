@@ -2,6 +2,8 @@
 
 本專案（fork）的重要決策紀錄（新到舊）。每筆記：日期、決定、理由。與 [`DEVELOPMENT.md`](DEVELOPMENT.md) 的「怎麼做」互補，這裡記「為什麼」。
 
+> **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
+
 ## 2026-07-20 — v3.1.0 發版工程收尾（UPSTREAM 追蹤、-NoModel 打包、release/dependency-freshness workflow、版本推進）
 
 維護者指示：v3.1.0 發版前最後一批工程項，完成後主 session 會把 fork 全部 commit squash 成單一 v3.1.0。
