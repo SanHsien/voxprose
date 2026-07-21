@@ -11,7 +11,7 @@
 
 **健康分數：7.6 / 10（原 7.5，2026-07-21 微調＋0.1）。**
 
-這是一個把「个人 fork 的 Windows 語音輸入法」按照正規工程紀律整理過一輪的專案：233 個自動化測試、GitHub Actions CI（`windows-latest` 跑 py_compile + pytest）、每月依賴新鮮度檢查、`docs/DECISIONS.md`/`docs/UPSTREAM.md`/`CHANGELOG.md`/`AGENTS.md` 形成完整的決策留痕鏈，且本次 review 抽查的 15 項「已修」聲稱，逐一讀碼核實全部屬實（見第 3 節問題總帳）——這不是一份自我感覺良好的變更記錄，是真的改了程式碼。三個 STT/LLM 引擎（Gemini STT、OpenRouter STT、Claude LLM）曾經「使用者選了但完全沒作用、靜默失敗」的死路徑已修好並補了防回歸測試（AST 靜態掃描鎖欄位名），這類問題最容易被忽略也最傷使用者信任，能主動挖出三個同型 bug 說明整理過程有紮實的交叉檢查，而不是頭痛醫頭。
+這是一個把「個人 fork 的 Windows 語音輸入法」按照正規工程紀律整理過一輪的專案：233 個自動化測試、GitHub Actions CI（`windows-latest` 跑 py_compile + pytest）、每月依賴新鮮度檢查、`docs/DECISIONS.md`/`docs/UPSTREAM.md`/`CHANGELOG.md`/`AGENTS.md` 形成完整的決策留痕鏈，且本次 review 抽查的 15 項「已修」聲稱，逐一讀碼核實全部屬實（見第 3 節問題總帳）——這不是一份自我感覺良好的變更記錄，是真的改了程式碼。三個 STT/LLM 引擎（Gemini STT、OpenRouter STT、Claude LLM）曾經「使用者選了但完全沒作用、靜默失敗」的死路徑已修好並補了防回歸測試（AST 靜態掃描鎖欄位名），這類問題最容易被忽略也最傷使用者信任，能主動挖出三個同型 bug 說明整理過程有紮實的交叉檢查，而不是頭痛醫頭。
 
 健康分數沒有給到 8 以上，原因原本有三個結構性缺口，其中一項已在本輪（2026-07-21）解決：**(1) 全部這些修復與新功能，沒有一項在真實 Windows 桌面環境跑過**——本次 review 與過去多輪修復都誠實承認「本機無 PyQt6/sounddevice，僅過 py_compile/單元測試」，對一個核心價值是「錄音→辨識→貼字」即時互動體驗的桌面程式，這仍是目前最大的未知數，**尚未解決**；**(2)（已解決）`ui/settings_window.py`（原 2164 行）god file 已於 `1252a68` 拆分**為 ~492 行薄殼＋`ui/settings/` 七分頁子套件，並跑過乾淨 venv 的實機建構煙霧測試（見問題總帳 #7）；**(3)（已解決）曾有一個文件治理缺口**——squash 成單一 v3.1.0 commit 後，`CHANGELOG.md`/`docs/DECISIONS.md` 裡引用的近 20 個「修復 commit hash」（`04d82cc`、`19017c8`、`aee3973` 等）已經不是目前 `HEAD` 的祖先，只殘留在本機 `reflog`（未來 `git gc` 或重新 clone 都會查無此 commit）；已於 `4278ff8` 在 `CHANGELOG.md:7`／`docs/DECISIONS.md:5` 補免責聲明說明此現象，詳見第 4 節 24-1。健康分數因 (2)(3) 已解決而從 7.5 微調至 7.6——微調而非大幅上修，是因為 (1) 真機驗證空白仍是最大且未變動的缺口，且 (2) 的修復本身也還只在乾淨 venv 煙霧測試層級驗證過，未涵蓋完整使用情境。整體而言：這是一個「紙面工程紀律做得很好、god file 這類程式碼結構債也已清理，但最後一哩實機驗證完全空白」的專案，下一步的第一優先序應該是真機跑通整條鏈路，而不是再繼續往上疊功能。
 

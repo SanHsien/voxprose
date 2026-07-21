@@ -6,7 +6,7 @@ get_stt(), so selecting it silently fell back to local Whisper).
 2026-07-21（REVIEW.md #7 god-file 拆分）：STT_ENGINES 的字面定義隨拆分搬到
 `ui/settings/common.py`（原本住在 ui/settings_window.py 模組層級），
 ui/settings_window.py 現在只是 `from ui.settings.common import ...` 轉手，
-静態原始碼裡已經沒有 `STT_ENGINES = [...]` 這行字面量可以 parse 了，因此本檔
+靜態原始碼裡已經沒有 `STT_ENGINES = [...]` 這行字面量可以 parse 了，因此本檔
 的解析目標同步改指向 ui/settings/common.py。
 
 ui/settings/common.py 一樣在模組頂層 import PyQt6，可能在部分 dev/CI 環境沒
