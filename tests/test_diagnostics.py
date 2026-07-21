@@ -131,7 +131,22 @@ class TestExportDiagnosticBundle:
 
     def test_opens_explorer_to_highlight_zip_on_windows(self, tmp_path):
         """驗證有嘗試呼叫 explorer /select,（Windows 對應 macOS open -R），
-        且引數帶著正確的 zip 路徑。"""
+        且引數帶著正確的 zip 路徑。
+
+        2026-07-22 修正：原本斷言 `mock_popen.assert_called_once()`，但這裡
+        patch 的是 `utils.diagnostics.subprocess.Popen`——即整個行程共用的
+        `subprocess` module 物件，不是 diagnostics 專屬的一份拷貝。在某些
+        Python 建置（例如本次驗證用的 uv 安裝 cpython 3.11.15）上，
+        `collect_env_info()` 呼叫的 `platform.platform()`/`platform.uname()`/
+        `platform.win32_ver()` 內部會各自呼叫 `platform._syscmd_ver()`，
+        該函式為了取得完整版本號會 shell 出 `subprocess.check_output("ver",
+        shell=True, ...)`——因為同一顆 mock 攔截了整個行程的 Popen，這些跟本
+        測試無關的呼叫也被算進了呼叫次數，讓 `assert_called_once()` 在這類
+        建置上必然失敗（已用 `git stash` 驗證：在完全未改動的 HEAD 上重現
+        一樣的失敗，與本次任務改動無關）。測試真正該驗證的是「有且僅有一次
+        以 'explorer' 開頭的呼叫，且帶正確 zip 路徑」，因此改為在
+        `call_args_list` 裡篩選 explorer 呼叫，不再對呼叫總數做斷言。
+        """
         app_data_dir = tmp_path / "appdata_explorer"
         app_data_dir.mkdir()
         desktop_dir = tmp_path / "desktop3"
@@ -140,8 +155,16 @@ class TestExportDiagnosticBundle:
             zip_path = export_diagnostic_bundle(app_data_dir, {}, desktop_dir=desktop_dir)
 
         assert zip_path is not None
-        mock_popen.assert_called_once()
-        called_args = mock_popen.call_args[0][0]
+        explorer_calls = [
+            c for c in mock_popen.call_args_list
+            if c.args and isinstance(c.args[0], (list, tuple)) and c.args[0]
+            and c.args[0][0] == "explorer"
+        ]
+        assert len(explorer_calls) == 1, (
+            "預期恰好一次 explorer Popen 呼叫，實際："
+            f"{len(explorer_calls)}（全部呼叫：{mock_popen.call_args_list}）"
+        )
+        called_args = explorer_calls[0].args[0]
         assert called_args[0] == "explorer"
         assert str(zip_path) in called_args
 
