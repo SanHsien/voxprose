@@ -4,6 +4,41 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-22 — 品牌殘留全面清掃＋原作者個人網址移除
+
+維護者在實機驗證過程中發現：品牌雖已改名「聲成文 VoxProse」，但程式 UI 仍多處顯示舊名「嘴炮輸入法」，`REVIEW.md` 也混入簡體字（「個人」一詞誤植為簡體）。要求「類似錯誤全都要檢查、改過」。任務進行中維護者追加規格：移除程式 UI 裡所有指向原作者個人社群/贊助頁的連結。
+
+- **UI 品牌殘留（6 處，皆為使用者可見字串）**：`ui/menu_bar.py:36,63`（浮動選單/系統匣選單頂部標籤）改「聲成文 VoxProse」；`ui/settings/dashboard_page.py:40`（Dashboard 頁中文標題 `QLabel`）改「聲成文」；`ui/settings_window.py:467`／`ui/settings/vocab_mem_page.py:154`／`ui/settings/soul_page.py:194`（三處 `QMessageBox` 標題）統一改「聲成文」（比照同視窗其他訊息框慣例，短標題不含英文）。
+- **`ui/app.py:98` 歷史版本註解（`v2.8.27_V57`）**：內含舊名雙關語「嘴炮圖案」。原本判斷「非使用者可見、屬歷史版本標記，可保留」；但實作守門測試（見下方）時發現，若保留這一行就必須在測試裡開一個「排除這個檔案這一行」的特例，讓測試邏輯變複雜且出現例外規則。改為兩害相權：直接把註解裡的舊名字面量拿掉（保留版本標記與其餘敘述），讓守門測試可以對 `ui/**` 做無例外的全面掃描，防護力優先於保留這一句歷史調侃的價值。
+- **`vocab/manager.py:206` docstring 範例**：原本用「嘴炮輸入法」/「嘴砲輸入法」（一字之差的同音異字）示範模糊詞彙修正功能。改用新品牌的同音例子「聲成文」/「生成文」（聲 vs 生同音，且「生成文」是 STT 對這句話很寫實的誤判方向），維持範例的教學意圖不變，同時清掉舊名。
+- **決定（歷史/上游敘述維持不變）**：`NOTICE.md`／`README.md`／`README.en.md`／`LICENSE`／`pyproject.toml` description／`SKILL.md`／`AGENTS.md`／`REVIEW.md` 標題／`CHANGELOG.md`／`VERSIONS.md`（含既有歷史版本條目）裡的「嘴炮輸入法／VoiceType4TW」全部保留原名——這些是描述 fork 出處/歷史沿革的敘述性文字，判準與品牌改名第一/二階段一致，不重複展開。
+- **決定（檔名更名：`啟動嘴炮輸入法.bat` → `啟動聲成文.bat`）**：`git mv` 更名，並更新所有引用：`release_win.ps1:68`（release ZIP 檔案清單）、`docs/DEVELOPMENT.md:66,143`（開發者手動啟動說明與目錄樹）。`VERSIONS.md:30,183` 提及舊檔名的兩處維持不動——那是描述「當時做了什麼」的歷史稽核記錄，不因檔案後來改名而回溯竄改。
+- **決定（`run_voicetype.bat` 不更名）**：任務要求評估是否一併改名 `run_voxprose.bat`。查證後發現此檔名被 9 個檔案引用，橫跨打包鏈核心（`voicetype_installer.iss` 的 `MyAppExeName`、`create_shortcut.ps1` 偵測邏輯、`setup_win.bat` 的警語文字、`release_win.ps1` 的檔案清單與提示文字、`tools/launcher.cs` 的註解）。判斷不改：(1) 這是內部委派腳本檔名，非使用者可見品牌文案——使用者實際看到的是已改名的 `啟動聲成文.bat`（雙擊入口）與已改名的 `MyAppName`（Start Menu／桌面捷徑顯示名稱），`run_voicetype.bat` 本身從未直接暴露在使用者視野；(2) 若改名，變動面橫跨打包鏈與已編譯工具（`tools/launcher.cs` 需要重新編譯 `VoxProse.exe` 才能驗證委派鏈是否還接得上），本次任務無法在 Windows 實機重新編譯/走完整安裝流程驗證，貿然改名但驗證不到位風險大於收益；(3) 另有 agent 正在同時做實機驗證（跑 `python main.py`／pytest），改動打包鏈檔名容易與其驗證工作互相干擾。維持現狀符合 `AGENTS.md`「不動打包鏈，除非任務明確要求」的既有邊界——本次只被要求「評估」，非「必須改」。
+- **決定（`voicetype_installer.iss` 檔名本身不更名）**：同樣評估後判斷不改。理由：(1) 這是 Inno Setup 原始碼腳本，從未隨安裝檔出貨給使用者，使用者只會看到編譯後的安裝檔（`OutputBaseFilename=ShengChengWen-Windows-Setup-v3.2`，品牌已一致），改這個原始檔名對使用者體驗零影響；(2) 這個確切檔名字面量被 `AGENTS.md`／`CLAUDE.md`／`SKILL.md`／`docs/DEVELOPMENT.md`／`CHANGELOG.md`／`VERSIONS.md`／`REVIEW.md`／本檔等 10＋ 處文件當成「打包鏈檔案清單」的固定識別碼引用，改名要同步全部更新，文件面改動成本遠高於實質效益；(3) 沒有任何 CI workflow 引用這個檔名（已 grep `.github/` 確認），技術風險雖低，但文件維護成本仍不成比例。
+
+### 原作者個人網址移除（維護者中途追加規格）
+
+理由：本 fork 不應在自己的 UI 裡替原作者導流到個人社群/販售/贊助頁——使用者可能誤以為兩者有關聯，原作者也可能因此收到不屬於他的問題/客訴。**原則：署名文字保留（MIT 授權與基本禮貌要求），只移除可點擊的個人網址／導流連結**；上游 GitHub repo 連結（`jfamily4tw/voicetype4tw-mac`）屬必要的 fork 溯源資訊，不受影響。
+
+- **`ui/settings_window.py`**：移除側欄底部整個 SNS 按鈕區塊（`sns_container`／`sns_layout`／`sns_links` 清單，原本連到 YouTube／Facebook／Instagram／TikTok／Threads／`Jimmy4.TW` 六個原作者個人帳號）。保留正上方的 `credit_box`（`主要開發者：吉米丘, CC58TW`／`協助開發者：Claude Code` 文字署名，原封不動）。連帶清掉因此變成未使用的 `import os`、`from pathlib import Path`（原本只為了組 SNS 圖示路徑）與 `SNSButton` import。
+- **`ui/settings/common.py`**：`SNSButton` 類別（唯一使用處已被上面的改動移除）一併刪除，連帶清掉只被它使用的 `QIcon`／`QSize`／`QUrl`／`QDesktopServices` import。`docs/DECISIONS.md`（本檔）「原方法 → 新檔對應表」（god-file 拆分那筆歷史記錄）裡列出的 `SNSButton` 維持原樣不回溯修改——那張表記錄的是「當時拆分把它搬去哪」的歷史事實，`SNSButton` 後來被整個刪除是另一件事，記錄在這裡就好。
+- **`ui/about_window.py`**：檢查後確認本來就沒有任何個人網址，只有文字署名（`Derived from VoiceType4TW.` / 吉米丘／CC58TW／go-mask／SanHsien 署名鏈），無需改動。
+- **`voicetype_installer.iss:7`**：`MyAppURL` 從指向上游 repo（`https://github.com/jfamily4tw/voicetype4tw-mac`）改為指向本 fork（`https://github.com/SanHsien/voxprose`）——`AppSupportURL`／`AppUpdatesURL` 皆透過 `{#MyAppURL}` 巨集引用，自動跟著改。理由：這是本 fork 安裝程式的「發布者支援網址」欄位，理應指向實際維護本安裝檔的來源，而非上游專案（上游不負責、也無法回應這個 fork 的安裝問題）。`MyAppPublisher "jfamily"` 未改動——追加規格只要求處理「網址」，這是發布者名稱欄位非 URL，不在本次規格範圍內，留給維護者另外拍板。
+- **`llm/openrouter.py:53`**：`HTTP-Referer` 從一個既非上游也非本 fork 的舊網址（`https://github.com/voicetype-mac`）改為本 fork repo；順手把同一段 headers 裡的 `X-Title: "VoiceType Mac"` 也改成 `"VoxProse"`——這不在追加規格的「網址」範圍內，但屬於送給 OpenRouter API 識別本應用程式身分的同一組 headers，留著舊品牌字面量在同一處明顯不一致，一併修正零風險（純字面量、不影響任何邏輯分支，已跑 `tests/` 確認無測試斷言這兩個舊字串）。
+- **孤兒資產清理**：移除 SNS 按鈕後，`assets/sns-youtube.png`／`sns-facebook.png`／`sns-instagram.png`／`sns-tiktok.png`／`sns-threads.png`／`sns-4tw.png`（6 個 SNS 圖示）與 `assets/donate-linepay.jpg`（本來就沒有任何程式碼引用，推測是更早期就已成孤兒的贊助頁截圖）確認全 repo 零引用（含 `voicetype_installer.iss` 的 `[Files]` 區段與 `release_win.ps1` 的 robocopy 清單——兩者都是整個 `assets\*`／`assets` 目錄複製，非逐檔列舉，故刪除個別檔案不影響打包鏈）後，`git rm` 刪除。
+
+### 簡體字全面清掃
+
+不使用 grep 做 byte-wise／regex 多位元組比對（過去在本專案已知會產生大量假陽性）。改用 Python 腳本逐字元比對「簡體專用字→繁體」對照表，對照表刻意排除在正體中文裡也是合法獨立字的多音義候選字（后／裡⇔里／台／出／干／谷／舍／志／卷／表／只／沖／松／着／系／斗／肯／皮／耳／蒙／薄／藏……），避免誤殺「皇后」「公里」「台灣」這類合法正體用法——這些字元一律不放進對照表，若未來要收錄需先人工確認無歧義。掃描範圍：`git ls-files` 全部文字副檔名（排除 `assets/` 二進位資產）。
+
+實際掃出 7 處（含維護者指出的 `REVIEW.md:14`「個人」一詞與 `VERSIONS.md:226`「問題」一詞誤植為簡體）：`REVIEW.md:14`（「個人」）、`VERSIONS.md:226`（「問題」）、`docs/DECISIONS.md:86`（「換」字，本檔既有文字）、`docs/DECISIONS.md:132`（「換」字）、`docs/DECISIONS.md:213`（「補」字）、`tests/test_stt_engine_dispatch.py:9`（docstring 內「靜」字）。全部確認是單純打字疏漏（非引用上游原文、非程式碼識別符），逐字修正為繁體對應字，不改動語意或重寫句子。修正後重跑掃描腳本，全 repo 零命中。
+
+### 守門測試（新增 `tests/test_brand_and_charset_guard.py`）
+
+新增三個 pytest 測試防止本次問題回流：(1) `test_no_simplified_characters_in_repo`——全 repo 逐字元比對上述簡體字對照表；(2) `test_no_legacy_brand_name_in_ui`——`ui/**` 原始碼不得含「嘴炮輸入法／嘴砲輸入法」；(3) `test_no_legacy_author_personal_urls_in_ui`——`ui/**` 原始碼不得含原作者個人網域字串（`jimmy4tw`／`Jimmy4.TW`／`portaly.cc`／`buymeacoffee`／`linepay`／`acykjcms` 等），但不鎖上游 GitHub repo 連結（`jfamily4tw/voicetype4tw-mac`，那是必要的溯源資訊）。測試檔本身的對照表字面量含大量簡體字，用於比對，會被掃描邏輯自我誤判，故在 `_is_text_candidate()` 明確排除測試檔自身路徑。
+
+- **驗證**：`python -m pytest tests/ -v` 270 passed（266 基準 + 3 個新守門測試 + 1 個 `test_smoke.py` 自動為新測試檔案產生的 `test_py_compile` 參數化案例）、10 skipped，與任務起始基準一致（無既有測試被破壞）；全 repo `py_compile` 0 錯誤。
+
 ## 2026-07-21 — 品牌改名第二階段：資料路徑正名，不寫遷移邏輯
 
 第一階段（見下方「品牌改名『聲成文 VoxProse』＋署名補正」條目）刻意保留 `%APPDATA%\VoiceType4TW` 與 `Documents\VoiceType4TW_Sync` 兩個實際路徑值不動，理由是「怕有真實使用者資料，貿然改名會造成設定與日誌分裂」。維護者本次任務開頭直接推翻這個保留理由：**維護者從未實際使用過本程式，本機不存在任何真實資料**，且明確指示「不用管 v3.1.0 的 release ZIP 有沒有人下載安裝過，不用保險避免他設定全丟」「寫死、舊安裝都不是理由」。
@@ -83,7 +118,7 @@
   依賴 `__file__` 是 `ui/settings_window.py`（往上兩層 `dirname` = repo root）。
   搬到 `ui/settings/general_page.py` 後，同樣的兩層 `dirname` 會變成 repo root
   的 `ui/`，導致 `self_check.py` 路徑算錯（永遠找不到檔案，按鈕會跳「找不到
-  檢測程式」錯誤視窗）。這是純機械搬移必然會踩到的陷阱——檔案换位置但邏輯
+  檢測程式」錯誤視窗）。這是純機械搬移必然會踩到的陷阱——檔案換位置但邏輯
   沒跟著調整就會壞掉，因此補了一次 `os.path.dirname()`（改三層），行為與拆分
   前完全一致（本機驗證：`self_check.py` 確實在 repo root）。用 `ast` 逐一比對
   原始檔與新檔的每個函式/方法/模組常數（共 63 個項目）後，這是**唯一**一處
@@ -129,7 +164,7 @@
 - **決定（installer 版本字串不採用上游 `win-go-mask-202607` 的值）**：查證 `git show e5ddc02:voicetype_installer.iss` 發現上游該分支的 `MyAppVersion` 是 `"2.8.27_V90"`——早於本 fork 當時的 3.0.1，判斷為上游誤植降版（可能是分支基底較舊、未同步更新這個欄位），故合併 `win-go-mask-202607` 時未採用這個值，本 fork 版本號自行管理，已記錄進 `docs/UPSTREAM.md` 的同步狀態表供未來查核。
 - **決定（`release_win.ps1` 新增 `-NoModel` 而非只有 Lite/Full 兩選項）**：維護者核准動打包鏈，需求是「有 CUDA 加速但不want 綁 medium 模型」的中間選項（滿足吃 GPU 但介意 ZIP 體積、或想首次啟動自行選模型大小的使用者）。實作上只改動最小必要範圍：CUDA 安裝條件維持 `-not $Lite` 不變（`-NoModel` 單獨開啟時仍會裝 CUDA），模型隨附條件改為 `-not $Lite -and -not $NoModel`；資料夾/ZIP 命名獨立一支 `VoiceType4TW_Win_Portable_NoModel_V$Build`，避免和既有 Lite/Full 命名撞在一起。三種組合（預設/`-Lite`/`-NoModel`）皆做過乾跑邏輯驗證（模擬變數，不真的跑完整建置）。
 - **決定（release workflow 只打包 Lite + NoModel，不含 Full）**：`.github/workflows/release.yml` 比照 `yt_fetch` 的 release.yml 模式（push tag `v*` 發佈、`workflow_dispatch` 手動僅 artifact）。Full 版含 medium 模型需要本機事先下載模型快取到 `%APPDATA%`，CI runner 上沒有這個快取、且模型本身體積會讓 ZIP 逼近或超過 GitHub Releases 單檔 2GB 上限，不適合在 CI 環境建置；Lite（無 CUDA 無模型）與 NoModel（有 CUDA 無模型）兩版已涵蓋「先讓使用者跑起來、首次啟動再選擇下載內容」的主要發版情境。
-- **決定（`tools/check_dependency_freshness.py` 改用「requirements 檔宣告的最低版本」而非強制安裝全部依賴比對）**：移植自 `yt_fetch` 同名工具時發現差異——`yt_fetch` 只追蹤 2 個套件且都跨平台，可以 `pip install -e .` 後用 `importlib.metadata` 查已安裝版本；本 repo 的 `requirements-win.txt` 含 `pywin32`（Windows-only wheel），若比照在 `ubuntu-latest` 上執行 `pip install -r requirements-win.txt` 會直接安裝失敗。改為優先用目前環境已安裝版本（如果剛好有裝），未安裝則退回解析 requirements 檔案 `>=` 宣告的最低版本作為比較基準——這樣不需要完整安裝依賴就能判斷「版本下限是否落後 PyPI 最新版」，`dependency-freshness.yml` workflow 因此可以留在較便宜的 `ubuntu-latest`，不必换成 `windows-latest`。
+- **決定（`tools/check_dependency_freshness.py` 改用「requirements 檔宣告的最低版本」而非強制安裝全部依賴比對）**：移植自 `yt_fetch` 同名工具時發現差異——`yt_fetch` 只追蹤 2 個套件且都跨平台，可以 `pip install -e .` 後用 `importlib.metadata` 查已安裝版本；本 repo 的 `requirements-win.txt` 含 `pywin32`（Windows-only wheel），若比照在 `ubuntu-latest` 上執行 `pip install -r requirements-win.txt` 會直接安裝失敗。改為優先用目前環境已安裝版本（如果剛好有裝），未安裝則退回解析 requirements 檔案 `>=` 宣告的最低版本作為比較基準——這樣不需要完整安裝依賴就能判斷「版本下限是否落後 PyPI 最新版」，`dependency-freshness.yml` workflow 因此可以留在較便宜的 `ubuntu-latest`，不必換成 `windows-latest`。
 - **測試**：`python -m pytest tests/ -v`：233 passed, 10 skipped（較上一批的 232 passed 多 1，`tests/test_smoke.py` 的全 repo py_compile 掃描新增計入 `tools/check_dependency_freshness.py`）。`release_win.ps1` 用 `[System.Management.Automation.Language.Parser]::ParseFile` 語法解析通過；三種旗標組合（預設/`-Lite`/`-NoModel`）的資料夾命名／CUDA 安裝／模型隨附條件邏輯乾跑驗證正確。`.github/workflows/release.yml`、`.github/workflows/dependency-freshness.yml` 用 `yaml.safe_load` 驗證語法有效。`tools/check_dependency_freshness.py` 本機實跑成功（含真實 PyPI JSON API 查詢，17 個套件的版本比對報告輸出至 scratchpad，未落 repo）。
 
 ## 2026-07-20 — 上游同步（win-go-mask-202607 三步驟安裝＋MIT 補授權）與雙軌授權收斂為全 MIT
@@ -210,7 +245,7 @@
 
 - **決定**：依維護者先前掃描 `C:\Users\SanHsien\OneDrive\文件\GitHub\` 下活躍 repo（`gpt-ai-assistant`、`openshelf`、`sticker-forge`、`yt_fetch` 等）歸納出的「開發環境鷹架最佳範本」，把 voicetype 落地缺口全部補齊：`CLAUDE.md`（新建，薄補丁指回 `AGENTS.md`）、`pyproject.toml`（套件 metadata + pytest 設定）、`tests/` + pytest（`test_smoke.py` 全 repo `py_compile` + 純邏輯模組匯入、`test_config.py` 設定讀寫回圈）、`CHANGELOG.md`（Keep a Changelog 格式，`VERSIONS.md` 保留不動、兩者並存）、`.gitattributes`（`.bat`/`.cmd`/`.ps1` 強制 CRLF）、`.github/workflows/ci.yml`（`windows-latest` + Python 3.12，`py_compile` + `pytest` 子集，不裝 CUDA/大模型）。同時全面改寫 `AGENTS.md`/`SKILL.md`/`docs/DEVELOPMENT.md`，清除「Mac 純化版 main」時代遺留的錯誤描述（`mlx_whisper.py`、`requirements.txt` 的 `pyobjc-*`、`pynput`、`.aicore` submodule、`openspec/`、已不存在的 `HANDOVER.md`/`AI_MEMORY.md` 引用）。
 - **決定（測試移植策略）**：從舊版 Mac 主線（`git show 51094bf`）撈回的 6 支根目錄 `test_*.py`，逐一檢查測試對象模組是否仍存在於現行 Windows-only 工作樹——只有 `test_save.py`（→ `tests/test_config.py`）與 `test_qkey.py`（→ `tests/manual/manual_qkey_check.py`，非 pytest 收集）可移植；`test_stt_hallucination_filter.py`、`test_stt_language_selection.py`、`test_openrouter_fallback.py`、`test_path.py` 的測試對象模組/邏輯在現行樹中已不存在或已簡化，跳過並在 `docs/DEVELOPMENT.md` 逐項記明原因，不硬套會對著不存在行為斷言的測試。
-- **理由**：`AGENTS.md`/`SKILL.md` 都寫著「Claude Code 專屬補充見 `CLAUDE.md`」但檔案不存在，是文件對外承諾與實際不符的直接缺口；`docs/DEVELOPMENT.md` 舊版測試章節列的 6 支腳本在現行工作樹中一支都不存在（Windows 專用化的 `v3.0.0` 整理已移除），繼續照抄等於教下一個 AI/開發者跑不存在的檔案。补上 `pytest` 骨架與誠實的移植/跳過紀錄，比「宣稱有測試」但實際手動腳本已全滅更符合 AI 協作核心規則裡「不模擬、完成必附證據」的要求。
+- **理由**：`AGENTS.md`/`SKILL.md` 都寫著「Claude Code 專屬補充見 `CLAUDE.md`」但檔案不存在，是文件對外承諾與實際不符的直接缺口；`docs/DEVELOPMENT.md` 舊版測試章節列的 6 支腳本在現行工作樹中一支都不存在（Windows 專用化的 `v3.0.0` 整理已移除），繼續照抄等於教下一個 AI/開發者跑不存在的檔案。補上 `pytest` 骨架與誠實的移植/跳過紀錄，比「宣稱有測試」但實際手動腳本已全滅更符合 AI 協作核心規則裡「不模擬、完成必附證據」的要求。
 
 ## 2026-07-19 — 雙軌授權聲明 + 引入上游 win-stable 分支
 

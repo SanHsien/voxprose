@@ -17,6 +17,13 @@
 ### Fixed
 
 - **`ui/settings_window.py` 側欄 logo 重複宣告死碼**：`:229-235` 原本連續宣告兩次 `lbl_en = QLabel("VoxProse")`，第一次的物件從未加入 layout、純屬第一階段品牌改名時新增文字但未清掉的既有死碼。移除未使用的第一個宣告，保留實際加入 layout 的第二個。
+- **UI 品牌殘留全面清掃**：`ui/menu_bar.py`（浮動選單/系統匣選單頂部標籤）、`ui/settings/dashboard_page.py`（Dashboard 中文標題）、`ui/settings_window.py`／`ui/settings/vocab_mem_page.py`／`ui/settings/soul_page.py`（三處 `QMessageBox` 標題）殘留的舊名「嘴炮輸入法」全數改為「聲成文」/「聲成文 VoxProse」；`ui/app.py` 一處歷史版本註解裡的雙關舊名字面量一併清掉。`vocab/manager.py` docstring 範例改用新品牌的同音示範（聲成文／生成文）。`啟動嘴炮輸入法.bat` `git mv` 更名為 `啟動聲成文.bat`，並同步更新 `release_win.ps1`／`docs/DEVELOPMENT.md` 的引用。詳見 `docs/DECISIONS.md` 2026-07-22 條目。
+- **簡體字清掃**：`REVIEW.md`／`VERSIONS.md`／`docs/DECISIONS.md`（×2）／`tests/test_stt_engine_dispatch.py` 共 6 處簡體字打字疏漏修正為繁體。改用 Python 逐字元對照表掃描全 repo（非 grep 位元組比對），修正後零殘留。
+- **移除原作者個人社群/贊助連結**：`ui/settings_window.py` 側欄的 SNS 按鈕區塊（YouTube／Facebook／Instagram／TikTok／Threads／個人網站六個連結）全數移除，作者署名文字保留不動；`ui/settings/common.py` 的 `SNSButton` 類別隨之刪除；孤兒圖示資產（6 個 SNS icon＋`donate-linepay.jpg`）`git rm`。`voicetype_installer.iss` 的 `MyAppURL`、`llm/openrouter.py` 的 `HTTP-Referer`/`X-Title` 改指向本 fork 而非上游或個人網址。詳見 `docs/DECISIONS.md`。
+
+### Added
+
+- **`tests/test_brand_and_charset_guard.py`**：新增三個守門測試，防止舊品牌名稱／簡體字／原作者個人網址回流——分別掃描全 repo 簡體字、`ui/**` 舊品牌字串、`ui/**` 原作者個人網域字串。
 
 ## [3.2.0] - 2026-07-21
 

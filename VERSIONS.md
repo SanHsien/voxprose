@@ -4,6 +4,39 @@
 
 ---
 
+## [V3.2.0 補充二] - 2026-07-22 (品牌殘留全面清掃＋原作者個人網址移除)
+> 維護者實機驗證時發現：品牌雖已改名「聲成文 VoxProse」，程式 UI 仍多處顯示舊名「嘴炮輸入法」，`REVIEW.md` 也混入簡體字（「個人」一詞誤植為簡體）。任務進行中追加規格：移除程式 UI 裡所有指向原作者個人社群/贊助頁的連結（保留署名文字）。純文字/資產清掃，版本號／`BUILD_ID` 不變。詳細判斷理由見 `docs/DECISIONS.md` 2026-07-22 條目。
+
+### UI 品牌殘留（使用者可見字串）
+- `ui/menu_bar.py:36,63`：浮動選單/系統匣選單頂部標籤「嘴炮輸入法」→「聲成文 VoxProse」。
+- `ui/settings/dashboard_page.py:40`：Dashboard 頁中文標題 `QLabel` 改「聲成文」。
+- `ui/settings_window.py:467`／`ui/settings/vocab_mem_page.py:154`／`ui/settings/soul_page.py:194`：三處 `QMessageBox` 標題改「聲成文」。
+- `ui/app.py:98`：歷史版本註解裡的雙關舊名字面量拿掉（為了讓守門測試可對 `ui/**` 做無例外掃描）。
+- `vocab/manager.py:206`：docstring 範例改用新品牌同音示範（聲成文／生成文）。
+
+### 檔名更名
+- `啟動嘴炮輸入法.bat` → `啟動聲成文.bat`（`git mv`），同步更新引用：`release_win.ps1:68`、`docs/DEVELOPMENT.md:66,143`。
+- `run_voicetype.bat`／`voicetype_installer.iss` 檔名本身**維持不變**——評估後判斷風險/文件維護成本大於使用者可見效益，理由見 `docs/DECISIONS.md`。
+
+### 原作者個人網址移除（維護者中途追加規格）
+- `ui/settings_window.py`：移除側欄 SNS 按鈕區塊（YouTube／Facebook／Instagram／TikTok／Threads／個人網站六個連結），保留作者署名文字；連帶清掉未使用的 `import os`／`Path`／`SNSButton` import。
+- `ui/settings/common.py`：`SNSButton` 類別刪除（唯一使用處已移除），連帶清掉只被它使用的 `QIcon`／`QSize`／`QUrl`／`QDesktopServices` import。
+- `voicetype_installer.iss:7`：`MyAppURL` 從上游 repo 改為本 fork repo（`AppSupportURL`／`AppUpdatesURL` 透過巨集自動跟著改）。
+- `llm/openrouter.py:53`：`HTTP-Referer`／`X-Title` 從舊網址/舊品牌名改為本 fork repo／`VoxProse`。
+- 孤兒資產 `git rm`：`assets/sns-{youtube,facebook,instagram,tiktok,threads,4tw}.png`、`assets/donate-linepay.jpg`（全 repo 零引用確認後刪除）。
+
+### 簡體字清掃（Python 逐字元比對，非 grep 位元組比對）
+- 共 6 處誤植的簡體字，皆為打字疏漏，逐字改回繁體對應字：`REVIEW.md:14`（「個人」一詞）、`VERSIONS.md:226`（「問題」一詞）、`docs/DECISIONS.md:86`／`:132`（「換」字）、`docs/DECISIONS.md:213`（「補」字）、`tests/test_stt_engine_dispatch.py:9`（docstring 內「靜」字）。修正後全 repo 零殘留。
+
+### 新增守門測試
+- `tests/test_brand_and_charset_guard.py`：三個 pytest 測試——全 repo 簡體字掃描、`ui/**` 舊品牌字串掃描、`ui/**` 原作者個人網域字串掃描。
+
+### 驗證
+- `python -m pytest tests/ -v`：270 passed（266 基準 + 3 新守門測試 + 1 個 `test_smoke.py` 自動為新測試檔產生的 `test_py_compile` 參數化案例）、10 skipped，與基準一致。全 repo `py_compile` 0 錯誤。
+
+### 待辦（非本次任務範圍，供下次安排）
+- `assets/` 內 7 張截圖仍顯示舊品牌 UI（視窗標題／選單會出現「嘴炮輸入法」），需要在有 PyQt6 的 Windows 實機環境重新截圖替換。
+
 ## [V3.2.0 補充] - 2026-07-21 (品牌改名第二階段：資料路徑正名)
 > 第一階段（下方 [V3.2.0] 條目）刻意保留 `%APPDATA%\VoiceType4TW`／`Documents\VoiceType4TW_Sync` 兩個實際路徑值不動，理由是「怕有真實使用者資料」。維護者事後確認本機從未實際使用過本程式，兩個目錄查證皆不存在，不需要顧慮 v3.1.0 release ZIP 是否有人下載安裝過——第一階段規劃的「遷移邏輯六原則」（`docs/DECISIONS.md`／`docs/BRANDING.md`）因此整批作廢，未實作、也不會實作。改為直接把路徑常數與所有字面量改名，不留 old→new 搬移/備份/fallback 程式碼（那會是永遠不會執行到的死碼）。版本號／`BUILD_ID` 不變（純資料路徑正名，非功能變更）。
 
@@ -223,7 +256,7 @@
 ---
 
 ## [v2.7.32 B15] - 2026-03-03 15:00 (Tray Sync Fix)
-- **托盤選單修復**：解決 Windows 下儲存設定後圖示選單更新失敗的问题。
+- **托盤選單修復**：解決 Windows 下儲存設定後圖示選單更新失敗的問題。
 
 ---
 
