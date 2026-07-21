@@ -8,34 +8,24 @@
 
 ## [Unreleased]
 
-### Changed
-
-- **資料路徑正名（品牌改名第二階段）**：`%APPDATA%\VoiceType4TW` → `%APPDATA%\VoxProse`、`Documents\VoiceType4TW_Sync` → `Documents\VoxProse_Sync`（`paths.py:APP_DATA_DIR`／`get_sync_base_dir()` 預設值），`whisper_models` 等所有子目錄跟著走。維護者確認本機從未有真實使用資料，**不寫任何 old→new 遷移／備份／fallback 邏輯**，直接改常數與字面量。連帶更新走同一路徑的所有落點：`setup_win.bat`（`MODEL_DEST`、編譯輸出 `VoxProse.exe`）、`release_win.ps1`（`$ModelSrc`/`$ModelDest`、隨附啟動器改名、可攜版說明文字）、`create_shortcut.ps1`（偵測的啟動器檔名）、`tools/launcher.cs`（MessageBox 標題）、`build_win.py`（PyInstaller `APP_NAME`）、`.gitignore` 打包輸出樣式、`tests/test_smoke.py` 的 staging 資料夾排除樣式；以及散落在啟動/診斷 log 的品牌字樣（`main.py`、`ui/app.py`、`self_check.py`、`tools/doctor.py`、`tools/download_models.py`、`tools/check_dependency_freshness.py`、`tools/get_portable_python.ps1`、`utils/diagnostics.py`、`ui/settings/dashboard_page.py`）與文件內對應路徑（`README.md`／`README.en.md`／`AGENTS.md`／`SKILL.md`／`docs/DEVELOPMENT.md`／`quality_control_checklist.md`／`安裝下載教學.md`）。上游專案名／fork 沿革敘述（`NOTICE.md`、`LICENSE`、`pyproject.toml` description 等）維持原名不動。
-- **`voicetype_installer.iss` 補齊安裝版品牌（授權範圍擴大）**：第一階段刻意保留的 `MyAppName`（`VoiceType4TW` → `VoxProse`）與 `AppId`（換發新 GUID）本次一併改名，`DefaultDirName` 隨 `MyAppName` 巨集自動跟著換。換 `AppId` 等同視為新程式（舊版不會被升級覆蓋）——本專案無既有安裝基礎，可接受，見 `docs/DECISIONS.md`。
-- **`AGENTS.md`／`SKILL.md` 雙軌授權敘述過時修正**：上游已於 2026-07-20 補齊 MIT、本 fork 早已收斂為全 MIT（`NOTICE.md` 已正確反映），但這兩處仍殘留舊版「不宣稱上游有正式授權／雙軌說明」的措辭，改為指向現況（全 MIT）並註明舊雙軌查證僅作背景記錄。
-
-### Fixed
-
-- **`ui/settings_window.py` 側欄 logo 重複宣告死碼**：`:229-235` 原本連續宣告兩次 `lbl_en = QLabel("VoxProse")`，第一次的物件從未加入 layout、純屬第一階段品牌改名時新增文字但未清掉的既有死碼。移除未使用的第一個宣告，保留實際加入 layout 的第二個。
-- **UI 品牌殘留全面清掃**：`ui/menu_bar.py`（浮動選單/系統匣選單頂部標籤）、`ui/settings/dashboard_page.py`（Dashboard 中文標題）、`ui/settings_window.py`／`ui/settings/vocab_mem_page.py`／`ui/settings/soul_page.py`（三處 `QMessageBox` 標題）殘留的舊名「嘴炮輸入法」全數改為「聲成文」/「聲成文 VoxProse」；`ui/app.py` 一處歷史版本註解裡的雙關舊名字面量一併清掉。`vocab/manager.py` docstring 範例改用新品牌的同音示範（聲成文／生成文）。`啟動嘴炮輸入法.bat` `git mv` 更名為 `啟動聲成文.bat`，並同步更新 `release_win.ps1`／`docs/DEVELOPMENT.md` 的引用。詳見 `docs/DECISIONS.md` 2026-07-22 條目。
-- **簡體字清掃**：`REVIEW.md`／`VERSIONS.md`／`docs/DECISIONS.md`（×2）／`tests/test_stt_engine_dispatch.py` 共 6 處簡體字打字疏漏修正為繁體。改用 Python 逐字元對照表掃描全 repo（非 grep 位元組比對），修正後零殘留。
-- **移除原作者個人社群/贊助連結**：`ui/settings_window.py` 側欄的 SNS 按鈕區塊（YouTube／Facebook／Instagram／TikTok／Threads／個人網站六個連結）全數移除，作者署名文字保留不動；`ui/settings/common.py` 的 `SNSButton` 類別隨之刪除；孤兒圖示資產（6 個 SNS icon＋`donate-linepay.jpg`）`git rm`。`voicetype_installer.iss` 的 `MyAppURL`、`llm/openrouter.py` 的 `HTTP-Referer`/`X-Title` 改指向本 fork 而非上游或個人網址。詳見 `docs/DECISIONS.md`。
-
-### Added
-
-- **`tests/test_brand_and_charset_guard.py`**：新增三個守門測試，防止舊品牌名稱／簡體字／原作者個人網址回流——分別掃描全 repo 簡體字、`ui/**` 舊品牌字串、`ui/**` 原作者個人網域字串。
-
-## [3.2.0] - 2026-07-21
+## [3.2.0] - 2026-07-22
 
 品牌改名：中文品牌「聲成文」／英文品牌「VoxProse」（組合呈現「聲成文 VoxProse」），標語「自然開口，清楚成文。」／"Speak naturally. Write clearly."。同時補正過去一直遺漏的署名鏈——上游 Windows 專用版維護者 **go-mask** 過去只被本 repo 當成分支名（`win-go-mask-202607`）使用，從未在 NOTICE／README／About 視窗等處以「維護者」身分列名；本版起在所有出現作者/致謝的地方補齊完整鏈：原創作者吉米丘（Jimmy）／CC58TW → 上游 Windows 專用版維護 go-mask → 本 fork（Windows）維護 SanHsien。
+
+**實機驗證（2026-07-21～22）**：本版是本 fork 第一次在真實 Windows 桌面環境（有 PyQt6/sounddevice/真實麥克風/RTX 3060 的機器）完整跑過整條鏈路——乾淨 venv 安裝 `requirements-win.txt`、`self_check.py` 子行程實際辨識、`diagnose_mic.py` 列出 19 個真實裝置、Windows SAPI 合成語音經真實 Whisper 引擎正確辨識出中文文字（repo 史上首次）、`python main.py` 兩次啟動皆無崩潰（`windows_cuda_qt_crash_postmortem.md` 記載的 PyQt6/CUDA 崩潰未發生）、SettingsWindow 七分頁在含 sounddevice 的完整環境全數通過。過程中發現並修復 4 個真實 bug（見下方 Fixed）。未能驗證的邊界（真人語音音量、單獨語氣詞音訊往返、系統匣圖示像素辨識、真實雲端 API key、真實 CUDA 加速）見 `REVIEW.md` 第 7 節。
 
 ### Added
 
 - **上游更新自動檢查**：`tools/check_upstream_updates.py` ＋ `.github/workflows/upstream-check.yml`——每週一 02:00 UTC（另支援 `workflow_dispatch`）檢查上游 `jfamily4tw/voicetype4tw-mac` 的三個追蹤分支（`win-go-mask-202607`／`win-stable`／`main`）是否有新 commit，透過 GitHub compare API 比對 `docs/UPSTREAM.md` 新增的「同步狀態標記區塊」（`<!-- sync-points:start/end -->` 內的 JSON，唯一真相源）記錄的 `last_reviewed`（已審視過的最新上游 commit），只回報比它新的變更；有更新時開/更新「上游更新檢查」issue（比照既有 `dependency-freshness.yml` 的 search-or-create 邏輯）。每個分支同時記 `last_merged`（已實際併入本 fork 的上游 commit，等同 `git merge-base`）。新增「Skipped（審視後未採用）」表記錄審視後決定不採用的 commit 與理由，避免 `last_reviewed` 推進後這些決策消失在視野外。`AGENTS.md` 開發約定補一條處理流程；新增 `tests/test_upstream_check.py`（18 個測試，含真實 `docs/UPSTREAM.md` 解析、解析失敗防護、mock API 的報告產生，不打真網路）。
 - `docs/BRANDING.md`：記錄第二階段 `%APPDATA%` 遷移計畫（新舊路徑並存、遷移六原則），本階段僅寫文件、不實作。
+- **`tests/test_brand_and_charset_guard.py`**：新增三個守門測試，防止舊品牌名稱／簡體字／原作者個人網址回流——分別掃描全 repo 簡體字、`ui/**` 舊品牌字串、`ui/**` 原作者個人網域字串。
+- **`stt/cuda_check.py`**：新增 `probe_cuda()` 共用 CUDA 加速判定函式，供 `ui/settings/dashboard_page.py`（Dashboard 顯示）與 `stt/subprocess_whisper.py`（實際 worker fallback 判斷）共用同一真相源，不再各說各話；新增 `tests/test_cuda_check.py`（6 種情境全 mock，不打真實硬體）。
 
 ### Changed
 
+- **資料路徑正名（品牌改名第二階段）**：`%APPDATA%\VoiceType4TW` → `%APPDATA%\VoxProse`、`Documents\VoiceType4TW_Sync` → `Documents\VoxProse_Sync`（`paths.py:APP_DATA_DIR`／`get_sync_base_dir()` 預設值），`whisper_models` 等所有子目錄跟著走。維護者確認本機從未有真實使用資料，**不寫任何 old→new 遷移／備份／fallback 邏輯**，直接改常數與字面量。連帶更新走同一路徑的所有落點：`setup_win.bat`（`MODEL_DEST`、編譯輸出 `VoxProse.exe`）、`release_win.ps1`（`$ModelSrc`/`$ModelDest`、隨附啟動器改名、可攜版說明文字）、`create_shortcut.ps1`（偵測的啟動器檔名）、`tools/launcher.cs`（MessageBox 標題）、`build_win.py`（PyInstaller `APP_NAME`）、`.gitignore` 打包輸出樣式、`tests/test_smoke.py` 的 staging 資料夾排除樣式；以及散落在啟動/診斷 log 的品牌字樣（`main.py`、`ui/app.py`、`self_check.py`、`tools/doctor.py`、`tools/download_models.py`、`tools/check_dependency_freshness.py`、`tools/get_portable_python.ps1`、`utils/diagnostics.py`、`ui/settings/dashboard_page.py`）與文件內對應路徑（`README.md`／`README.en.md`／`AGENTS.md`／`SKILL.md`／`docs/DEVELOPMENT.md`／`quality_control_checklist.md`／`安裝下載教學.md`）。實機驗證確認新路徑確實生效（模型下載到 `%APPDATA%\VoxProse\whisper_models`）。上游專案名／fork 沿革敘述（`NOTICE.md`、`LICENSE`、`pyproject.toml` description 等）維持原名不動。
+- **`voicetype_installer.iss` 補齊安裝版品牌（授權範圍擴大）**：第一階段刻意保留的 `MyAppName`（`VoiceType4TW` → `VoxProse`）與 `AppId`（換發新 GUID）本次一併改名，`DefaultDirName` 隨 `MyAppName` 巨集自動跟著換。換 `AppId` 等同視為新程式（舊版不會被升級覆蓋）——本專案無既有安裝基礎，可接受，見 `docs/DECISIONS.md`。
+- **`AGENTS.md`／`SKILL.md` 雙軌授權敘述過時修正**：上游已於 2026-07-20 補齊 MIT、本 fork 早已收斂為全 MIT（`NOTICE.md` 已正確反映），但這兩處仍殘留舊版「不宣稱上游有正式授權／雙軌說明」的措辭，改為指向現況（全 MIT）並註明舊雙軌查證僅作背景記錄。
 - **視窗標題／系統匣／About 視窗／桌面捷徑品牌字串**：`ui/settings_window.py`（2 處 `setWindowTitle` 改「聲成文」/「VoxProse」，側欄 logo `QLabel` 改「VoxProse」）、`ui/app.py`（系統匣 tooltip 改「聲成文」——實際字串來源在 `ui/app.py:112` 而非 `ui/tray_manager.py`，後者只透傳呼叫端傳入的 `title` 參數）、`ui/about_window.py`（標題／品牌名／標語／署名鏈全面改寫）、`create_shortcut.ps1`（桌面捷徑名稱與 Description 改為新品牌；`setup_win.bat` 本身未硬編捷徑名稱，無需改動）。
 - **Windows AppUserModelID**：`utils/branding.py` 的 `APP_USER_MODEL_ID` 由 `jfamily.voicetype4tw.v87.ultimate.stable` 改為 `tw.sanhsien.VoxProse.windows`，同時讓 Windows 把新版視為獨立的工作列群組。
 - **Release ZIP／安裝檔命名改用新品牌**：`release_win.ps1` 的可攜版資料夾/ZIP 命名由 `VoiceType4TW_Win_Portable_*_V<BUILD>` 改為 `ShengChengWen-Windows-<Edition>-v<major.minor>`（版本號改自 `pyproject.toml` 動態解析，不寫死）；`voicetype_installer.iss` 的 `OutputBaseFilename` 同步改為 `ShengChengWen-Windows-Setup-v3.2`（`MyAppName`/`AppId`/捷徑安裝名稱本次不在授權範圍內，維持 `VoiceType4TW` 原樣，見 `docs/DECISIONS.md`）。`.github/workflows/release.yml` 全部用 `dist/*.zip` 萬用字元，未硬編 ZIP 檔名，核實後無需改動。
@@ -48,6 +38,14 @@
 ### Fixed
 
 - **清理 pystray 技術債殘留**（REVIEW.md #23、24-2）：`ui/menu_bar.py:_get_sender_text` 移除兩處 pystray 時代死分支——一處與前一個 `if` 條件完全相同永遠不可達，一處用 `and False` 自我短路且註解自承 unused；`requirements-win.txt` 移除多餘的 `pystray>=0.19.5`（UI 已全面改用 `QSystemTrayIcon`）。全 repo grep `pystray` 確認零 import；`release_win.ps1` 與 `tools/check_dependency_freshness.py` 皆未引用 `pystray`，無需同步。
+- **`ui/settings_window.py` 側欄 logo 重複宣告死碼**：`:229-235` 原本連續宣告兩次 `lbl_en = QLabel("VoxProse")`，第一次的物件從未加入 layout、純屬第一階段品牌改名時新增文字但未清掉的既有死碼。移除未使用的第一個宣告，保留實際加入 layout 的第二個。
+- **UI 品牌殘留全面清掃**：`ui/menu_bar.py`（浮動選單/系統匣選單頂部標籤）、`ui/settings/dashboard_page.py`（Dashboard 中文標題）、`ui/settings_window.py`／`ui/settings/vocab_mem_page.py`／`ui/settings/soul_page.py`（三處 `QMessageBox` 標題）殘留的舊名「嘴炮輸入法」全數改為「聲成文」/「聲成文 VoxProse」；`ui/app.py` 一處歷史版本註解裡的雙關舊名字面量一併清掉。`vocab/manager.py` docstring 範例改用新品牌的同音示範（聲成文／生成文）。`啟動嘴炮輸入法.bat` `git mv` 更名為 `啟動聲成文.bat`，並同步更新 `release_win.ps1`／`docs/DEVELOPMENT.md` 的引用。詳見 `docs/DECISIONS.md` 2026-07-22 條目。
+- **簡體字清掃**：`REVIEW.md`／`VERSIONS.md`／`docs/DECISIONS.md`（×2）／`tests/test_stt_engine_dispatch.py` 共 6 處簡體字打字疏漏修正為繁體。改用 Python 逐字元對照表掃描全 repo（非 grep 位元組比對），修正後零殘留。
+- **移除原作者個人社群/贊助連結**：`ui/settings_window.py` 側欄的 SNS 按鈕區塊（YouTube／Facebook／Instagram／TikTok／Threads／個人網站六個連結）全數移除，作者署名文字保留不動；`ui/settings/common.py` 的 `SNSButton` 類別隨之刪除；孤兒圖示資產（6 個 SNS icon＋`donate-linepay.jpg`）`git rm`。`voicetype_installer.iss` 的 `MyAppURL`、`llm/openrouter.py` 的 `HTTP-Referer`/`X-Title` 改指向本 fork 而非上游或個人網址。詳見 `docs/DECISIONS.md`。
+- **啟動/自檢日誌 `BUILD_ID` 與 `VERSION_NAME` 重複顯示**：實機驗證跑 `self_check.py`／`python main.py` 時發現 `VERSION_NAME`（本身已內含 `(BUILD-3200-STABLE)`）與 `BUILD_ID` 被 `main.py`（2 處）、`ui/app.py`（1 處）、`self_check.py`（1 處）疊加輸出，`debug.log` 出現 `V3.2.0 Windows Edition (BUILD-3200-STABLE) (BUILD-3200-STABLE)` 重複字樣。移除多餘的 `BUILD_ID` 疊加輸出（並清掉因此未使用的 import）；`self_check.py` 改為明確標註兩個常數各自的值，維持原本版本常數 `NameError` 迴歸驗證的用意。
+- **設定視窗署名鏈框架錯誤且不完整**：`ui/settings_window.py:274` 側欄署名把原創作者（吉米丘、CC58TW）誤植為本 fork 的「主要開發者」，且漏列上游 Windows 專用版維護者 go-mask 與本 fork 維護者 SanHsien。改為完整四層（原創／上游 Win 版／本 fork／協助），比照 `NOTICE.md`／`README.md`／`about_window.py` 既有措辭；`about_window.py` 核實本來就俱全，未改動。
+- **CUDA Dashboard 文案與實際加速行為矛盾**：`ui/settings/dashboard_page.py` 原本只用 `ctranslate2.get_cuda_device_count() > 0` 判斷「加速可用」，但這只反映驅動層級「有沒有裝置」，不代表 `stt/subprocess_whisper.py` 的 worker 實際載入 `cublas64_12.dll` 會成功——實機查證本機有 RTX 3060、`get_cuda_device_count()` 回報 1，但因未安裝 `requirements-cuda-win.txt` 導致 worker 靜默降級回 CPU，Dashboard 卻仍顯示「✅ 加速可用」。抽出 `stt/cuda_check.py:probe_cuda()` 供 Dashboard 與 worker 共用同一判定邏輯，文案改為三態（可用／偵測到 GPU 但缺函式庫／未偵測到 GPU）。
+- **`tests/test_diagnostics.py` 一個斷言在特定 Python 建置上必然失敗**：`test_opens_explorer_to_highlight_zip_on_windows` 對 `subprocess.Popen` 的 mock 會一併攔截到 `platform.win32_ver()` 內部呼叫的 `subprocess.check_output("ver", ...)`，在部分 Python 建置（如 uv 安裝的 embeddable 3.11.15）上導致呼叫次數斷言失效。已用 `git stash` 在未改動的 HEAD 上重現，確認是既有缺陷、與本次改動無關。改為篩選 `call_args_list` 裡開頭是 `"explorer"` 的呼叫、斷言恰好一次，不再對總呼叫次數斷言。
 
 ## [3.1.0] - 2026-07-20
 
