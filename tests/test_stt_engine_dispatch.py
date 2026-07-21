@@ -3,13 +3,17 @@ logic drifting apart (see REVIEW.md 2026-07-19 finding: the "Gemini (雲端 API)
 option in ui/settings_window.py used to have no matching branch in
 get_stt(), so selecting it silently fell back to local Whisper).
 
-ui/settings_window.py imports PyQt6 at module scope, which may not be
-installed in every dev/CI environment (see tests/test_smoke.py's treatment
-of ui.positions). To keep this guard runnable everywhere, we statically
-extract the STT_ENGINES literal via source parsing instead of importing the
-module, then verify stt.get_stt() returns the expected concrete class for
-every engine value listed there -- without spawning real subprocesses,
-loading real Whisper models, or making real network calls.
+2026-07-21（REVIEW.md #7 god-file 拆分）：STT_ENGINES 的字面定義隨拆分搬到
+`ui/settings/common.py`（原本住在 ui/settings_window.py 模組層級），
+ui/settings_window.py 現在只是 `from ui.settings.common import ...` 轉手，
+静態原始碼裡已經沒有 `STT_ENGINES = [...]` 這行字面量可以 parse 了，因此本檔
+的解析目標同步改指向 ui/settings/common.py。
+
+ui/settings/common.py 一樣在模組頂層 import PyQt6，可能在部分 dev/CI 環境沒
+裝（見 tests/test_smoke.py 對 ui.positions 的處理方式）。為了讓這個防護在任何
+環境都能跑，我們一樣改用靜態原始碼解析取出 STT_ENGINES 字面量，而不是真的
+import 該模組，再驗證 stt.get_stt() 對清單裡每個引擎值都能分派到正確的具體
+類別——不需要開真實子行程、載入真實 Whisper 模型、或打真實網路請求。
 """
 import ast
 import re
@@ -20,12 +24,12 @@ import pytest
 import stt
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SETTINGS_WINDOW_SRC = (REPO_ROOT / "ui" / "settings_window.py").read_text(encoding="utf-8")
+SETTINGS_COMMON_SRC = (REPO_ROOT / "ui" / "settings" / "common.py").read_text(encoding="utf-8")
 
 
 def _extract_stt_engines() -> list[str]:
-    match = re.search(r"STT_ENGINES\s*=\s*(\[[^\]]*\])", SETTINGS_WINDOW_SRC)
-    assert match, "Could not find STT_ENGINES = [...] in ui/settings_window.py"
+    match = re.search(r"STT_ENGINES\s*=\s*(\[[^\]]*\])", SETTINGS_COMMON_SRC)
+    assert match, "Could not find STT_ENGINES = [...] in ui/settings/common.py"
     return ast.literal_eval(match.group(1))
 
 
