@@ -132,17 +132,17 @@ def _stt_worker(pipe_conn: multiprocessing.connection.Connection, config: dict):
     compute_type = config.get("whisper_compute_type", "auto")
     
     # v2.8.27_V77: Hard Verification of CUDA DLLs BEFORE trying to load model
+    # 2026-07-22: 抽成 stt/cuda_check.py:probe_cuda()，與 Dashboard
+    # （ui/settings/dashboard_page.py）共用同一套判定，避免兩處各說各話
+    # （見 docs/DECISIONS.md）。DLL 目錄探索在此已於上方跑過一次，
+    # probe_cuda() 內重跑一次是無害的（add_dll_directory 可重複呼叫）。
     if device in ["auto", "cuda"]:
-        try:
-            import ctypes
-            # Try to actually load the library to be 100% sure
-            lib_name = "cublas64_12.dll"
-            log.info(f"[stt-worker] Testing {lib_name} availability via WinDLL...")
-            test_load = ctypes.WinDLL(lib_name)
+        from .cuda_check import probe_cuda
+        cuda_status = probe_cuda()
+        if cuda_status["accel_available"]:
             log.info("[stt-worker] CUDA check: cublas64_12 found and loadable.")
-            del test_load
-        except Exception as e_cuda:
-            log.warning(f"[stt-worker] CUDA check FAILED: {e_cuda}. FORCING CPU FALLBACK.")
+        else:
+            log.warning(f"[stt-worker] CUDA check FAILED: {cuda_status['reason']}. FORCING CPU FALLBACK.")
             device = "cpu"
             compute_type = "int8" # Safest for CPU
 

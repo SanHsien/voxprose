@@ -66,27 +66,32 @@ class DashboardPageMixin:
             p_layout.addWidget(lbl_p)
 
             # GPU / CUDA 偵測 (v2.8.27_V28: Robust check)
+            # 2026-07-22: 改用 stt/cuda_check.py:probe_cuda()——與
+            # stt/subprocess_whisper.py 的 worker 共用同一套「實際能不能載入
+            # cuBLAS」判定，取代舊版只看 get_cuda_device_count() > 0 的邏輯。
+            # 舊邏輯在「有 NVIDIA GPU 但只裝了 requirements-win.txt、未裝
+            # requirements-cuda-win.txt 的 CUDA 函式庫」的機器上，會顯示
+            # 「✅ CUDA GPU x1 (加速可用)」，但 STT worker 實際上偵測不到
+            # cuBLAS 而靜默降級回 CPU——文案與實際行為矛盾。現在 Dashboard
+            # 與 worker 用同一個探測函式，count>0 與「真的能加速」分開顯示。
+            # 見 docs/DECISIONS.md。
             gpu_text = "⏳ 偵測中..."
             cuda_color = "#888"
             try:
-                # 優先檢查是否已有全域載入的 STT 實例可用於查詢
-                # 我們可以透過 QApplication 獲取主 App 實例的高級方法
-                # 或者直接嘗試導入 (現在有 libiomp5md.dll 了應該安全)
-                import ctranslate2
-                try:
-                    cuda_count = ctranslate2.get_cuda_device_count()
-                    if cuda_count > 0:
-                        gpu_text = f"✅ CUDA GPU × {cuda_count} (加速可用)"
-                        cuda_color = "#00e676"
-                    else:
-                        gpu_text = "⚠️ 未偵測到 CUDA GPU (CPU 模式)"
-                        cuda_color = "#ffab40"
-                except Exception as _inner_e:
-                    log.warning(f"[ui] get_cuda_device_count failed: {_inner_e}")
-                    gpu_text = "⚠️ GPU 偵測組件異常"
+                from stt.cuda_check import probe_cuda
+                status = probe_cuda()
+                count = status["device_count"]
+                if status["accel_available"]:
+                    gpu_text = f"✅ CUDA GPU × {count} (加速可用)"
+                    cuda_color = "#00e676"
+                elif count > 0:
+                    gpu_text = f"⚠️ 偵測到 GPU × {count}，但加速不可用（缺 CUDA 函式庫）"
+                    cuda_color = "#ffab40"
+                else:
+                    gpu_text = "⚠️ 未偵測到 CUDA GPU (CPU 模式)"
                     cuda_color = "#ffab40"
             except Exception as e:
-                log.error(f"[ui] ctranslate2 import error in dashboard: {e}")
+                log.error(f"[ui] CUDA probe failed in dashboard: {e}")
                 gpu_text = "❌ 驅動組件遺失 (V28)"
                 cuda_color = "#ff5252"
 

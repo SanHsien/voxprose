@@ -4,6 +4,40 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-22 — 設定視窗署名鏈補正＋Dashboard CUDA 文案誠實化＋截圖重拍
+
+主 session 檢視前次重拍的 7 張截圖時發現兩個問題：`ui/settings_window.py` 側欄署名區塊框架錯誤且不完整、Dashboard 的 CUDA 狀態文案與 STT worker 實際行為矛盾。
+
+### 一、`ui/settings_window.py:274` 署名區塊框架修正
+
+- **問題**：舊文字 `f"{VERSION_NAME}\n\n主要開發者：吉米丘, CC58TW\n協助開發者：Claude Code"` 把原創作者（吉米丘、CC58TW）誤植為本 fork 的「主要開發者」，且完全漏列上游 Windows 專用版維護者 **go-mask** 與本 fork 維護者 **SanHsien**。這是 2026-07-22 稍早「品牌殘留清掃」任務（見上一條目 #23）遺留的缺口——當時只處理了「移除 SNS 個人連結」，`credit_box` 文字本身被明確標註「原封不動」保留，沒有連帶檢查框架是否正確。`ui/about_window.py` 當時已比對確認四層俱全（`derived_label`/`zh_label`/`assist_label`），只有 `settings_window.py` 這處沒同步。
+- **決定**：改寫為完整四層署名鏈，比照 `NOTICE.md`／`README.md`／`about_window.py` 的既有措辭：
+  ```
+  {VERSION_NAME}
+
+  原創：吉米丘、CC58TW
+  上游 Win 版：go-mask
+  本 fork：SanHsien
+  協助：Claude Code
+  ```
+  分行呈現（側欄版面有限，不用一行塞四個名詞）。`ui/about_window.py:63-81` 檢查後確認四層本來就俱全（`Derived from VoiceType4TW. / Windows fork maintained by SanHsien.` + 中文段落含吉米丘、CC58TW、go-mask + `協助開發者：Claude Code`），不需改動。
+- **守門測試**：`tests/test_brand_and_charset_guard.py` 未鎖定 `credit_box` 具體文字內容（只鎖簡體字／舊品牌名／原作者個人網址三類），本次改動不影響其防護力，也不需要調整測試。
+
+### 二、Dashboard CUDA 狀態文案誠實化
+
+- **查證過程**：
+  1. `nvidia-smi` 實測：本機確有 NVIDIA GeForce RTX 3060（12GB），驅動 610.62，非「沒有 GPU」的情況。
+  2. `venv_real`（`requirements-win.txt` 完整安裝，未裝 `requirements-cuda-win.txt`）內 `ctranslate2.get_cuda_device_count()` 實測回傳 `1`（ctranslate2 4.8.1）。
+  3. 讀 `stt/subprocess_whisper.py` 的 worker 邏輯（`_stt_worker`）發現：worker 在 `device in ["auto", "cuda"]` 時會另外用 `ctypes.WinDLL("cublas64_12.dll")` 做硬驗證，失敗就強制 `device = "cpu"`。實測 `venv_real` 裡這個硬驗證確實失敗（`Could not find module 'cublas64_12.dll'`）——因為 `requirements-cuda-win.txt`（`nvidia-cublas-cu12`/`nvidia-cudnn-cu12`）沒裝，`site-packages` 底下沒有 `nvidia/` 目錄可供 DLL 路徑探索。
+  4. **結論確認**：這正是備忘錄假設的情況——「有 GPU 但缺 CUDA 函式庫 → 實際無法加速」。`get_cuda_device_count() > 0` 只反映驅動層級「有沒有 CUDA 裝置」，不代表 `WhisperModel(device="cuda")` 真的能載入；舊版 Dashboard 文案（`✅ CUDA GPU × 1 (加速可用)`）與 worker 實際降級行為（CPU + int8）矛盾，是誤導，不是驗證 agent 誤判。
+- **決定（新增共用探測模組 `stt/cuda_check.py:probe_cuda()`）**：抽出與 worker 完全相同的判定邏輯（NVIDIA DLL 路徑探索＋`ctypes.WinDLL("cublas64_12.dll")` 硬驗證），回傳 `{"device_count", "accel_available", "reason"}`。`stt/subprocess_whisper.py` 的 `_stt_worker` 硬驗證段落與 `ui/settings/dashboard_page.py` 的 GPU 卡片改為呼叫同一個函式，兩處不再各自維護一套判斷邏輯、不會再各說各話。
+- **決定（Dashboard 文案三態）**：`count>0 且 accel_available` → `✅ CUDA GPU × N (加速可用)`；`count>0 但 not accel_available` → `⚠️ 偵測到 GPU × N，但加速不可用（缺 CUDA 函式庫）`；`count==0` → `⚠️ 未偵測到 CUDA GPU (CPU 模式)`。誠實區分「偵測到裝置」與「真的能加速」，不再混為一談。
+- **測試**：新增 `tests/test_cuda_check.py`，全部用 mock（`sys.modules["ctranslate2"]`／`ctypes.WinDLL`）覆蓋六種情境（無 ctranslate2、device_count=0、get_cuda_device_count() 拋例外、有裝置但 cuBLAS 載入失敗［本次 bug 真實重現案例］、完全可用、非 Windows 平台保守回應），不打真實硬體，CI（無 GPU 的 windows-latest runner）也能穩定跑。
+
+### 三、意外發現並已修（`tests/test_diagnostics.py` 不穩定斷言）
+
+驗證改動時發現 `test_opens_explorer_to_highlight_zip_on_windows` 在本次任務用的 `venv_real`（uv 安裝的 cpython 3.11.15 embeddable 建置）上必然失敗，與本次任務改動無關——已用 `git stash` 在完全未改動的 HEAD 上重現同樣失敗，確認是既有問題。根因：該測試 patch 的是 `utils.diagnostics.subprocess.Popen`，實際上是整個行程共用的 `subprocess` module 物件；`collect_env_info()` 呼叫的 `platform.platform()`/`platform.uname()`/`platform.win32_ver()` 在這個 Python 建置上會各自呼叫 `platform._syscmd_ver()`，透過 `subprocess.check_output("ver", shell=True, ...)` 取得完整版本號——這些呼叫也被同一顆 mock 攔截計入次數，讓 `mock_popen.assert_called_once()` 必然失敗（實際呼叫 4 次：3 次 `ver` + 1 次 `explorer`）。既然這道 mock 的攔截範圍本來就是行程全域、且此行為隨 Python 建置而異，不是測試想驗證的行為，修法改為在 `call_args_list` 裡篩選開頭是 `"explorer"` 的呼叫、斷言恰好一次，不再對總呼叫次數斷言。因為這個失敗會擋下本次任務要求的「pytest 全綠才能 commit」硬性規則，判斷屬於「阻擋當前任務的既有缺陷」，在本次任務內一併修掉（獨立 commit，不與署名/CUDA 修正混在一起），而非略過或另開任務。
+
 ## 2026-07-22 — 品牌殘留全面清掃＋原作者個人網址移除
 
 維護者在實機驗證過程中發現：品牌雖已改名「聲成文 VoxProse」，但程式 UI 仍多處顯示舊名「嘴炮輸入法」，`REVIEW.md` 也混入簡體字（「個人」一詞誤植為簡體）。要求「類似錯誤全都要檢查、改過」。任務進行中維護者追加規格：移除程式 UI 裡所有指向原作者個人社群/贊助頁的連結。

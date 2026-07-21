@@ -270,8 +270,18 @@ class SettingsWindow(
         # 在自己的 UI 裡替原作者導流到個人社群/販售/贊助頁，對雙方都不妥；作者
         # 署名文字（MIT 授權與基本禮貌要求）維持不變，只拿掉可點擊的個人網址。
         # 見 docs/DECISIONS.md。
+        # 2026-07-22: 修正署名框架——先前把原創作者誤植為本 fork 的「主要開發
+        # 者」，且漏列上游 Windows 專用版維護者（go-mask）與本 fork 維護者
+        # （SanHsien）。完整四層署名鏈比照 NOTICE.md／README.md／about_window.py，
+        # 見 docs/DECISIONS.md。
         from paths import VERSION_NAME
-        credit_box = QLabel(f"{VERSION_NAME}\n\n主要開發者：吉米丘, CC58TW\n協助開發者：Claude Code")
+        credit_box = QLabel(
+            f"{VERSION_NAME}\n\n"
+            "原創：吉米丘、CC58TW\n"
+            "上游 Win 版：go-mask\n"
+            "本 fork：SanHsien\n"
+            "協助：Claude Code"
+        )
         credit_box.setStyleSheet("color: #555; font-size: 10px; margin-left: 25px; line-height: 1.2;")
         credit_box.setContentsMargins(0, 0, 0, 20)
         sidebar_layout.addWidget(credit_box)
