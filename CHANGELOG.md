@@ -8,6 +8,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **資料路徑正名（品牌改名第二階段）**：`%APPDATA%\VoiceType4TW` → `%APPDATA%\VoxProse`、`Documents\VoiceType4TW_Sync` → `Documents\VoxProse_Sync`（`paths.py:APP_DATA_DIR`／`get_sync_base_dir()` 預設值），`whisper_models` 等所有子目錄跟著走。維護者確認本機從未有真實使用資料，**不寫任何 old→new 遷移／備份／fallback 邏輯**，直接改常數與字面量。連帶更新走同一路徑的所有落點：`setup_win.bat`（`MODEL_DEST`、編譯輸出 `VoxProse.exe`）、`release_win.ps1`（`$ModelSrc`/`$ModelDest`、隨附啟動器改名、可攜版說明文字）、`create_shortcut.ps1`（偵測的啟動器檔名）、`tools/launcher.cs`（MessageBox 標題）、`build_win.py`（PyInstaller `APP_NAME`）、`.gitignore` 打包輸出樣式、`tests/test_smoke.py` 的 staging 資料夾排除樣式；以及散落在啟動/診斷 log 的品牌字樣（`main.py`、`ui/app.py`、`self_check.py`、`tools/doctor.py`、`tools/download_models.py`、`tools/check_dependency_freshness.py`、`tools/get_portable_python.ps1`、`utils/diagnostics.py`、`ui/settings/dashboard_page.py`）與文件內對應路徑（`README.md`／`README.en.md`／`AGENTS.md`／`SKILL.md`／`docs/DEVELOPMENT.md`／`quality_control_checklist.md`／`安裝下載教學.md`）。上游專案名／fork 沿革敘述（`NOTICE.md`、`LICENSE`、`pyproject.toml` description 等）維持原名不動。
+- **`voicetype_installer.iss` 補齊安裝版品牌（授權範圍擴大）**：第一階段刻意保留的 `MyAppName`（`VoiceType4TW` → `VoxProse`）與 `AppId`（換發新 GUID）本次一併改名，`DefaultDirName` 隨 `MyAppName` 巨集自動跟著換。換 `AppId` 等同視為新程式（舊版不會被升級覆蓋）——本專案無既有安裝基礎，可接受，見 `docs/DECISIONS.md`。
+- **`AGENTS.md`／`SKILL.md` 雙軌授權敘述過時修正**：上游已於 2026-07-20 補齊 MIT、本 fork 早已收斂為全 MIT（`NOTICE.md` 已正確反映），但這兩處仍殘留舊版「不宣稱上游有正式授權／雙軌說明」的措辭，改為指向現況（全 MIT）並註明舊雙軌查證僅作背景記錄。
+
+### Fixed
+
+- **`ui/settings_window.py` 側欄 logo 重複宣告死碼**：`:229-235` 原本連續宣告兩次 `lbl_en = QLabel("VoxProse")`，第一次的物件從未加入 layout、純屬第一階段品牌改名時新增文字但未清掉的既有死碼。移除未使用的第一個宣告，保留實際加入 layout 的第二個。
+
 ## [3.2.0] - 2026-07-21
 
 品牌改名：中文品牌「聲成文」／英文品牌「VoxProse」（組合呈現「聲成文 VoxProse」），標語「自然開口，清楚成文。」／"Speak naturally. Write clearly."。同時補正過去一直遺漏的署名鏈——上游 Windows 專用版維護者 **go-mask** 過去只被本 repo 當成分支名（`win-go-mask-202607`）使用，從未在 NOTICE／README／About 視窗等處以「維護者」身分列名；本版起在所有出現作者/致謝的地方補齊完整鏈：原創作者吉米丘（Jimmy）／CC58TW → 上游 Windows 專用版維護 go-mask → 本 fork（Windows）維護 SanHsien。

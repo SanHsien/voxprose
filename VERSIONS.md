@@ -1,8 +1,52 @@
-# VoiceType4TW 開發版本全紀錄 (面向物件分析)
+# 聲成文 VoxProse（前身 VoiceType4TW／嘴炮輸入法）開發版本全紀錄 (面向物件分析)
 
 本檔案用於精確紀錄「使用者需求」與「實際變更」的對照，並連結至 Git 提交與備份紀錄。最新版本置頂。
 
 ---
+
+## [V3.2.0 補充] - 2026-07-21 (品牌改名第二階段：資料路徑正名)
+> 第一階段（下方 [V3.2.0] 條目）刻意保留 `%APPDATA%\VoiceType4TW`／`Documents\VoiceType4TW_Sync` 兩個實際路徑值不動，理由是「怕有真實使用者資料」。維護者事後確認本機從未實際使用過本程式，兩個目錄查證皆不存在，不需要顧慮 v3.1.0 release ZIP 是否有人下載安裝過——第一階段規劃的「遷移邏輯六原則」（`docs/DECISIONS.md`／`docs/BRANDING.md`）因此整批作廢，未實作、也不會實作。改為直接把路徑常數與所有字面量改名，不留 old→new 搬移/備份/fallback 程式碼（那會是永遠不會執行到的死碼）。版本號／`BUILD_ID` 不變（純資料路徑正名，非功能變更）。
+
+### 路徑改動
+- `paths.py:9`：`APP_DATA_DIR` 目錄名 `VoiceType4TW` → `VoxProse`。
+- `paths.py:35`：`get_sync_base_dir()` 預設值 `Documents\VoiceType4TW_Sync` → `Documents\VoxProse_Sync`。
+- `whisper_models`、`config_local.json`、`config_global.json`、`soul/`、`keystrike.log`、`debug.log`、`sync_path.txt` 等全部子項透過 `APP_DATA_DIR`/`SYNC_BASE_DIR`/`get_data_dir()` 常數跟著走，無需個別修改。
+
+### 打包鏈與工具同步
+- `setup_win.bat`：`MODEL_DEST` 改 `%APPDATA%\VoxProse\whisper_models`；console 標題/banner；`csc` 編譯輸出 `VoxProse.exe`。
+- `release_win.ps1`：`$ModelSrc`/`$ModelDest` 改 `%APPDATA%\VoxProse\...`；隨附啟動器與可攜版說明文字改名。
+- `create_shortcut.ps1`：偵測的原生啟動器檔名 `VoxProse.exe`。
+- `build_win.py`：PyInstaller `APP_NAME` 改 `VoxProse`（決定 `dist/` 輸出資料夾與 exe 名稱）。
+- `tools/launcher.cs`：三處 MessageBox 標題、頂部註解。
+- `tools/get_portable_python.ps1`：console banner。
+- `.gitignore`：打包輸出樣式 `VoiceType4TW_Win_Stable_V*/` → `VoxProse_Win_Stable_V*/`。
+- `tests/test_smoke.py`：release staging 資料夾排除樣式同步改名（與上面 `.gitignore` 樣式一致）。
+
+### `voicetype_installer.iss`（授權範圍擴大，補做第一階段未做的兩項）
+- `MyAppName`：`VoiceType4TW` → `VoxProse`（連帶 Start Menu／桌面捷徑安裝後顯示名稱、`DefaultDirName`）。
+- `AppId`：換發新 GUID（`C3912B98-0808-4B52-84F5-F5BB7A040B9A`）。換 `AppId` 等同視為新程式，舊版安裝不會被偵測升級——本專案無既有安裝基礎（維護者從未安裝過任何版本），可接受，見 `docs/DECISIONS.md`。
+
+### 散落品牌字樣（stage 1 遺漏，本次一併掃到）
+- 啟動/診斷 log：`main.py:114`、`ui/app.py:139`（`log.info` 啟動橫幅）、`self_check.py:47`、`tools/doctor.py:11`、`tools/download_models.py:40`、`tools/check_dependency_freshness.py`（docstring/argparse description）、`utils/diagnostics.py:93,223`（診斷報告標題／桌面 ZIP 檔名）、`ui/settings/dashboard_page.py:315`（註解）、`啟動嘴炮輸入法.bat:2`、`run_voicetype.bat:3,45`。
+- 文件內對應路徑：`README.md:160`、`README.en.md:160`、`AGENTS.md:45`、`SKILL.md:54`、`docs/DEVELOPMENT.md:81,98`、`quality_control_checklist.md:32,34`、`安裝下載教學.md`（全檔 6 處路徑）。
+
+### 死碼修正
+- `ui/settings_window.py:229-235`：側欄 logo 連續宣告兩次 `QLabel("VoxProse")`，第一次的物件從未加入 layout。移除未使用的第一個宣告。
+
+### `AGENTS.md`／`SKILL.md` 過時敘述修正
+- 兩處「不宣稱上游程式碼有正式開源授權／雙軌說明」的舊措辭已過時（`NOTICE.md` 早已正確反映上游 2026-07-20 補齊 MIT、本 fork 全 MIT），改為指向現況，舊雙軌查證過程僅作背景記錄註明。
+
+### 刻意保留原名（上游沿革/歷史敘述，未動）
+- `NOTICE.md`、`LICENSE`（含上游授權全文版權行）、`pyproject.toml` 的 `description`、`README.md`/`README.en.md`/`REVIEW.md`/`SKILL.md`/`AGENTS.md` 開頭的 fork 出處敘述、`ui/about_window.py` 的「Derived from VoiceType4TW」署名段落、`main.py:89-91` 與 `tests/test_config.py:7` 描述「這行程式碼過去長什麼樣子」的重構註解/docstring、`docs/DECISIONS.md`／`CHANGELOG.md`／`VERSIONS.md` 既有的歷史版本條目（描述當時決策事實，不可回溯竄改）。
+
+### 驗證
+- `python -m pytest tests/ -v`：266 passed, 10 skipped（與基準一致）。
+- 全 repo `py_compile`：0 錯誤。
+- 臨時腳本 `import paths` 後印出常數確認為新路徑；`paths.initialize_paths()` 在乾淨環境成功建立 `%APPDATA%\VoxProse` 完整目錄樹與 `Documents\VoxProse_Sync\soul`；驗證後已刪除測試建立的目錄，環境維持乾淨。
+- 全 repo grep `VoiceType4TW` 的路徑語意殘留為零（僅餘上述刻意保留的歷史/沿革敘述）。
+
+### 意外發現
+- 驗證前 grep 發現 `%APPDATA%\VoiceType4TW\{memory,stats,vocab}` 仍存在（含一份預設種子 `custom_vocab.json`，時間戳為本次任務執行當天），研判是先前品牌改名任務驗證過程留下的測試殘留，非真實使用者資料；不在本次路徑正名範圍內，未刪除，留給維護者自行決定是否清理。
 
 ## [V3.2.0] - 2026-07-21 (Rebrand: 聲成文 VoxProse, BUILD-3200-STABLE)
 > 品牌改名＋署名補正批次：完整規格由維護者拍板，本版把工作樹內所有「VoiceType4TW／嘴炮輸入法」自稱改為新品牌「聲成文 VoxProse」，並補齊過去一直遺漏的 go-mask 署名層。

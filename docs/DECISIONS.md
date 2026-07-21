@@ -4,6 +4,18 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-21 — 品牌改名第二階段：資料路徑正名，不寫遷移邏輯
+
+第一階段（見下方「品牌改名『聲成文 VoxProse』＋署名補正」條目）刻意保留 `%APPDATA%\VoiceType4TW` 與 `Documents\VoiceType4TW_Sync` 兩個實際路徑值不動，理由是「怕有真實使用者資料，貿然改名會造成設定與日誌分裂」。維護者本次任務開頭直接推翻這個保留理由：**維護者從未實際使用過本程式，本機不存在任何真實資料**，且明確指示「不用管 v3.1.0 的 release ZIP 有沒有人下載安裝過，不用保險避免他設定全丟」「寫死、舊安裝都不是理由」。
+
+- **決定（不寫任何 old→new 遷移／備份／fallback 邏輯）**：第一階段規劃書 `docs/BRANDING.md` 原本的「第二階段遷移計畫」列了六條原則（新舊路徑並存、時間戳備份、先複製後刪、驗證後切換、保留 fallback、失敗時退回舊路徑）。這整套邏輯的前提是「舊路徑可能有真實資料需要保護」；前提不成立時，這些邏輯永遠不會被執行到（沒有舊資料觸發遷移分支），寫出來只是死碼、徒增 `paths.py` 複雜度與未來維護負擔。因此本次直接把 `paths.py:APP_DATA_DIR`（`VoiceType4TW`→`VoxProse`）與 `get_sync_base_dir()` 預設值（`VoiceType4TW_Sync`→`VoxProse_Sync`）改成新路徑字面量，不保留任何舊路徑分支。`docs/BRANDING.md` 已同步改寫「第二階段」章節反映此決定並作廢六原則計畫。
+- **決定（`voicetype_installer.iss` 補做第一階段明確排除的兩項）**：第一階段「決定（`voicetype_installer.iss` 只改規格明列的兩個欄位）」條目明確排除 `MyAppName` 與 `AppId`。本次維護者明確授權擴大範圍：`MyAppName` 改為 `VoxProse`（連帶 `DefaultDirName`／Start Menu／桌面捷徑安裝後顯示名稱），`AppId` 換發新 GUID（`C3912B98-0808-4B52-84F5-F5BB7A040B9A`，`powershell [guid]::NewGuid()` 產生）。**換 `AppId` 的後果**：Inno Setup 用 `AppId` 判斷「是否為同一程式的升級安裝」，換新 GUID 後舊版（若有人裝過）不會被偵測為可升級對象，而是視為全新程式並列安裝。本專案目前沒有任何已知的既有安裝基礎（無人回報安裝過、無下載紀錄追蹤），此後果可接受，記錄於此供未來查證。
+- **決定（打包鏈與工具全面跟進，範圍大於原規格明列項目）**：任務要求「全 repo 逐檔判斷」，實際 grep 後發現 `setup_win.bat`／`release_win.ps1`／`create_shortcut.ps1`／`build_win.py`／`tools/launcher.cs`／`tools/get_portable_python.ps1`／`.gitignore`／`tests/test_smoke.py` 都含 `VoiceType4TW` 的路徑或檔名語意引用（模型下載目的地、編譯輸出檔名、release staging 資料夾排除樣式等），部分是第一階段的「六項程式面改動」清單裡沒列到的散落點（如 `main.py`/`ui/app.py` 的啟動 log 橫幅、`self_check.py`/`tools/doctor.py`/`utils/diagnostics.py` 的診斷輸出、`ui/settings_window.py` 側欄 logo 死碼旁的重複宣告）。判斷依據：凡是「決定升級偵測、檔名比對、grep 樣式匹配」等會被程式或測試實際讀取比對的字面量，屬路徑/檔名語意，一律跟著改；凡是描述「上游是誰、fork 自哪裡、以前叫什麼名字」的敘述性文字，判定為歷史沿革語意，保留原名（`NOTICE.md`／`LICENSE`／`pyproject.toml` description／README 開頭 fork 出處／`ui/about_window.py` 的「Derived from VoiceType4TW」署名段落／`main.py:89-91` 與 `tests/test_config.py:7` 描述「這行程式碼過去長什麼樣子」的重構註解與 docstring／`CHANGELOG.md`／`VERSIONS.md`／本檔既有的歷史版本條目）。
+- **決定（`ui/settings_window.py:229-235` 死碼一併清掉，而非只改文字）**：第一階段「意外發現並一併修正」條目當時明確記錄「此次不修這個既有小 bug，只更新其文字」——第一次宣告的 `QLabel` 從未加入 layout。本次任務清單明確授權「移除死碼那個，保留實際使用的」，故補做：刪除未使用的第一個 `lbl_en = QLabel("VoxProse")` 宣告，只留下實際 `addWidget` 的第二個。純刪除，不影響任何已接線的行為。
+- **決定（`AGENTS.md`／`SKILL.md` 的過時「雙軌授權」措辭改寫）**：`NOTICE.md` 在稍早的 LICENSE 全面改版決策（見下方「LICENSE 全面改版為全 MIT」條目）中已正確更新為「上游已於 2026-07-20 補齊 MIT，本 fork 全 MIT，舊雙軌查證僅作背景記錄」，但 `AGENTS.md:14` 與 `SKILL.md:20` 兩處硬性邊界說明當時未同步，仍寫著「不宣稱上游有正式授權——見雙軌說明」，與現況矛盾、且會誤導後續 agent 以為現在仍是雙軌狀態。改為與 `NOTICE.md` 一致的現況描述。
+- **驗證**：`python -m pytest tests/ -v` 266 passed / 10 skipped（與任務起始基準一致）；全 repo `py_compile` 0 錯誤；scratchpad 臨時腳本 `import paths` 印出 `APP_DATA_DIR`/`SYNC_BASE_DIR` 等確認為新路徑值，`paths.initialize_paths()` 在乾淨環境成功建立 `%APPDATA%\VoxProse` 與 `Documents\VoxProse_Sync\soul` 完整目錄樹後，已刪除測試建立的目錄與檔案，環境維持乾淨。
+- **意外發現（非本次任務範圍，記錄供維護者參考）**：驗證前 grep 發現 `%APPDATA%\VoiceType4TW\{memory,stats,vocab}` 仍存在，含一份預設種子 `custom_vocab.json`（內容為程式內建的常用詞範例，非個人真實資料），時間戳為本次任務執行當天，研判是先前品牌改名任務驗證過程留下的測試殘留，並非「維護者確認不存在」的真實使用資料被打臉——只是同一天稍早的另一個 agent session 曾實際 import/執行過 `paths`/`vocab.manager` 留下的痕跡。與本次「不寫遷移邏輯」的決策不衝突（這不是需要遷移的使用者資料，是舊路徑下的測試殘留），故未刪除、未處理，留給維護者自行決定是否清理。
+
 ## 2026-07-21 — GitHub repo 更名為 `SanHsien/voxprose`
 
 維護者在本次品牌改名任務進行中途通知：GitHub repo 已由 `SanHsien/voicetype` 更名為 `SanHsien/voxprose`（GitHub 對舊名會自動 302 轉址，但文件不應繼續寫舊名）。本機 remote URL 已由維護者在另一個 session 更新為 `https://github.com/SanHsien/voxprose.git`，本次任務不需要、也沒有動 git remote 設定。

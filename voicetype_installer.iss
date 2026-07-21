@@ -1,7 +1,7 @@
-; VoiceType4TW 專業安裝程式腳本 (Inno Setup)
+; VoxProse 專業安裝程式腳本 (Inno Setup)
 ; 創辦人視角：提供極速、穩定的安裝體驗
 
-#define MyAppName "VoiceType4TW"
+#define MyAppName "VoxProse"
 #define MyAppVersion "3.2.0"
 #define MyAppPublisher "jfamily"
 #define MyAppURL "https://github.com/jfamily4tw/voicetype4tw-mac"
@@ -9,7 +9,10 @@
 #define MyIcon "assets\icon.ico"
 
 [Setup]
-AppId={{212E7000-96A3-491F-8371-B4AB4CE8B847}
+; 2026-07-21: 品牌改名為 VoxProse，換發新 AppId（等同新程式，舊版不會被升級
+; 覆蓋）。本專案無既有安裝基礎（維護者從未安裝過任何版本），可接受；決策見
+; docs/DECISIONS.md。
+AppId={{C3912B98-0808-4B52-84F5-F5BB7A040B9A}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}

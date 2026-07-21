@@ -24,31 +24,22 @@ Windows fork maintained by SanHsien
 2. **上游 Windows 專用版維護**：**go-mask**（`win-go-mask-202607` 分支）
 3. **本 fork（Windows）維護**：SanHsien
 
-## 第一階段已完成（本次任務，2026-07-21）
+## 第一階段已完成（2026-07-21）
 
 視窗標題／系統匣／桌面捷徑／About 視窗／Windows AppUserModelID／Release ZIP 與安裝檔命名／版本推進至 3.2.0／全 repo 文件品牌改寫。詳見 `CHANGELOG.md` [3.2.0]、`VERSIONS.md` [V3.2.0]、`docs/DECISIONS.md` 對應條目。
 
-**第一階段刻意不動**：`%APPDATA%\VoiceType4TW`（`paths.py:APP_DATA_DIR`）與 `Documents\VoiceType4TW_Sync`（預設同步目錄）兩個實際路徑值。理由：這些路徑被設定、同步指標、模型、日誌、詞彙、統計多處直接使用，貿然改名會造成設定與日誌分裂。
+第一階段刻意不動：`%APPDATA%\VoiceType4TW`（`paths.py:APP_DATA_DIR`）與 `Documents\VoiceType4TW_Sync`（預設同步目錄）兩個實際路徑值——當時保留原樣是因為預設「已有真實使用者資料需要顧慮遷移」。
 
-## 第二階段遷移計畫（僅規劃，尚未實作——等品牌穩定後再實作）
+## 第二階段已完成（2026-07-21，同日稍後）——資料路徑正名，無遷移邏輯
 
-目標：`%APPDATA%\VoiceType4TW` → `%APPDATA%\VoxProse`（`Documents\VoiceType4TW_Sync` 同理遷往 `Documents\VoxProse_Sync`）。
+維護者事後確認：本程式從未實際使用過，本機不存在任何 `%APPDATA%\VoiceType4TW` 或 `Documents\VoiceType4TW_Sync` 的真實資料（已查證兩者皆不存在），也不需要顧慮 v3.1.0 release ZIP 是否有人下載安裝過。**第一階段規劃的「遷移邏輯六條原則」（新舊路徑並存、時間戳備份、fallback 等）因此整批作廢，未實作、也不會實作**——沒有舊資料可遷移，寫這類邏輯只會是永遠不會執行到的死碼。改為直接把所有路徑常數與字面量改名，不留 old→new 的搬移/備份/fallback 程式碼。
 
-遷移邏輯六條原則（維護者拍板，原文照收）：
+- `paths.py`：`APP_DATA_DIR` → `%APPDATA%\VoxProse`；`get_sync_base_dir()` 預設值 → `Documents\VoxProse_Sync`。`whisper_models` 等子目錄透過 `get_data_dir()`/`APP_DATA_DIR` 常數跟著走，無需個別修改。
+- `setup_win.bat`：`MODEL_DEST` 改為 `%APPDATA%\VoxProse\whisper_models`；console 標題/banner 改 VoxProse；編譯輸出改 `VoxProse.exe`。
+- `release_win.ps1`：`$ModelSrc`/`$ModelDest` 改為 `%APPDATA%\VoxProse\...`；隨附啟動器改 `VoxProse.exe`；可攜版說明文字內路徑同步更新。
+- `create_shortcut.ps1`：偵測的原生啟動器檔名改 `VoxProse.exe`。
+- `tools/launcher.cs`：MessageBox 標題與頂部註解改 VoxProse（編譯出的 exe 檔名由 `setup_win.bat`/`release_win.ps1` 的 `/out:` 決定，見上）。
+- `安裝下載教學.md`／`quality_control_checklist.md`：文件內列出的實際路徑字串已同步改為 `VoxProse`。
+- 其餘散落的品牌字樣（`main.py`/`ui/app.py` 啟動 log、`self_check.py`/`tools/doctor.py`/`utils/diagnostics.py` 的診斷輸出等）一併掃到並改名，詳見 `docs/DECISIONS.md` 對應條目。
 
-1. 新路徑不存在、舊路徑存在時才遷移。
-2. 遷移前建立時間戳備份。
-3. 先複製，不直接刪除舊資料。
-4. 驗證 JSON、模型與詞彙資料後切換。
-5. 至少保留一個版本的舊路徑 fallback。
-6. 遷移失敗時繼續使用舊路徑。
-
-實作時需要涵蓋的既有接觸點（現況盤點，供實作時參考，非本次已完成項目）：
-
-- `paths.py`：`APP_DATA_DIR`、`SYNC_BASE_DIR`（`get_sync_base_dir()` 的預設值）、`initialize_paths()`、`_install_bundled_models()`。
-- `main.py`：目前已改為引用 `paths.APP_DATA_DIR`（本次重構，見 `docs/DECISIONS.md`），第二階段遷移邏輯應同樣集中在 `paths.py`，不要再度散落到 `main.py`。
-- `setup_win.bat`：`MODEL_DEST` 變數硬編 `%APPDATA%\VoiceType4TW\whisper_models`。
-- `release_win.ps1`：`$ModelSrc`/`$ModelDest` 同樣硬編 `%APPDATA%\VoiceType4TW\...`（打包時讀取本機已下載模型快取）。
-- `安裝下載教學.md`／`quality_control_checklist.md`：文件內列出的實際路徑字串（遷移完成後需要同步改寫，本次品牌改名任務刻意保留原樣）。
-
-**等品牌穩定後再實作**——本次任務範圍僅止於本文件的規劃記錄。
+**刻意保留原名**：上游專案名／fork 來源／歷史沿革敘述（`NOTICE.md`、`README.md`／`README.en.md` 開頭 fork 出處、`pyproject.toml` 的 `description`、`main.py`/`tests/test_config.py` 內描述「這行程式碼過去長什麼樣子」的重構註解／docstring）——這些描述的是「當時實際存在過的字面值」，改寫會扭曲歷史事實，故不動。
