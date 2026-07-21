@@ -11,6 +11,11 @@
 ### Changed
 
 - **`ui/settings_window.py` god file 拆分**（REVIEW.md #7）：原本 2164 行的單一設定視窗檔拆成 `ui/settings/` 子套件——七個分頁各一個 mixin 檔（`dashboard_page.py`／`engine_page.py`／`soul_page.py`／`vocab_mem_page.py`／`sync_page.py`／`stats_page.py`／`general_page.py`）+ 共用元件與常數 `common.py`；`ui/settings_window.py` 收斂為 ~490 行薄殼，`SettingsWindow` 用多重繼承混入所有分頁 mixin，對外 `from ui.settings_window import SettingsWindow` 契約不變（`ui/app.py` 零 diff）。純機械搬移，無邏輯／UI 字串變動；唯一的例外是 `_run_self_check` 內用 `__file__` 反推 repo root 的路徑計算——檔案搬到更深一層目錄後補了一次 `os.path.dirname()`，否則會找錯 `self_check.py` 的路徑。`tests/test_stt_engine_dispatch.py` 的 `STT_ENGINES` 靜態原始碼解析目標同步從 `ui/settings_window.py` 改指向 `ui/settings/common.py`（常數搬去哪、測試就跟去哪，防護力不變）。
+- **`requirements-win.txt`／`requirements-cuda-win.txt` 加主版本上限鎖定**（REVIEW.md #8）：每個套件宣告補上一個主版本上限（如 `PyQt6>=6.6.0,<7`），下限維持不變；基準版本取自 `tools/check_dependency_freshness.py` 查得的目前 PyPI 最新版（一般 semver 套件鎖「最新主版本 + 1」）。`pywin32` 無傳統 major.minor.patch 語意（單一遞增 build number，目前 312），改鎖 `<400` 作為寬鬆上限並加註說明；`certifi` 採日曆版本（YYYY.MM.DD），以年份鎖 `<2027`。`docs/DEVELOPMENT.md` 補一句依賴管理策略說明。
+
+### Fixed
+
+- **清理 pystray 技術債殘留**（REVIEW.md #23、24-2）：`ui/menu_bar.py:_get_sender_text` 移除兩處 pystray 時代死分支——一處與前一個 `if` 條件完全相同永遠不可達，一處用 `and False` 自我短路且註解自承 unused；`requirements-win.txt` 移除多餘的 `pystray>=0.19.5`（UI 已全面改用 `QSystemTrayIcon`）。全 repo grep `pystray` 確認零 import；`release_win.ps1` 與 `tools/check_dependency_freshness.py` 皆未引用 `pystray`，無需同步。
 
 ## [3.1.0] - 2026-07-20
 

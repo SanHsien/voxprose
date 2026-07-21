@@ -9,11 +9,11 @@
 
 ## 總評
 
-**健康分數：7.5 / 10。**
+**健康分數：7.6 / 10（原 7.5，2026-07-21 微調＋0.1）。**
 
 這是一個把「个人 fork 的 Windows 語音輸入法」按照正規工程紀律整理過一輪的專案：233 個自動化測試、GitHub Actions CI（`windows-latest` 跑 py_compile + pytest）、每月依賴新鮮度檢查、`docs/DECISIONS.md`/`docs/UPSTREAM.md`/`CHANGELOG.md`/`AGENTS.md` 形成完整的決策留痕鏈，且本次 review 抽查的 15 項「已修」聲稱，逐一讀碼核實全部屬實（見第 3 節問題總帳）——這不是一份自我感覺良好的變更記錄，是真的改了程式碼。三個 STT/LLM 引擎（Gemini STT、OpenRouter STT、Claude LLM）曾經「使用者選了但完全沒作用、靜默失敗」的死路徑已修好並補了防回歸測試（AST 靜態掃描鎖欄位名），這類問題最容易被忽略也最傷使用者信任，能主動挖出三個同型 bug 說明整理過程有紮實的交叉檢查，而不是頭痛醫頭。
 
-但健康分數沒有給到 8 以上，原因有三個結構性缺口：**(1) 全部這些修復與新功能，沒有一項在真實 Windows 桌面環境跑過**——本次 review 與過去多輪修復都誠實承認「本機無 PyQt6/sounddevice，僅過 py_compile/單元測試」，對一個核心價值是「錄音→辨識→貼字」即時互動體驗的桌面程式，這是目前最大的未知數；**(2) `ui/settings_window.py`（2164 行）god file 完全沒有被拆過**，反而比舊版 REVIEW.md 記錄的 2050 行還成長了；**(3) 文件治理上有一個新發現的缺口**——squash 成單一 v3.1.0 commit 後，`CHANGELOG.md`/`docs/DECISIONS.md` 裡引用的近 20 個「修復 commit hash」（`04d82cc`、`19017c8`、`aee3973` 等）已經不是目前 `HEAD` 的祖先，只殘留在本機 `reflog`（未來 `git gc` 或任何人重新 clone 都會讓這些 hash 徹底查無此 commit），文件本身沒有對這個現象做出說明（見第 4 節）。整體而言：這是一個「紙面工程紀律做得很好、但最後一哩實機驗證完全空白」的專案，下一步的第一優先序應該是真機跑通整條鏈路，而不是再繼續往上疊功能。
+健康分數沒有給到 8 以上，原因原本有三個結構性缺口，其中一項已在本輪（2026-07-21）解決：**(1) 全部這些修復與新功能，沒有一項在真實 Windows 桌面環境跑過**——本次 review 與過去多輪修復都誠實承認「本機無 PyQt6/sounddevice，僅過 py_compile/單元測試」，對一個核心價值是「錄音→辨識→貼字」即時互動體驗的桌面程式，這仍是目前最大的未知數，**尚未解決**；**(2)（已解決）`ui/settings_window.py`（原 2164 行）god file 已於 `1252a68` 拆分**為 ~492 行薄殼＋`ui/settings/` 七分頁子套件，並跑過乾淨 venv 的實機建構煙霧測試（見問題總帳 #7）；**(3) 文件治理上有一個新發現的缺口**——squash 成單一 v3.1.0 commit 後，`CHANGELOG.md`/`docs/DECISIONS.md` 裡引用的近 20 個「修復 commit hash」（`04d82cc`、`19017c8`、`aee3973` 等）已經不是目前 `HEAD` 的祖先，只殘留在本機 `reflog`（未來 `git gc` 或任何人重新 clone 都會讓這些 hash 徹底查無此 commit），詳見第 4 節 24-1。健康分數因 (2) 已解決而從 7.5 微調至 7.6——微調而非大幅上修，是因為 (1) 真機驗證空白仍是最大且未變動的缺口，且 (2) 的修復本身也還只在乾淨 venv 煙霧測試層級驗證過，未涵蓋完整使用情境。整體而言：這是一個「紙面工程紀律做得很好、god file 這類程式碼結構債也已清理，但最後一哩實機驗證完全空白」的專案，下一步的第一優先序應該是真機跑通整條鏈路，而不是再繼續往上疊功能。
 
 ---
 
@@ -31,11 +31,11 @@
 | 5 | 完全沒有 `test_*.py`，核心 pipeline 零自動化測試覆蓋 | 中高 | ✅ 已修（`f8633de` 起，2026-07-19） | 本次核實：現樹 `tests/` 目錄 23 個測試檔，`python -m pytest tests/ -v` 實跑 **233 passed, 10 skipped**（見第 6 節） |
 | 6 | `paths.py` 宣告的雲端同步路徑常數（`VOCAB_DIR`/`MEMORY_DIR`/`STATS_DIR`）是死碼，實際未同步 | 中（誤導性） | ✅ 已修（`c37b286` 2026-07-19 移除前三個；`AI_PERMANENT_MEMORY_PATH` 尾巴 `53a4ef3` 2026-07-20 補removed） | 本次核實：`paths.py:58-61` 現為說明性註解，四個常數本體已不存在；`vocab/manager.py:17` 註解確認命名撞名風險已知並處理 |
 | 7 | `ui/settings_window.py` god file | 中 | ✅ 已修（`1252a68`，2026-07-21；squash 後短碼，見 docs/DECISIONS.md 關於歷史 commit hash 的說明） | 本次核實：`ui/settings_window.py` 從 2164 行縮減為 ~490 行薄殼（`SettingsWindow` 用多重繼承混入 7 個分頁 mixin，`_setup_ui`/`_load_data`/`_save_action` 等視窗骨架邏輯留在殼內）；七個分頁邏輯拆到 `ui/settings/`（`dashboard_page.py`／`engine_page.py`／`soul_page.py`／`vocab_mem_page.py`／`sync_page.py`／`stats_page.py`／`general_page.py`）+ 共用元件 `common.py`；對外 `from ui.settings_window import SettingsWindow` 契約不變（`ui/app.py` 零 diff）；`tests/test_stt_engine_dispatch.py` 的 `STT_ENGINES` 靜態解析目標同步改指向 `ui/settings/common.py`，防護力不變。`python -m pytest tests/ -v`：246 passed, 10 skipped（較拆分前 241 passed 多 5，為新增的 5 個分頁檔被 `test_smoke.py` 全 repo py_compile 掃描一併計入）；另在乾淨 venv（僅裝 PyQt6，不裝 CUDA/faster-whisper）跑實機建構煙霧測試，`SettingsWindow()` 建構＋七頁逐一切換＋各頁 widget 存取＋正常 close，exit code 0 |
-| 8 | `requirements-win.txt` 無版本上限鎖定 | 中低 | ⏳ 待修（建議優先序：低——待 `tools/check_dependency_freshness.py` 月檢有實際落後案例後再決定鎖法） | 本次核實：全檔 14 行套件宣告皆為 `>=`，無任何 `<`/`==` 上限；新增的 `tools/check_dependency_freshness.py` 只做「是否落後」提醒，不做版本上限治理，兩者是互補而非取代關係 |
+| 8 | `requirements-win.txt` 無版本上限鎖定 | 中低 | ✅ 已修（`266280d`，2026-07-21） | 本次核實：`requirements-win.txt`（14 行套件宣告）與 `requirements-cuda-win.txt`（2 行）現在**全部**帶 `<` 主版本上限（如 `PyQt6>=6.6.0,<7`）；`pywin32` 無傳統 semver 語意（單一遞增 build number）故鎖 `<400` 並加註說明，`certifi` 用日曆版本鎖 `<2027`；`tools/check_dependency_freshness.py` 只做「是否落後」提醒，不做版本上限治理，兩者互補 |
 | 9 | `diagnose_mic.py` 在 Windows 上是 macOS-only 死碼空殼 | 低（誤導性，非功能風險） | ✅ 已修（`0ee2730`，2026-07-19） | 本次核實：全檔已重寫（90 行），無任何 `Darwin`/`platform.system()` 判斷式，改為真實列裝置＋實錄 0.5 秒 RMS 診斷 |
 | 10 | PTT／VAD 全時模式並行時缺乏互斥檢查 | 低中 | ✅ 已修（`e33d479`，2026-07-19） | 本次核實：`audio/mutex.py`（79 行，`PttVadMutex` 純狀態機）存在，接線於 `ui/app.py:70-72,209-210,282-283,294`；`tests/test_recording_mutex.py` 7 個測試通過 |
 | 11 | `eval()` 用於語音計算機指令，注入面 | 低（已有輸入清洗，仍是通用執行任意運算式機制） | ✅ 已修（`3d2c215`，2026-07-19） | 本次核實：`actions/builtins.py` 已無 `eval(` 呼叫，改 `ast.parse(mode="eval")` 白名單解析；`tests/test_calculator.py::test_builtins_module_has_no_eval_usage` 靜態守門測試通過 |
-| 12 | `ui/settings_window.py` 硬編碼 macOS 字型 `Monaco` | 低（視覺不一致，非崩潰） | ✅ 已修（`2e52f87`，2026-07-19） | 本次核實：`ui/settings_window.py:1119,1187` 已改 `QFont("Consolas", ...)`，註解說明原因 |
+| 12 | `ui/settings_window.py` 硬編碼 macOS 字型 `Monaco` | 低（視覺不一致，非崩潰） | ✅ 已修（`2e52f87`，2026-07-19） | 本次核實（行號因 #7 god file 拆分已搬動）：原 `ui/settings_window.py:1119,1187` 兩處已隨拆分搬到 `ui/settings/soul_page.py:43,111`，皆為 `QFont("Consolas", ...)`，註解說明原因不變 |
 | 13 | OpenRouter STT 引擎自始壞掉（與 #2 同型：簽章不符＋WAV bytes 重複編碼被吞掉） | 中高（使用者可見，靜默失敗） | ✅ 已修（`75952fd`，2026-07-19，修復 #2 時意外發現） | 本次核實：`stt/openrouter_stt.py:12-26` 直接把原始 WAV bytes 包 `io.BytesIO` 上傳，簽章對齊 `BaseSTT`；`tests/test_openrouter_stt.py` 5 個測試通過 |
 | 14 | Claude LLM 引擎自始壞掉（讀 `claude_api_key`/`claude_model`，但 config/UI 存 `anthropic_*`，永遠拿空 key） | 中高（使用者可見，靜默失敗） | ✅ 已修（`9192ef6`，2026-07-19） | 本次核實：`llm/claude.py:14-15` 已讀 `anthropic_api_key`/`anthropic_model`；新增 `tests/test_llm_config_keys.py` 用 AST 靜態掃描鎖住全部 7 個 provider 的 config 欄位名防回歸，本次實跑通過 |
 | 15 | 網路請求逾時缺口（`llm/claude.py` anthropic SDK、`stt/groq_whisper.py` groq SDK 無明確 timeout，落回 SDK 預設 600s） | 中 | ✅ 已修（`eb61819`，2026-07-19） | 本次核實：新增 `net_config.py`（18 行）定義 `CLOUD_REQUEST_TIMEOUT_SECONDS = 60`；`llm/claude.py:18` 的 `anthropic.Anthropic(..., timeout=CLOUD_REQUEST_TIMEOUT_SECONDS)` 已接線；`tests/test_provider_timeouts.py` 2 個測試（因本機未裝 anthropic/groq SDK 而 `skipped`，非失敗） |
@@ -44,12 +44,12 @@
 | 18 | LLM system prompt 分散在 4 個引擎各自硬編中文死屬性，無多語 fallback | 中 | ✅ 已修（`19017c8`，2026-07-20） | 本次核實：`llm/prompts.py`（39 行，`SYSTEM_PROMPTS` zh/en/ja）存在；`tests/test_llm_prompts.py` 9 個測試通過（含 6 個引擎的 fallback 驗證） |
 | 19 | LLM 未啟用時輸出文字沒有任何贅詞清理（soul 系統形同虛設） | 中 | ✅ 已修（`da93f62`，2026-07-20） | 本次核實：`utils/soul_rules.py`（58 行純函式）存在，`ui/app.py:447,472` 接線 `_apply_basic_soul_rules`；`tests/test_soul_rules.py` 11 個測試通過 |
 | 20 | `soul/scenario/default.md` 贅詞清單缺「所以說」「就是說」 | 低 | ✅ 已修（`1e53549`，2026-07-20） | 未逐字核對 diff，依 CHANGELOG 記載列為已修 |
-| 21 | 無崩潰/環境診斷匯出管道，設定頁「系統診斷」按鈕是誤植的 macOS-only 死擋板 | 中（支援成本） | ✅ 已修（`7bc3b0f`，2026-07-20） | 本次核實：`utils/diagnostics.py`（281 行，環境資訊＋裝置清單＋日誌尾段＋脫敏設定 zip 匯出）存在；`ui/settings_window.py:1480-1487` 註解確認擋板已移除；`tests/test_diagnostics.py` 13 個測試通過 |
+| 21 | 無崩潰/環境診斷匯出管道，設定頁「系統診斷」按鈕是誤植的 macOS-only 死擋板 | 中（支援成本） | ✅ 已修（`7bc3b0f`，2026-07-20） | 本次核實：`utils/diagnostics.py`（281 行，環境資訊＋裝置清單＋日誌尾段＋脫敏設定 zip 匯出）存在；原 `ui/settings_window.py:1480-1487` 已隨 #7 god file 拆分搬到 `ui/settings/general_page.py:131-158`（含「🎤 麥克風測試與診斷」「📦 匯出診斷包」按鈕與擋板已移除的說明註解）；`tests/test_diagnostics.py` 13 個測試通過 |
 | 22 | `vocab/manager.py` 本機常數 `VOCAB_DIR` 與已移除的雲端同步死碼常數同名，容易混淆 | 低 | ✅ 已修（`27d93c8`，2026-07-20） | 本次核實：`vocab/manager.py:17` 常數已改名 `_VOCAB_DATA_DIR`，註解說明沿革 |
-| 23 | `requirements-win.txt` 列了 `pystray`，但 UI 已全面改用 `QSystemTrayIcon`（PyQt6 內建），是多餘依賴 | 低（清理項，非風險項） | ⏳ 待修（建議優先序：低，可與 god file 拆分同批清） | 本次新查證：全 repo grep `pystray` 僅剩 `ui/menu_bar.py:193` 一處**註解**（`# 2. pystray check (label)`），無任何實際 `import pystray`；`ui/tray_manager.py:13,39,50,55` 確認為 `QSystemTrayIcon` 實作。舊版 REVIEW.md 已指出此問題（2026-07-19），至今未清理，見第 4 節新發現 24-2 |
+| 23 | `requirements-win.txt` 列了 `pystray`，但 UI 已全面改用 `QSystemTrayIcon`（PyQt6 內建），是多餘依賴 | 低（清理項，非風險項） | ✅ 已修（`aa1e220`，2026-07-21） | 本次核實：`requirements-win.txt` 已移除 `pystray>=0.19.5`；全 repo grep `pystray` 零結果（連 `ui/menu_bar.py` 原本的殘留註解也隨死分支一併清除，見 24-2）；`ui/tray_manager.py:13,39,50,55` 確認為 `QSystemTrayIcon` 實作 |
 | 24 | 見第 4 節「本次新發現」24-1～24-3 | — | 🔍/⏳ | 本次 review 新增項目，非歷史清單延續 |
 
-**統計**：已修 20 項、待修 2 項（#8 requirements 版本上限、#23 pystray 殘留依賴——後者狀態待下次覆核統一同步，見 2026-07-21 commit `aa1e220`）、決定不做 0 項（歷史上的「不吸收」項目屬於功能吸收分析的範圍，非本問題總帳的 bug/風險，詳見第 5 節與 `docs/mac-mainline-absorption-analysis.md` 第 6 節，不重複列在此表）、需實機驗證 1 項大類（#24-1，涵蓋全部 UI/錄音/雲端 API 行為，見第 7 節）。
+**統計**：已修 23 項、待修 0 項、決定不做 0 項（歷史上的「不吸收」項目屬於功能吸收分析的範圍，非本問題總帳的 bug/風險，詳見第 5 節與 `docs/mac-mainline-absorption-analysis.md` 第 6 節，不重複列在此表）、需實機驗證 1 項大類（#24-1，涵蓋全部 UI/錄音/雲端 API 行為，見第 7 節）。
 
 ---
 
@@ -63,9 +63,9 @@
 
 **建議**：在 `CHANGELOG.md` 開頭或 `docs/DECISIONS.md` 的 squash 條目補一句類似「本文件引用的 commit hash 對應 squash 前的開發歷史，squash 後已不是 `HEAD` 祖先，僅供追溯脈絡參考，不可用 `git show` 驗證」，避免下一個接手者（人類或 AI）誤以為可以照 hash 查證而撲空。
 
-### 24-2（低，清理項）`ui/menu_bar.py` 殘留 pystray 時代的死分支，與 #23 同一批技術債
+### 24-2（低，清理項，✅ 已修）`ui/menu_bar.py` 殘留 pystray 時代的死分支，與 #23 同一批技術債——已於 `aa1e220`（2026-07-21）清理
 
-`ui/menu_bar.py:187-199` 的 sender 文字取值邏輯：
+修復前 `ui/menu_bar.py:187-199` 的 sender 文字取值邏輯（下列程式碼為修復前原始碼存檔，**已移除，非現況**）：
 
 ```python
 if hasattr(sender, "text"):        # 187: PyQt6 / QAction check
@@ -78,7 +78,9 @@ elif isinstance(sender, str):
     raw_val = sender
 ```
 
-第 195 行的 `elif hasattr(sender, "text")` 與第 187 行條件完全相同，**永遠不可能被執行到**（`hasattr` 為 True 時第一個 `if` 已經接手）；第 198 行更直接用 `and False` 把自己永久短路，註解也自承「unused」。這三行合計是 Mac/pystray 跨平台時代遺留、Windows-only 化時沒有清乾淨的死碼——不影響現有行為（第一個 `if` 分支涵蓋所有實際情況），但容易誤導後續維護者以為系統還需要相容 pystray 的物件介面。與 #23（`requirements-win.txt` 殘留 `pystray` 套件宣告）是同一批「pystray 退場沒清乾淨」的技術債，建議一併清理。
+第 195 行的 `elif hasattr(sender, "text")` 與第 187 行條件完全相同，**永遠不可能被執行到**（`hasattr` 為 True 時第一個 `if` 已經接手）；第 198 行更直接用 `and False` 把自己永久短路，註解也自承「unused」。這三行合計是 Mac/pystray 跨平台時代遺留、Windows-only 化時沒有清乾淨的死碼——不影響現有行為（第一個 `if` 分支涵蓋所有實際情況），但容易誤導後續維護者以為系統還需要相容 pystray 的物件介面。與 #23（`requirements-win.txt` 殘留 `pystray` 套件宣告）是同一批「pystray 退場沒清乾淨」的技術債。
+
+**已修**：`aa1e220` 已將這兩處死分支（原 195、198 行）與 `requirements-win.txt` 的 `pystray>=0.19.5` 一併移除。本次核實 `ui/menu_bar.py:186-199` 現況只剩一個 `if hasattr(sender, "text")` 分支＋`elif isinstance(sender, str)` 字串 fallback，無任何 pystray 殘留死碼；`tests/` 全數通過（233 passed, 10 skipped，不變）。
 
 ### 24-3（🔍 需驗證，非缺陷）`stt/hallucination_filter.py` 的極短口語詞（「嗯」「啊」等）落入黑名單，可能誤殺合法極短語音
 
@@ -94,7 +96,8 @@ elif isinstance(sender, str):
 |---|---|---|
 | `main.py` | ~130 | 進入點：crash-proofing 環境變數、`initialize_paths()`、啟動 `VoiceTypeApp` |
 | `ui/app.py` | ~600 | `VoiceTypeApp(QObject)` 協調者：熱鍵/錄音/STT/LLM/注入/記憶全流程 orchestration |
-| `ui/settings_window.py` | ~2100+ | 設定視窗全分頁（god file，見問題總帳 #7） |
+| `ui/settings_window.py` | ~492 | `SettingsWindow` 薄殼：多重繼承混入 `ui/settings/` 七分頁 mixin，`_setup_ui`/`_load_data`/`_save_action` 等視窗骨架邏輯（god file 已拆分，見問題總帳 #7） |
+| `ui/settings/`（8 檔） | ~各 40~360 | 設定視窗七分頁 mixin（`dashboard_page.py`／`engine_page.py`／`soul_page.py`／`vocab_mem_page.py`／`sync_page.py`／`stats_page.py`／`general_page.py`）+ 共用元件與常數 `common.py` |
 | `ui/menu_bar.py`／`tray_manager.py`／`mic_indicator.py`／`floating_button.py`／`positions.py`／`about_window.py` | 各 ~70~360 | PyQt6 選單列／系統匣／浮動指示／浮動按鈕／視窗位置記憶／關於視窗 |
 | `hotkey/listener.py` | ~140 | 純 `ctypes` 輪詢 Win32 API 的全域熱鍵，無 `pynput` |
 | `audio/recorder.py`／`auto_trigger.py`／`gain.py`／`mutex.py` | ~80~190 | PTT 錄音／VAD 全時模式／增益＋AGC 純函式／PTT-VAD 互斥狀態機 |
@@ -111,9 +114,9 @@ elif isinstance(sender, str):
 
 ## 6. 各面向短評
 
-**品質**：核心邏輯模組（`audio/gain.py`、`utils/soul_rules.py`、`stt/hallucination_filter.py`、`audio/mutex.py`、`llm/prompts.py`）都刻意抽成無重量依賴的純函式檔案，docstring 交代移植來源、動機與取捨，這是本次 review 讀到最一致的優點——不是「為了測試而測試」，是真的把可測試性當架構考量。缺點是 `ui/settings_window.py` 持續膨脹（2050→2164 行）沒人動它，`ui/menu_bar.py` 有 pystray 時代死碼沒清（24-2）。
+**品質**：核心邏輯模組（`audio/gain.py`、`utils/soul_rules.py`、`stt/hallucination_filter.py`、`audio/mutex.py`、`llm/prompts.py`）都刻意抽成無重量依賴的純函式檔案，docstring 交代移植來源、動機與取捨，這是本次 review 讀到最一致的優點——不是「為了測試而測試」，是真的把可測試性當架構考量。曾經持續膨脹（2050→2164 行）沒人動的 `ui/settings_window.py` god file 已於 `1252a68` 拆分為 ~492 行薄殼＋`ui/settings/` 七分頁子套件（#7）；`ui/menu_bar.py` 的 pystray 時代死碼也已於 `aa1e220` 清理（24-2）。目前無已知的程式碼結構性缺點待清；剩下的缺口是第 7 節列出的實機驗證空白。
 
-**安全與隱私**：API Key 已全部本地化並有遷移邏輯（問題總帳 #4）；計算機 `eval()` 已改 AST 白名單（#11）；`utils/diagnostics.py` 匯出診斷包前會 `_sanitize_config()` 脫敏（`utils/diagnostics.py:44-59`）。仍存在但屬「已知且刻意不動」的殘留風險：`llm/gemini.py` 的 API key 走 URL query string（Google 官方設計，非本 repo 問題）；`requirements-win.txt` 無版本上限（#8）。
+**安全與隱私**：API Key 已全部本地化並有遷移邏輯（問題總帳 #4）；計算機 `eval()` 已改 AST 白名單（#11）；`utils/diagnostics.py` 匯出診斷包前會 `_sanitize_config()` 脫敏（`utils/diagnostics.py:44-59`）；`requirements-win.txt`/`requirements-cuda-win.txt` 已補主版本上限（`266280d`，#8）。仍存在但屬「已知且刻意不動」的殘留風險：`llm/gemini.py` 的 API key 走 URL query string（Google 官方設計，非本 repo 問題）。
 
 **測試與 CI**：`python -m pytest tests/ -v` 本次實跑 **233 passed, 10 skipped**，與 `docs/DECISIONS.md` 2026-07-20 條目記載的數字一致。10 個 skip 全部是「本機開發環境缺少可選依賴」造成（`pytest.importorskip("anthropic")`／`("groq")`，以及 PyQt6/sounddevice 相關模組的 import 測試），不是測試邏輯有問題，且 `test_smoke.py` 用同一套「optional import 就 skip」機制涵蓋了這件事的誠實聲明。CI（`.github/workflows/ci.yml`）在 `windows-latest` 上跑 py_compile 全樹 + pytest，`release.yml`／`dependency-freshness.yml` 兩條輔助 workflow 也都語法正確（已用 `yaml.safe_load` 等方式驗證，見 `docs/DECISIONS.md`）。**缺口**：CI 只驗證「能 compile、單元測試過」，不驗證「PyQt6 UI 能開起來」，這與第 7 節的實機驗證空白是同一個缺口的兩面。
 
@@ -140,9 +143,9 @@ elif isinstance(sender, str):
 
 1. **（最高優先）實機驗證整條鏈路**：在有 PyQt6/sounddevice/麥克風的 Windows 機器上跑一次 `python main.py`，走過「熱鍵錄音→本地 Whisper 辨識→LLM 潤飾→貼字」全流程，以及設定頁新按鈕（麥克風裝置切換、增益 slider、診斷包匯出）。這是目前唯一一項「紙面完成、實機完全未知」的大類缺口，優先於任何新功能。
 2. **在 `CHANGELOG.md`/`docs/DECISIONS.md` 補一句 squash hash 失效聲明**（見 24-1），成本極低、避免下一個接手者踩坑。
-3. **清理 pystray 殘留**（#23 + 24-2）：`requirements-win.txt` 移除 `pystray>=0.19.5`，`ui/menu_bar.py:195,198` 移除死分支——工作量小，可與下一項合併處理。
-4. **`ui/settings_window.py` 拆分**（#7）：待第 1 項實機驗證跑通、確認現有分頁邏輯行為正確後再拆，避免在沒有實機回歸手段的狀態下大動這個全 repo 最大檔案。
-5. **`requirements-win.txt` 補版本上限**（#8）：待第 1 項實機驗證確認目前套件版本組合可用後，鎖定 `faster-whisper`/`PyQt6`/`ctranslate2`（隱性相依）等容易 breaking change 的核心套件版本上限，避免未來 `pip install` 靜默抓到不相容新版。
+3. ~~清理 pystray 殘留（#23 + 24-2）~~：**已完成**（`aa1e220`，2026-07-21）——`requirements-win.txt` 已移除 `pystray>=0.19.5`，`ui/menu_bar.py` 死分支已移除。
+4. ~~`ui/settings_window.py` 拆分（#7）~~：**已完成**（`1252a68`，2026-07-21）——拆為 ~492 行薄殼＋`ui/settings/` 七分頁子套件，已跑過乾淨 venv 實機建構煙霧測試。
+5. ~~`requirements-win.txt` 補版本上限（#8）~~：**已完成**（`266280d`，2026-07-21）——`requirements-win.txt`/`requirements-cuda-win.txt` 全數套件已加主版本上限。
 6. **在有真實 CUDA GPU 與各雲端 API key 的環境跑一次端到端整合測試**，把第 7 節列出的未驗證邊界逐項清空。
 
 ---
