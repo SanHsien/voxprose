@@ -64,8 +64,8 @@ SOUL_SNIPPET_DIR = SOUL_DIR / "snippets"
 # 變更，不在清理範圍內；決策記錄見 docs/DECISIONS.md。
 
 APP_CONFIG_DIR = APP_DATA_DIR
-VERSION_NAME = "V3.1.0 Windows Edition (BUILD-3100-STABLE)"
-BUILD_ID = "BUILD-3100-STABLE"
+VERSION_NAME = "V3.2.0 Windows Edition (BUILD-3200-STABLE)"
+BUILD_ID = "BUILD-3200-STABLE"
 KEYSTRIKE_LOG_PATH = APP_DATA_DIR / "keystrike.log"
 
 # 舊版路徑 (用於遷移)

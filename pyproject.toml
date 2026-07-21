@@ -1,7 +1,7 @@
 [project]
-name = "voicetype"
-version = "3.1.0"
-description = "VoiceType4TW 嘴炮輸入法 — Windows-only fork of jfamily4tw/voicetype4tw-mac (win-stable), maintained by SanHsien"
+name = "voxprose"
+version = "3.2.0"
+description = "聲成文 VoxProse — Windows-only fork of jfamily4tw/voicetype4tw-mac (VoiceType4TW / 嘴炮輸入法, win-stable), maintained by SanHsien"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 license = { text = "MIT" }
