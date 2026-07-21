@@ -191,7 +191,7 @@ class SoulPageMixin:
                 else:
                     os.system(f"open '{directory}'")
             except Exception as e:
-                QMessageBox.warning(self, "嘴炮輸入法", f"無法開啟資料夾：{e}")
+                QMessageBox.warning(self, "聲成文", f"無法開啟資料夾：{e}")
 
         btn_open.clicked.connect(_open_folder)
         layout.addWidget(btn_open)

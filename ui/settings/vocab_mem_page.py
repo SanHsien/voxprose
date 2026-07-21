@@ -151,7 +151,7 @@ class VocabMemPageMixin:
     def _delete_memory_entry(self):
         item = self.mem_tree.currentItem()
         if not item:
-            QMessageBox.information(self, "嘴炮輸入法", "請先在長期記憶清單中選取一筆記錄。")
+            QMessageBox.information(self, "聲成文", "請先在長期記憶清單中選取一筆記錄。")
             return
         key = item.data(0, Qt.ItemDataRole.UserRole)
         if key == "__summary__":

@@ -63,7 +63,7 @@ pip install -r requirements-cuda-win.txt
 python main.py
 ```
 
-或直接雙擊根目錄的 `啟動嘴炮輸入法.bat`（`cd /d "%~dp0" && python main.py`，執行完會 `pause` 停留在主控台視窗方便看錯誤訊息）；一般使用者安裝走 `setup_win.bat`（自動偵測/安裝 Python、建 venv 或用內嵌 Python、裝依賴、下載模型、建捷徑，詳見根目錄該檔）。
+或直接雙擊根目錄的 `啟動聲成文.bat`（委派 `run_voicetype.bat` 挑選正確的 Python 並自動跑必要的設定，執行完會 `pause` 停留在主控台視窗方便看錯誤訊息）；一般使用者安裝走 `setup_win.bat`（自動偵測/安裝 Python、建 venv 或用內嵌 Python、裝依賴、下載模型、建捷徑，詳見根目錄該檔）。
 
 首次啟動時 Windows 可能跳出麥克風權限提示，需允許終端機/Python 存取麥克風；若錄音無聲，先跑 `python diagnose_mic.py`（列出輸入裝置、標示預設裝置、實際開串流測 0.5 秒音量並提示 Windows 隱私權排查方向），或直接用系統設定 → 隱私權 → 麥克風排查。
 
@@ -140,7 +140,7 @@ python -m pytest tests/ -v
 ├── README.md / README.en.md  # 使用者入口
 ├── setup_win.bat / run_voicetype.bat / release_win.ps1 / build_win.py / voicetype_installer.iss
 │                            # Windows 環境建置與打包鏈（不隨意修改，見 AGENTS.md 硬性邊界）
-└── 啟動嘴炮輸入法.bat        # Windows 啟動捷徑
+└── 啟動聲成文.bat          # Windows 啟動捷徑
 ```
 
 ## 關於 macOS（本工作樹已無 macOS 程式碼）

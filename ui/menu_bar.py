@@ -33,7 +33,7 @@ class VoiceTypeMenuBar:
         scenarios = [f.stem for f in SOUL_SCENARIO_DIR.glob("*.md")] if SOUL_SCENARIO_DIR.exists() else []
 
         items = [
-            {'label': "嘴炮輸入法", 'callback': None},
+            {'label': "聲成文 VoxProse", 'callback': None},
             {'label': "關於", 'callback': lambda _: self._show_about()},
             {'label': "---", 'callback': None},
             {'label': f"辨識引擎: {engine}", 'callback': None},
@@ -60,7 +60,7 @@ class VoiceTypeMenuBar:
     def get_tray_menu_items(self) -> List[Dict]:
         """Builds the simplified menu structure for the System Tray."""
         return [
-            {'label': "嘴炮輸入法", 'callback': None},
+            {'label': "聲成文 VoxProse", 'callback': None},
             {'label': "關於", 'callback': lambda _: self._show_about()},
             {'label': "---", 'callback': None},
             {'label': "⚙️  偏好設定...", 'callback': lambda _: self._open_settings()},

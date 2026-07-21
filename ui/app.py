@@ -95,7 +95,7 @@ class VoiceTypeApp(QObject):
         self.action_dispatcher = ActionManager(self.injector, self.indicator)
         
         # 2. UI 元件
-        # v2.8.27_V57: Use white speech icon as requested (\"嘴炮圖案\")
+        # v2.8.27_V57: Use white speech icon as requested (原始需求暱稱「講話圖案」，品牌改名後移除舊名字面量，見 2026-07-22 清掃)
         icon_path = get_resource_path("assets/icon-menubar-w.png")
         self.floating_btn = FloatingButton(icon_path)
         self.menu_bar = VoiceTypeMenuBar(

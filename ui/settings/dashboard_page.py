@@ -37,7 +37,7 @@ class DashboardPageMixin:
 
         dash_header.addStretch()
 
-        title_cn = QLabel("嘴炮輸入法")
+        title_cn = QLabel("聲成文")
         win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "Taipei Sans TC Beta"
         title_cn.setStyleSheet(f"font-family: '{win_font}'; font-size: 22px; font-weight: bold; color: #7c4dff;")
         dash_header.addWidget(title_cn)

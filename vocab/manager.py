@@ -203,7 +203,7 @@ def apply_vocab_correction(text: str) -> str:
     """
     STT 後修正同音異字錯誤：對自訂詞彙中 >=3 字的詞，
     在輸出文字中掃描 edit-distance <= 1 的相似子串，強制替換為正確版本。
-    例：私人詞庫有「嘴炮輸入法」，STT 輸出「嘴砲輸入法」→ 自動修正。
+    例：私人詞庫有「聲成文」，STT 輸出「生成文」→ 自動修正。
     """
     if not text:
         return text

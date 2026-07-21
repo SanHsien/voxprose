@@ -65,7 +65,7 @@ foreach ($folder in $Folders) {
 $Files = @(
     "main.py", "paths.py", "config.py", "config.json",
     "requirements-win.txt", "requirements-cuda-win.txt",
-    "setup_win.bat", "run_voicetype.bat", "啟動嘴炮輸入法.bat",
+    "setup_win.bat", "run_voicetype.bat", "啟動聲成文.bat",
     "create_shortcut.ps1", "diagnose_mic.py", "self_check.py",
     "README.md", "安裝下載教學.MD"
 )
