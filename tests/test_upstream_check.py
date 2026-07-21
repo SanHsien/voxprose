@@ -31,6 +31,11 @@ from tools.check_upstream_updates import (
 # --- Parsing the real docs/UPSTREAM.md ---------------------------------
 
 def test_parse_real_upstream_md_succeeds():
+    # 刻意只驗「結構與格式」，不寫死任何 commit sha——推進 last_reviewed／
+    # last_merged 是本機制設計上的常規維護操作（見 docs/UPSTREAM.md），
+    # 若在這裡釘死實際值，每推進一次就會紅燈，久而久之只會訓練維護者
+    # 把期望值改掉了事（橡皮圖章），反而失去防護意義。真正該擋的是
+    # 「區塊被改壞／欄位消失／值不是合法 sha」這類結構性損壞。
     data = load_sync_points()
     assert data["schema_version"] == 1
     assert data["repo"] == "jfamily4tw/voicetype4tw-mac"
@@ -39,13 +44,27 @@ def test_parse_real_upstream_md_succeeds():
     for name in REQUIRED_BRANCHES:
         assert name in branches
 
-    assert branches["win-go-mask-202607"]["last_merged"] == "e5ddc02"
-    assert branches["win-go-mask-202607"]["last_reviewed"] == "e5ddc02"
-    assert branches["win-stable"]["last_merged"] == "b694e40"
-    assert branches["win-stable"]["last_reviewed"] == "b694e40"
+    def _is_sha(value):
+        return (
+            isinstance(value, str)
+            and 7 <= len(value) <= 40
+            and all(c in "0123456789abcdef" for c in value)
+        )
+
+    for name, info in branches.items():
+        # last_reviewed 是檢查機制的判準，任何分支都必須有合法值
+        assert _is_sha(info.get("last_reviewed")), f"{name}: last_reviewed 非合法 sha"
+        # last_merged 可為 null（該分支只審視、不追蹤程式碼），有值就必須合法
+        merged = info.get("last_merged")
+        assert merged is None or _is_sha(merged), f"{name}: last_merged 非合法 sha"
+
+    # 我們實際追蹤程式碼的兩個 Windows 分支必須有 last_merged（不得為 null）
+    for name in ("win-go-mask-202607", "win-stable"):
+        assert _is_sha(branches[name]["last_merged"]), f"{name}: 應有 last_merged"
+
+    # Mac 線只審視不追蹤程式碼，並記錄 LICENSE 取用來源
     assert branches["main"]["last_merged"] is None
-    assert branches["main"]["last_reviewed"] == "10b2fc8"
-    assert branches["main"]["license_source"] == "46346d3"
+    assert _is_sha(branches["main"]["license_source"])
 
 
 def test_upstream_md_file_exists_at_expected_path():
