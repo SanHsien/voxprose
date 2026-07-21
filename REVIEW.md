@@ -13,7 +13,7 @@
 
 這是一個把「个人 fork 的 Windows 語音輸入法」按照正規工程紀律整理過一輪的專案：233 個自動化測試、GitHub Actions CI（`windows-latest` 跑 py_compile + pytest）、每月依賴新鮮度檢查、`docs/DECISIONS.md`/`docs/UPSTREAM.md`/`CHANGELOG.md`/`AGENTS.md` 形成完整的決策留痕鏈，且本次 review 抽查的 15 項「已修」聲稱，逐一讀碼核實全部屬實（見第 3 節問題總帳）——這不是一份自我感覺良好的變更記錄，是真的改了程式碼。三個 STT/LLM 引擎（Gemini STT、OpenRouter STT、Claude LLM）曾經「使用者選了但完全沒作用、靜默失敗」的死路徑已修好並補了防回歸測試（AST 靜態掃描鎖欄位名），這類問題最容易被忽略也最傷使用者信任，能主動挖出三個同型 bug 說明整理過程有紮實的交叉檢查，而不是頭痛醫頭。
 
-健康分數沒有給到 8 以上，原因原本有三個結構性缺口，其中一項已在本輪（2026-07-21）解決：**(1) 全部這些修復與新功能，沒有一項在真實 Windows 桌面環境跑過**——本次 review 與過去多輪修復都誠實承認「本機無 PyQt6/sounddevice，僅過 py_compile/單元測試」，對一個核心價值是「錄音→辨識→貼字」即時互動體驗的桌面程式，這仍是目前最大的未知數，**尚未解決**；**(2)（已解決）`ui/settings_window.py`（原 2164 行）god file 已於 `1252a68` 拆分**為 ~492 行薄殼＋`ui/settings/` 七分頁子套件，並跑過乾淨 venv 的實機建構煙霧測試（見問題總帳 #7）；**(3) 文件治理上有一個新發現的缺口**——squash 成單一 v3.1.0 commit 後，`CHANGELOG.md`/`docs/DECISIONS.md` 裡引用的近 20 個「修復 commit hash」（`04d82cc`、`19017c8`、`aee3973` 等）已經不是目前 `HEAD` 的祖先，只殘留在本機 `reflog`（未來 `git gc` 或任何人重新 clone 都會讓這些 hash 徹底查無此 commit），詳見第 4 節 24-1。健康分數因 (2) 已解決而從 7.5 微調至 7.6——微調而非大幅上修，是因為 (1) 真機驗證空白仍是最大且未變動的缺口，且 (2) 的修復本身也還只在乾淨 venv 煙霧測試層級驗證過，未涵蓋完整使用情境。整體而言：這是一個「紙面工程紀律做得很好、god file 這類程式碼結構債也已清理，但最後一哩實機驗證完全空白」的專案，下一步的第一優先序應該是真機跑通整條鏈路，而不是再繼續往上疊功能。
+健康分數沒有給到 8 以上，原因原本有三個結構性缺口，其中一項已在本輪（2026-07-21）解決：**(1) 全部這些修復與新功能，沒有一項在真實 Windows 桌面環境跑過**——本次 review 與過去多輪修復都誠實承認「本機無 PyQt6/sounddevice，僅過 py_compile/單元測試」，對一個核心價值是「錄音→辨識→貼字」即時互動體驗的桌面程式，這仍是目前最大的未知數，**尚未解決**；**(2)（已解決）`ui/settings_window.py`（原 2164 行）god file 已於 `1252a68` 拆分**為 ~492 行薄殼＋`ui/settings/` 七分頁子套件，並跑過乾淨 venv 的實機建構煙霧測試（見問題總帳 #7）；**(3)（已解決）曾有一個文件治理缺口**——squash 成單一 v3.1.0 commit 後，`CHANGELOG.md`/`docs/DECISIONS.md` 裡引用的近 20 個「修復 commit hash」（`04d82cc`、`19017c8`、`aee3973` 等）已經不是目前 `HEAD` 的祖先，只殘留在本機 `reflog`（未來 `git gc` 或重新 clone 都會查無此 commit）；已於 `4278ff8` 在 `CHANGELOG.md:7`／`docs/DECISIONS.md:5` 補免責聲明說明此現象，詳見第 4 節 24-1。健康分數因 (2)(3) 已解決而從 7.5 微調至 7.6——微調而非大幅上修，是因為 (1) 真機驗證空白仍是最大且未變動的缺口，且 (2) 的修復本身也還只在乾淨 venv 煙霧測試層級驗證過，未涵蓋完整使用情境。整體而言：這是一個「紙面工程紀律做得很好、god file 這類程式碼結構債也已清理，但最後一哩實機驗證完全空白」的專案，下一步的第一優先序應該是真機跑通整條鏈路，而不是再繼續往上疊功能。
 
 ---
 
@@ -47,21 +47,21 @@
 | 21 | 無崩潰/環境診斷匯出管道，設定頁「系統診斷」按鈕是誤植的 macOS-only 死擋板 | 中（支援成本） | ✅ 已修（`7bc3b0f`，2026-07-20） | 本次核實：`utils/diagnostics.py`（281 行，環境資訊＋裝置清單＋日誌尾段＋脫敏設定 zip 匯出）存在；原 `ui/settings_window.py:1480-1487` 已隨 #7 god file 拆分搬到 `ui/settings/general_page.py:131-158`（含「🎤 麥克風測試與診斷」「📦 匯出診斷包」按鈕與擋板已移除的說明註解）；`tests/test_diagnostics.py` 13 個測試通過 |
 | 22 | `vocab/manager.py` 本機常數 `VOCAB_DIR` 與已移除的雲端同步死碼常數同名，容易混淆 | 低 | ✅ 已修（`27d93c8`，2026-07-20） | 本次核實：`vocab/manager.py:17` 常數已改名 `_VOCAB_DATA_DIR`，註解說明沿革 |
 | 23 | `requirements-win.txt` 列了 `pystray`，但 UI 已全面改用 `QSystemTrayIcon`（PyQt6 內建），是多餘依賴 | 低（清理項，非風險項） | ✅ 已修（`aa1e220`，2026-07-21） | 本次核實：`requirements-win.txt` 已移除 `pystray>=0.19.5`；全 repo grep `pystray` 零結果（連 `ui/menu_bar.py` 原本的殘留註解也隨死分支一併清除，見 24-2）；`ui/tray_manager.py:13,39,50,55` 確認為 `QSystemTrayIcon` 實作 |
-| 24 | 見第 4 節「本次新發現」24-1～24-3 | — | 🔍/⏳ | 本次 review 新增項目，非歷史清單延續 |
+| 24 | 見第 4 節「本次新發現」24-1（✅ 已處理）／24-2（✅ 已修）／24-3（🔍 需實機驗證聽感） | — | ✅/🔍 | 本次 review 新增項目，非歷史清單延續 |
 
-**統計**：已修 23 項、待修 0 項、決定不做 0 項（歷史上的「不吸收」項目屬於功能吸收分析的範圍，非本問題總帳的 bug/風險，詳見第 5 節與 `docs/mac-mainline-absorption-analysis.md` 第 6 節，不重複列在此表）、需實機驗證 1 項大類（#24-1，涵蓋全部 UI/錄音/雲端 API 行為，見第 7 節）。
+**統計**：已修 23 項、待修 0 項、決定不做 0 項（歷史上的「不吸收」項目屬於功能吸收分析的範圍，非本問題總帳的 bug/風險，詳見第 5 節與 `docs/mac-mainline-absorption-analysis.md` 第 6 節，不重複列在此表）。**新發現 24-1／24-2 已處理**；另有一項貫穿全專案的最大缺口＝**全部修復與新功能尚未實機驗證**（UI/錄音/雲端 API 行為，見第 7 節「未驗證邊界」與下一步建議第 1 項），這不是單一 bug 而是整體狀態，未計入上述編號。
 
 ---
 
 ## 4. 本次新發現
 
-### 24-1（中，文件治理缺口）squash 後大量修復 commit hash 已不在 `git log` 可達範圍
+### 24-1（中，文件治理缺口，✅ 已處理）squash 後大量修復 commit hash 已不在 `git log` 可達範圍——已於 `4278ff8`（2026-07-20）在 `CHANGELOG.md:7`／`docs/DECISIONS.md:5` 補免責聲明
 
 `git log --oneline -5` 顯示 `HEAD` 為 `84d1b28`（merge，雙親 `51094bf`／`e5ddc02`），這是刻意設計的「squash 成單一 v3.1.0 commit」（`docs/UPSTREAM.md:26-33`、`docs/DECISIONS.md:7`）。但實際查證發現：`CHANGELOG.md`／`docs/DECISIONS.md` 裡引用的近 20 個「修復 commit hash」（如 `04d82cc`、`71f0cbe`、`19017c8`、`aee3973`、`d99a326` 等，即本表 #1-22 逐項引用的那些）**全部不是 `HEAD` 的祖先**（已用 `git merge-base --is-ancestor <hash> HEAD` 逐一驗證，全部回傳「NOT ancestor」）。這些 commit 目前只殘留在本機 `.git` 的 `reflog`（`git reflog` 可查到，如 `HEAD@{20}: commit: feat(llm): 集中化...`），是「squash 前 `HEAD` 曾經指到過的位置」留下的痕跡——**不在任何分支或標籤上**，未被 push 到任何 remote，未來只要跑 `git gc --prune=now`、或任何人重新 clone 這個 repo，這些 hash 就會徹底變成「bad object」查無此 commit。
 
 `docs/DECISIONS.md:50` 已經記錄過一個相關但不同的案例（`51094bf` 這個 hash 在本 repo 指向一個無關的 README commit，因為它其實是「Mac 原始碼庫」的 hash，兩個不同 repo 撞號）——但這只解釋了「跨 repo 撞號」的情況，**沒有涵蓋「本 repo 自己的 squash 前 commit，現在也查無此 hash」這個更大範圍的現象**。換句話說：`CHANGELOG.md`/`docs/DECISIONS.md` 目前的寫法會讓讀者以為「這些 hash 是可以 `git show` 出來驗證的」，但除非剛好在 squash 發生後、`reflog` 過期前、且在同一台機器上，否則驗證不了。
 
-**建議**：在 `CHANGELOG.md` 開頭或 `docs/DECISIONS.md` 的 squash 條目補一句類似「本文件引用的 commit hash 對應 squash 前的開發歷史，squash 後已不是 `HEAD` 祖先，僅供追溯脈絡參考，不可用 `git show` 驗證」，避免下一個接手者（人類或 AI）誤以為可以照 hash 查證而撲空。
+**建議（已實施）**：`4278ff8` 已在 `CHANGELOG.md:7` 與 `docs/DECISIONS.md:5` 補上免責聲明——「本文件引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作為文件內的變更對照識別碼保留，無法 `git show`」，避免接手者照 hash 查證而撲空。本檔問題總帳的狀態欄出處也已改為優先引用 CHANGELOG/DECISIONS 章節而非單靠 hash（見文末維護慣例）。
 
 ### 24-2（低，清理項，✅ 已修）`ui/menu_bar.py` 殘留 pystray 時代的死分支，與 #23 同一批技術債——已於 `aa1e220`（2026-07-21）清理
 
@@ -122,7 +122,7 @@ elif isinstance(sender, str):
 
 **打包發佈**：`setup_win.bat`／`release_win.ps1`／`voicetype_installer.iss` 三條路徑齊全，`voicetype_installer.iss` 的死引用已修（#1）。`release_win.ps1` 新增 `-NoModel` 選項（`release_win.ps1:13,26-28`），與 `-Lite`／預設 Full 三種組合的資料夾命名/CUDA 安裝/模型隨附條件已核對邏輯正確。`release.yml` 只建置 Lite/NoModel 兩版（Full 版含模型體積問題，決策記載於 `docs/DECISIONS.md`），這個範圍限縮有清楚理由，不是遺漏。**這整條打包鏈本身也是「寫得對」與「跑得動」的差距未知**——CI 目前不曾真的跑過 `setup_win.bat`/`release_win.ps1` 端到端建置。
 
-**文件**：`AGENTS.md`／`SKILL.md`／`docs/DEVELOPMENT.md`／`docs/DECISIONS.md`／`docs/UPSTREAM.md`／`CHANGELOG.md` 形成了清楚的分工（各司其職，非重複堆疊），`README.md`/`README.en.md` 中英版本結構、章節、安裝步驟一致（已抽查頭部與快速安裝三步驟段落，用詞對應良好）。**新發現的缺口**：squash 後的 commit hash 引用失效問題（24-1）沒有被任何現有文件涵蓋到。
+**文件**：`AGENTS.md`／`SKILL.md`／`docs/DEVELOPMENT.md`／`docs/DECISIONS.md`／`docs/UPSTREAM.md`／`CHANGELOG.md` 形成了清楚的分工（各司其職，非重複堆疊），`README.md`/`README.en.md` 中英版本結構、章節、安裝步驟一致（已抽查頭部與快速安裝三步驟段落，用詞對應良好）。**曾發現的缺口（已處理）**：squash 後的 commit hash 引用失效問題（24-1）已於 `4278ff8` 在 `CHANGELOG.md:7`／`docs/DECISIONS.md:5` 補免責聲明涵蓋。
 
 ---
 
@@ -142,7 +142,7 @@ elif isinstance(sender, str):
 ## 8. 下一步建議
 
 1. **（最高優先）實機驗證整條鏈路**：在有 PyQt6/sounddevice/麥克風的 Windows 機器上跑一次 `python main.py`，走過「熱鍵錄音→本地 Whisper 辨識→LLM 潤飾→貼字」全流程，以及設定頁新按鈕（麥克風裝置切換、增益 slider、診斷包匯出）。這是目前唯一一項「紙面完成、實機完全未知」的大類缺口，優先於任何新功能。
-2. **在 `CHANGELOG.md`/`docs/DECISIONS.md` 補一句 squash hash 失效聲明**（見 24-1），成本極低、避免下一個接手者踩坑。
+2. ~~**在 `CHANGELOG.md`/`docs/DECISIONS.md` 補一句 squash hash 失效聲明**（見 24-1）~~：**已完成**（`4278ff8`，2026-07-20）。
 3. ~~清理 pystray 殘留（#23 + 24-2）~~：**已完成**（`aa1e220`，2026-07-21）——`requirements-win.txt` 已移除 `pystray>=0.19.5`，`ui/menu_bar.py` 死分支已移除。
 4. ~~`ui/settings_window.py` 拆分（#7）~~：**已完成**（`1252a68`，2026-07-21）——拆為 ~492 行薄殼＋`ui/settings/` 七分頁子套件，已跑過乾淨 venv 實機建構煙霧測試。
 5. ~~`requirements-win.txt` 補版本上限（#8）~~：**已完成**（`266280d`，2026-07-21）——`requirements-win.txt`/`requirements-cuda-win.txt` 全數套件已加主版本上限。
