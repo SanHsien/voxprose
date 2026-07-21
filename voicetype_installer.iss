@@ -4,7 +4,7 @@
 #define MyAppName "VoxProse"
 #define MyAppVersion "3.2.0"
 #define MyAppPublisher "jfamily"
-#define MyAppURL "https://github.com/jfamily4tw/voicetype4tw-mac"
+#define MyAppURL "https://github.com/SanHsien/voxprose"
 #define MyAppExeName "run_voicetype.bat"
 #define MyIcon "assets\icon.ico"
 

@@ -50,8 +50,8 @@ class OpenRouterLLM(BaseLLM):
         effective_prompt = prompt or get_default_system_prompt(self.language)
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "HTTP-Referer": "https://github.com/voicetype-mac",
-            "X-Title": "VoiceType Mac",
+            "HTTP-Referer": "https://github.com/SanHsien/voxprose",
+            "X-Title": "VoxProse",
             "Content-Type": "application/json",
         }
         messages = [

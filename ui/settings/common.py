@@ -10,8 +10,8 @@ import logging
 import platform
 
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QWidget, QLabel, QPushButton
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QUrl
-from PyQt6.QtGui import QFont, QIcon, QDesktopServices
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QFont
 
 log = logging.getLogger("voicetype.ui")
 STT_ENGINES = ["local_whisper", "groq", "gemini", "openrouter"]
@@ -67,20 +67,6 @@ class SidebarButton(QPushButton):
                 font-weight: bold;
             }
         """)
-
-class SNSButton(QPushButton):
-    def __init__(self, icon_path, url, parent=None):
-        super().__init__(parent)
-        self.url = url
-        self.setIcon(QIcon(icon_path))
-        self.setIconSize(QSize(24, 24))
-        self.setFixedSize(32, 32)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet("QPushButton { background: transparent; border: none; padding: 0; } QPushButton:hover { background: rgba(255,255,255,20); border-radius: 4px; }")
-        self.clicked.connect(self._open_url)
-
-    def _open_url(self):
-        QDesktopServices.openUrl(QUrl(self.url))
 
 CODE_TO_MAC_NAME = {
     61: "alt_r (Option右)",

@@ -14,9 +14,7 @@ mixin 檔（`dashboard_page.py`／`engine_page.py`／`soul_page.py`／
 「原方法 → 新檔」對應表見 docs/DECISIONS.md。
 """
 import sys
-import os
 import platform
-from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QStackedWidget, QLabel, QPushButton, QMessageBox,
@@ -28,7 +26,7 @@ import logging
 from config import load_config, save_config
 from paths import SOUL_BASE_PATH, SOUL_SCENARIO_DIR, SOUL_FORMAT_DIR, SOUL_TEMPLATE_DIR, BUILD_ID
 
-from ui.settings.common import CommonPageMixin, SidebarButton, SNSButton
+from ui.settings.common import CommonPageMixin, SidebarButton
 from ui.settings.dashboard_page import DashboardPageMixin
 from ui.settings.engine_page import EnginePageMixin
 from ui.settings.soul_page import SoulPageMixin
@@ -267,33 +265,16 @@ class SettingsWindow(
 
         sidebar_layout.addStretch()
 
-        # Credits and SNS at Bottom
+        # Credits at Bottom
+        # 2026-07-22: 移除原作者個人社群/贊助連結按鈕（SNS block）——本 fork 不應
+        # 在自己的 UI 裡替原作者導流到個人社群/販售/贊助頁，對雙方都不妥；作者
+        # 署名文字（MIT 授權與基本禮貌要求）維持不變，只拿掉可點擊的個人網址。
+        # 見 docs/DECISIONS.md。
         from paths import VERSION_NAME
         credit_box = QLabel(f"{VERSION_NAME}\n\n主要開發者：吉米丘, CC58TW\n協助開發者：Claude Code")
         credit_box.setStyleSheet("color: #555; font-size: 10px; margin-left: 25px; line-height: 1.2;")
+        credit_box.setContentsMargins(0, 0, 0, 20)
         sidebar_layout.addWidget(credit_box)
-
-        sns_container = QWidget()
-        sns_layout = QHBoxLayout(sns_container)
-        sns_layout.setContentsMargins(25, 5, 25, 20) # Left align with credit box
-        sns_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        sns_layout.setSpacing(10)
-
-        _assets_dir = str(Path(__file__).parent.parent / "assets")
-        sns_links = [
-            (os.path.join(_assets_dir, "sns-youtube.png"), "https://youtube.com/@Jimmy4TW"),
-            (os.path.join(_assets_dir, "sns-facebook.png"), "https://www.facebook.com/acykjcms"),
-            (os.path.join(_assets_dir, "sns-instagram.png"), "https://www.instagram.com/jimmy4tw/"),
-            (os.path.join(_assets_dir, "sns-tiktok.png"), "https://www.tiktok.com/@jimmy4tw"),
-            (os.path.join(_assets_dir, "sns-threads.png"), "https://www.threads.net/@jimmy4tw"),
-            (os.path.join(_assets_dir, "sns-4tw.png"), "https://Jimmy4.TW/")
-        ]
-
-        for icon_path, url in sns_links:
-            btn = SNSButton(icon_path, url)
-            sns_layout.addWidget(btn)
-
-        sidebar_layout.addWidget(sns_container)
 
         main_layout.addWidget(sidebar_container)
 
@@ -464,7 +445,7 @@ class SettingsWindow(
 
         save_config(self.config)
         # v2.7.32: Windows 穩定性優先，提示手動重啟而非自動連鎖反應
-        QMessageBox.information(self, "嘴炮輸入法", "設定已儲存！\n\n為了確保「啟動防護」與「載入模組」完整生效，請務必手動『結束並重啟』本程式。")
+        QMessageBox.information(self, "聲成文", "設定已儲存！\n\n為了確保「啟動防護」與「載入模組」完整生效，請務必手動『結束並重啟』本程式。")
         if self.on_save: self.on_save(self.config)
         self.close()
 
