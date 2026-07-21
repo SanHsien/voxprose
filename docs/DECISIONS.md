@@ -4,6 +4,17 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-21 — 上游更新自動檢查：`last_merged`／`last_reviewed` 雙欄設計
+
+維護者交辦：除了既有的依賴新鮮度月檢，也要定期檢查來源上游 `jfamily4tw/voicetype4tw-mac` 是否有新 commit，比照 `tools/check_dependency_freshness.py` + `.github/workflows/dependency-freshness.yml` 的範本改寫。
+
+- **決定（雙欄設計，而非單一「已檢查到哪」指標）**：`docs/UPSTREAM.md` 新增機器可讀的「同步狀態標記區塊」，每個追蹤分支（`win-go-mask-202607`／`win-stable`／`main`）記兩個獨立欄位：`last_merged`（已合併進本 fork 的最後一個上游 commit，等同 `git merge-base HEAD upstream/<branch>` 可驗證的那個 commit）與 `last_reviewed`（已審視過的最後一個上游 commit，含審視後決定不採用者）。理由：上游 Mac 線常有不適用本 fork 的 commit（如 macOS 專屬修復），若每次自動檢查都用「有沒有合併」當判準，這些 commit 會被永遠重複回報成雜訊；若用「有沒有審視過」當判準又會漏記「這個 commit 到底有沒有真的併進來」的事實。兩個欄位獨立記錄，`tools/check_upstream_updates.py` 只依 `last_reviewed` 判斷要不要回報，`last_merged` 純粹留給人類讀「目前程式碼實際同步到哪」。
+- **決定（Skipped 表防決策失憶）**：`last_reviewed` 推進後，該 commit 就不會再出現在檢查報告裡——但這代表「當初審視為不適用、但日後情勢改變可能變得該採用」的 commit 會從此消失在視野外。因此在標記區塊之後新增人類可讀（不需機器解析）的「Skipped（審視後未採用）」表，記錄分支／commit／標題／審視日期／未採用理由。規則明訂：**每次審視後決定「不採用」，除了推進 `last_reviewed`，必須同時在 Skipped 表補一列**——`last_reviewed` 負責「不再重複騷擾」，Skipped 表負責「不失憶」，兩者職責不同，缺一不可。已知的兩筆（`0ed0c47` 應用程式退出清理、`10b2fc8` 熱鍵 watchdog 復原）都是 macOS 專屬（AppKit／CGEventTap），本 fork 為 Win32 `GetAsyncKeyState` 輪詢架構，先行記錄；日後若熱鍵或退出流程做架構級重構，應先回掃此表。
+- **決定（術語：捨棄「水位」比喻，改用 `last_merged`／`last_reviewed`）**：最初草稿用「水位線」比喻兩個同步指標，維護者反映這個自創術語沒有業界共識、跨行不容易看懂，要求改用工程界通用語彙——`last_merged` 直接對應 `git merge-base` 這個所有工程師都認得的概念，`last_reviewed` 是純白話「上次看到哪」，不需要額外查術語表。原本的「已評估未引進」附錄標題也一併改名為「Skipped（審視後未採用）」，呼應 fork 維護圈常見的 cherry-pick 取捨語感與 GitHub `wontfix` 標籤的通用語感。全部程式識別碼（JSON 鍵名、Python 變數/函式名）、報告文案、`AGENTS.md` 流程說明同步改名，新增守門測試 `test_no_watermark_jargon_in_source_module`（`tests/test_upstream_check.py`）防止舊詞回流。
+- **決定（compare API 而非 `git log` 手動比對）**：`tools/check_upstream_updates.py` 用 GitHub REST compare API（`/repos/{repo}/compare/{last_reviewed}...{branch}`）取得新 commit，而非在 CI runner 上 `git fetch upstream` 做全歷史 clone——避免在 `ubuntu-latest` runner 上把整個上游 repo（含大型 assets）都抓下來，且 compare API 天生回傳的就是「head 可達、base 不可達」的 commit 清單，語意與需求完全對應。支援 `GITHUB_TOKEN` 環境變數提高 rate limit，匿名也能跑（額度較低但這個查詢頻率低，週期性檢查足夠）。
+- **決定（解析失敗必須非 0 退出，不可靜默視為無更新）**：`parse_sync_points()` 找不到標記區塊、JSON 語法錯誤、缺少必要分支或欄位，一律拋出 `UpstreamParseError` 並讓 `main()` 回傳非 0——若靜默吞掉當成「沒有更新」，會讓維護者誤以為上游真的沒有新東西，而實際上是文件被改壞了根本沒查到，這是比「沒有更新」更危險的靜默失敗模式。同理，任一分支的 API 查詢失敗（網路、rate limit）也會讓整體 exit code 非 0，即使其他分支查詢成功——不讓部分失敗被平均成一個看似正常的整體結果。
+- **意外發現**：本機實跑後，`main`（Mac 線）分支比對出 2 筆「新」commit——`0ed0c47`（已記在 Skipped 表）與 `46346d3`（LICENSE 取用來源，`license_source` 已記錄）。這代表 GitHub 上這兩個 commit 在 `main` 分支的 compare 拓樸關係裡並非 `10b2fc8`（目前 `last_reviewed`）的祖先，而是在其之後（或位於其他不含 `10b2fc8` 的路徑上）——`last_reviewed=10b2fc8` 這個既有值本身在拓樸序上可能不是 `main` 分支目前最新的已審視 commit。本次任務範圍是照維護者指定的既有值建立機制，不擅自變更 `docs/UPSTREAM.md` 既有記錄的 `last_reviewed` 值；建議維護者下次審視 `main` 分支時一併確認 `last_reviewed` 是否該推進到 `46346d3`（目前 tip），並視情況調整。
+
 ## 2026-07-21 — `ui/settings_window.py` god file 拆分（REVIEW.md #7）
 
 維護者交辦：前一個 agent 已建立 `ui/settings/` 子套件的部分頁面（`common.py`／

@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **上游更新自動檢查**：`tools/check_upstream_updates.py` ＋ `.github/workflows/upstream-check.yml`——每週一 02:00 UTC（另支援 `workflow_dispatch`）檢查上游 `jfamily4tw/voicetype4tw-mac` 的三個追蹤分支（`win-go-mask-202607`／`win-stable`／`main`）是否有新 commit，透過 GitHub compare API 比對 `docs/UPSTREAM.md` 新增的「同步狀態標記區塊」（`<!-- sync-points:start/end -->` 內的 JSON，唯一真相源）記錄的 `last_reviewed`（已審視過的最新上游 commit），只回報比它新的變更；有更新時開/更新「上游更新檢查」issue（比照既有 `dependency-freshness.yml` 的 search-or-create 邏輯）。每個分支同時記 `last_merged`（已實際併入本 fork 的上游 commit，等同 `git merge-base`）。新增「Skipped（審視後未採用）」表記錄審視後決定不採用的 commit 與理由，避免 `last_reviewed` 推進後這些決策消失在視野外。`AGENTS.md` 開發約定補一條處理流程；新增 `tests/test_upstream_check.py`（18 個測試，含真實 `docs/UPSTREAM.md` 解析、解析失敗防護、mock API 的報告產生，不打真網路）。
+
 ### Changed
 
 - **`ui/settings_window.py` god file 拆分**（REVIEW.md #7）：原本 2164 行的單一設定視窗檔拆成 `ui/settings/` 子套件——七個分頁各一個 mixin 檔（`dashboard_page.py`／`engine_page.py`／`soul_page.py`／`vocab_mem_page.py`／`sync_page.py`／`stats_page.py`／`general_page.py`）+ 共用元件與常數 `common.py`；`ui/settings_window.py` 收斂為 ~490 行薄殼，`SettingsWindow` 用多重繼承混入所有分頁 mixin，對外 `from ui.settings_window import SettingsWindow` 契約不變（`ui/app.py` 零 diff）。純機械搬移，無邏輯／UI 字串變動；唯一的例外是 `_run_self_check` 內用 `__file__` 反推 repo root 的路徑計算——檔案搬到更深一層目錄後補了一次 `os.path.dirname()`，否則會找錯 `self_check.py` 的路徑。`tests/test_stt_engine_dispatch.py` 的 `STT_ENGINES` 靜態原始碼解析目標同步從 `ui/settings_window.py` 改指向 `ui/settings/common.py`（常數搬去哪、測試就跟去哪，防護力不變）。

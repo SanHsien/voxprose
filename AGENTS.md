@@ -69,6 +69,7 @@ output/injector.py  ui/ (PyQt6)   actions/ 分派   vocab/ + memory/ + stats/
 - **設定變更**：新增 `config.py` 的 `DEFAULT_CONFIG` 欄位時，同時考慮是否要加進 `LOCAL_KEYS`（機器特定、不同步的設定）。
 - **語言與風格**：維護文件用繁體中文；程式碼/變數命名維持英文，既有中英混用註解沿用既有風格，不強制統一。
 - **修 bug 必回註 REVIEW.md（適用所有 AI agent：Claude、Codex、Gemini 等，維護者 2026-07-19 指示，常態慣例）**：每修復 `REVIEW.md` 列出的問題，必須回到 `REVIEW.md` 對應項目（風險表「修復狀態」欄或對應章節）標註修復 commit hash 與日期；修復過程中額外發現並修掉的 bug，也要補註進 REVIEW.md 的修復回註區。REVIEW.md 維持 latest-only，但修復狀態必須跟上現況——不得讓 review 持續陳列已解決的問題而不標註。
+- **「上游更新檢查」issue 出現時的處理流程（適用所有 AI agent）**：`.github/workflows/upstream-check.yml` 每週跑 `tools/check_upstream_updates.py`，發現上游有新 commit 時會開/更新一個「上游更新檢查」issue。收到這種 issue 後：(1) 逐筆讀 commit 內容，判斷是否適用本 fork 的 Windows 樹；(2) **採用**——走一般 merge/cherry-pick 流程，完成後更新 `docs/UPSTREAM.md` 同步狀態標記區塊的 `last_merged` 與 `last_reviewed`；(3) **不採用**——只推進同步狀態標記區塊的 `last_reviewed`（不動 `last_merged`），**同時**在 `docs/UPSTREAM.md`「Skipped（審視後未採用）」表補一列（分支／commit／標題／審視日期／未採用理由），並在 `docs/DECISIONS.md` 記一句理由。`last_reviewed` 只負責「這次不用再提醒」，Skipped 表才負責「不失憶」——兩件事缺一不可，否則日後想回頭查「當初為什麼跳過」會查無所獲。
 
 ## 驗證方向
 
