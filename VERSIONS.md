@@ -4,6 +4,43 @@
 
 ---
 
+## [V3.2.0] - 2026-07-21 (Rebrand: 聲成文 VoxProse, BUILD-3200-STABLE)
+> 品牌改名＋署名補正批次：完整規格由維護者拍板，本版把工作樹內所有「VoiceType4TW／嘴炮輸入法」自稱改為新品牌「聲成文 VoxProse」，並補齊過去一直遺漏的 go-mask 署名層。
+
+### 品牌規格
+- 中文品牌「聲成文」／英文品牌「VoxProse」／組合呈現「聲成文 VoxProse」；完整名稱「聲成文｜本地優先 AI 語音輸入工具」；英文副標「Local-first AI Voice Typing for Traditional Chinese」；標語「自然開口，清楚成文。」／"Speak naturally. Write clearly."
+
+### 署名補正
+- 完整署名鏈補齊至所有出現作者/致謝之處：原創作者吉米丘（Jimmy）、CC58TW → 上游 Windows 專用版維護 **go-mask**（查證：上游 `win-go-mask-202607` 分支 README 明載「Windows 專用版維護：go-mask ｜ 協助開發：Claude Code」，本 repo 過去只把 go-mask 當分支名使用，從未當署名列出）→ 本 fork（Windows）維護 SanHsien。已補於 `NOTICE.md`、`README.md`／`README.en.md`、`LICENSE` fork 附加段、`ui/about_window.py`、`AGENTS.md` 專案宗旨。
+
+### 程式面品牌改動（六項，附檔案:行號）
+- 視窗標題：`ui/settings_window.py:81,83,92`（`聲成文 {VERSION_NAME}` / `VoxProse {VERSION_NAME}` 兩支路徑）；連帶發現並修正側欄 logo `ui/settings_window.py:229,233`（`QLabel("VoiceType4TW")` → `QLabel("VoxProse")`，未在原規格六項內但屬同一視窗的可見品牌字串）。
+- 系統匣：字串實際來源在 `ui/app.py:112`（`TrayManager(title=...)` 呼叫端），而非 `ui/tray_manager.py`——後者只透傳呼叫端傳入的 `title` 參數，本身無品牌字面量；已改 `title="聲成文"`。
+- 桌面捷徑：`create_shortcut.ps1:3-4`（十六進位字元碼 `聲成文` = `0x8072,0x6210,0x6587`）、`create_shortcut.ps1:28`（`Description` 改 `VoxProse - AI Voice Typing`）；`setup_win.bat` 本身未硬編捷徑名稱（呼叫 `create_shortcut.ps1` 產生），無需改動。
+- About 視窗：`ui/about_window.py` 全面改寫（標題、品牌名、標語、署名鏈段落），對話框由 300×350 放大到 320×430 容納新增文字。
+- Windows AppUserModelID：`utils/branding.py:9` 由 `jfamily.voicetype4tw.v87.ultimate.stable` 改為 `tw.sanhsien.VoxProse.windows`。
+- Release ZIP 命名：`release_win.ps1:21-40`（版本號改自 `pyproject.toml` 動態解析主.次版號，資料夾/ZIP 命名改為 `ShengChengWen-Windows-<Edition>-v<major.minor>`）；`.github/workflows/release.yml` 核實為 `dist/*.zip` 萬用字元，無需改動。
+
+### 版本推進（五處一致 3.2.0 / BUILD-3200）
+- `paths.py`：`VERSION_NAME` → `"V3.2.0 Windows Edition (BUILD-3200-STABLE)"`，`BUILD_ID` → `"BUILD-3200-STABLE"`。
+- `pyproject.toml`：`version` → `"3.2.0"`；另把 `name` 由 `voicetype` 改為 `voxprose`（純 packaging metadata，不影響 `requirements-win.txt` 安裝鏈，已 grep 確認無程式碼依賴此欄位值）。
+- `voicetype_installer.iss`：`MyAppVersion` → `"3.2.0"`、`OutputBaseFilename` → `ShengChengWen-Windows-Setup-v3.2`（`MyAppName`/`AppId`/安裝捷徑名稱不在本次授權範圍，維持原樣）。
+
+### 安全重構
+- `main.py`：移除與 `paths.APP_DATA_DIR` 重複定義同一路徑值的寫死字面量（`os.path.join(os.environ.get('APPDATA', ''), 'VoiceType4TW')`），改直接引用已 import 的 `APP_DATA_DIR`。純重構，行為零變化，實際路徑值仍是 `%APPDATA%\VoiceType4TW`。
+
+### 刻意不變
+- `%APPDATA%\VoiceType4TW`（`paths.py:APP_DATA_DIR`）與 `Documents\VoiceType4TW_Sync`（預設同步目錄）兩個實際路徑值本次不動——設定、同步指標、模型、日誌、詞彙、統計多處直接使用，貿然改名會造成設定與日誌分裂。第二階段遷移計畫（六原則）已記錄於 `docs/DECISIONS.md`。
+
+### 全 repo 文件改寫
+- 逐檔檢視 `git ls-files "*.md"`：`README.md`／`README.en.md`／`AGENTS.md`／`SKILL.md`／`NOTICE.md`／`REVIEW.md`（僅署名/名稱字句）／`CHANGELOG.md`／`VERSIONS.md`（本檔）／`安裝下載教學.md`／`docs/DEVELOPMENT.md`／`docs/DECISIONS.md`／`docs/UPSTREAM.md`／`docs/REFERENCES.md`／`docs/mac-mainline-absorption-analysis.md`／`quality_control_checklist.md`／`windows_cuda_qt_crash_postmortem.md`／`LICENSE`。`soul/**/*.md` 逐檔 grep 確認不含產品名稱引用，判定不需改。GitHub repo 已由維護者更名為 `SanHsien/voxprose`（原 `SanHsien/voicetype`），全部 repo 內連結／clone 指令同步更新為新 repo 路徑；本機工作目錄名稱維持 `voicetype`（維護者尚未指示更名本機資料夾）。
+
+### 驗證
+- `python -m pytest tests/ -v`：見本檔提交紀錄與 `docs/DECISIONS.md` 對應條目的即時驗證結果。
+- 全 repo `py_compile` 通過。
+
+---
+
 ## [V3.1.0] - 2026-07-20 (SanHsien Fork Release, BUILD-3100-STABLE)
 > 本版把 SanHsien fork 自建立以來的全部工程成果（鷹架、bug 修復、Mac 功能吸收、發版工程）收斂為一個正式版本，供後續 squash 為單一 v3.1.0 commit 前的最終狀態。
 

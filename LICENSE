@@ -23,11 +23,14 @@ SOFTWARE.
 ------------------------------------------------------------
 
 Fork additions Copyright (c) 2026 SanHsien, licensed under the same MIT terms
-above. This fork (`SanHsien/voicetype`) builds on the upstream project
-`jfamily4tw/voicetype4tw-mac` (VoiceType4TW / 嘴炮輸入法); see NOTICE.md for
-provenance details.
+above. This fork (`SanHsien/voxprose`, product name 聲成文 VoxProse) builds on
+the upstream project `jfamily4tw/voicetype4tw-mac` (VoiceType4TW / 嘴炮輸入法),
+whose Windows-only edition was maintained upstream by go-mask
+(`win-go-mask-202607` branch) before this fork; see NOTICE.md for provenance
+details.
 
-本 fork（`SanHsien/voicetype`）新增部分版權為 (c) 2026 SanHsien，採用與上方
-相同的 MIT 授權條款。本 fork 基於上游專案
-`jfamily4tw/voicetype4tw-mac`（VoiceType4TW／嘴炮輸入法）開發；來源查證細節
-見 NOTICE.md。
+本 fork（`SanHsien/voxprose`，產品名稱「聲成文 VoxProse」）新增部分版權為
+(c) 2026 SanHsien，採用與上方相同的 MIT 授權條款。本 fork 基於上游專案
+`jfamily4tw/voicetype4tw-mac`（VoiceType4TW／嘴炮輸入法）開發，其 Windows
+專用版在本 fork 之前由 go-mask（`win-go-mask-202607` 分支）維護；來源查證
+細節見 NOTICE.md。

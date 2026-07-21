@@ -1,10 +1,13 @@
-# VoiceType4TW "Zuipao IME" — Windows Development Edition
+# 聲成文 VoxProse
 
 [繁體中文](README.md) | English
 
-> This repository is a fork of [`jfamily4tw/voicetype4tw-mac`](https://github.com/jfamily4tw/voicetype4tw-mac) (based on its `win-stable` branch, v3.0.1), **focused exclusively on developing and improving the Windows 10/11 version**.
+Local-first AI Voice Typing for Traditional Chinese.
+Speak naturally. Write clearly.
+
+> This repository (聲成文 VoxProse) is a fork of [`jfamily4tw/voicetype4tw-mac`](https://github.com/jfamily4tw/voicetype4tw-mac) (VoiceType4TW / 嘴炮輸入法, based on its `win-stable` branch, v3.0.1), **focused exclusively on developing and improving the Windows 10/11 version**.
 >
-> Original authors: 吉米丘 (Jimmy) and CC58TW. For the macOS version, official installers, tutorial videos, and anything else not covered here, the [upstream project](https://github.com/jfamily4tw/voicetype4tw-mac)'s latest documentation is authoritative.
+> Original authors: 吉米丘 (Jimmy) and CC58TW; upstream Windows-edition maintainer: go-mask. For the macOS version, official installers, tutorial videos, and anything else not covered here, the [upstream project](https://github.com/jfamily4tw/voicetype4tw-mac)'s latest documentation is authoritative.
 
 A local-first speech-to-text input method where "just talk and it types itself": press a global hotkey to record → recognition runs locally via Faster-Whisper (or a cloud engine) → optional LLM polishing → the result is automatically pasted back into whatever currently has input focus.
 
@@ -12,9 +15,9 @@ A local-first speech-to-text input method where "just talk and it types itself":
 
 ## 🚀 Quick Install (3 steps, no programming required)
 
-**1. Download the ZIP**: [👉 Click here to download](https://github.com/SanHsien/voicetype/archive/refs/heads/main.zip) (or click the green **Code** button above → **Download ZIP**)
+**1. Download the ZIP**: [👉 Click here to download](https://github.com/SanHsien/voxprose/archive/refs/heads/main.zip) (or click the green **Code** button above → **Download ZIP**)
 
-**2. Extract** it to a simple path, e.g. `D:\VoiceType4TW` (avoid `C:\Program Files` — insufficient write permissions will be blocked by the environment check)
+**2. Extract** it to a simple path, e.g. `D:\VoxProse` (avoid `C:\Program Files` — insufficient write permissions will be blocked by the environment check)
 
 **3. Double-click `setup_win.bat`** — everything from here on is automatic:
 - No Python installed? It automatically downloads a portable Python (no admin rights needed, doesn't pollute your system)
@@ -23,7 +26,7 @@ A local-first speech-to-text input method where "just talk and it types itself":
 
 ![Batch install](assets/batch-install.jpg)
 
-Requires internet access; depending on connection speed this takes about 10–30 minutes. Once done, double-click the "**Zuipao IME**" shortcut on your desktop to start using it.
+Requires internet access; depending on connection speed this takes about 10–30 minutes. Once done, double-click the "**聲成文**" shortcut on your desktop to start using it.
 
 > 💡 If Windows pops up a blue "Windows protected your PC" screen when you double-click, click "More info" → "Run anyway" (this happens for any file downloaded from the internet, and won't appear again afterward).
 > For troubleshooting, see the "Installation Troubleshooting" section below and the [Install & Download Guide](安裝下載教學.md).
@@ -116,7 +119,7 @@ If running `setup_win.bat` gets stuck at "creating virtual environment" or "inst
 - Windows restricts unauthorized scripts from writing large numbers of small files in these locations
 
 **✅ Solutions (pick one):**
-1. **Change the install path (recommended)**: move the entire folder to a non-system drive such as D:, e.g. `D:\Tools\VoiceType4TW`
+1. **Change the install path (recommended)**: move the entire folder to a non-system drive such as D:, e.g. `D:\Tools\VoxProse`
 2. **Move it to your user folder**: if you only have a C: drive, put it in `C:\Users\<your-name>\Documents` or on the Desktop
 3. Right-click `setup_win.bat` → "Run as administrator"
 
@@ -127,8 +130,8 @@ For manual steps if the model download gets stuck, see the [Install & Download G
 Requires Python 3.10–3.12:
 
 ```bat
-git clone https://github.com/SanHsien/voicetype.git
-cd voicetype
+git clone https://github.com/SanHsien/voxprose.git
+cd voxprose
 
 py -3.12 -m venv venv
 venv\Scripts\activate

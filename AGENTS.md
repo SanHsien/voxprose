@@ -4,13 +4,13 @@
 
 ## 專案宗旨
 
-`voicetype`（嘴炮輸入法 / VoiceType4TW）是本機優先的語音輸入法：按住或切換全域快捷鍵錄音，透過本地 Whisper（`faster-whisper`，CPU/CUDA）或選用雲端引擎（Groq、Gemini、OpenRouter）辨識成文字，可選經 LLM 依「三層式靈魂系統」潤飾語氣，自動貼回目前有輸入焦點的視窗。
+`voxprose`（聲成文 VoxProse，上游/歷史脈絡稱嘴炮輸入法 / VoiceType4TW）是本機優先的語音輸入法：按住或切換全域快捷鍵錄音，透過本地 Whisper（`faster-whisper`，CPU/CUDA）或選用雲端引擎（Groq、Gemini、OpenRouter）辨識成文字，可選經 LLM 依「三層式靈魂系統」潤飾語氣，自動貼回目前有輸入焦點的視窗。
 
-本專案 fork 自 [`jfamily4tw/voicetype4tw-mac`](https://github.com/jfamily4tw/voicetype4tw-mac) 的 `win-stable` 分支（v3.0.1，`win-go-mask` 主線），原作者為**吉米丘（Jimmy）**與 **CC58TW**。上游原生跨平台開發（macOS + Windows），**本 fork 只專注 Windows 10/11 版本的開發與改良**——目前整棵工作樹已是 Windows-only（macOS 專屬程式碼與打包鏈已在上游 `v3.0.0` 的「Windows 專用版」整理中移除，見 `VERSIONS.md`）。授權狀態見 [`NOTICE.md`](NOTICE.md)：上游沒有正式授權條款，本 fork 採雙軌 `LICENSE`（上游程式碼誠實揭露「無授權」；SanHsien 新增部分採 MIT）。
+本專案 fork 自 [`jfamily4tw/voicetype4tw-mac`](https://github.com/jfamily4tw/voicetype4tw-mac)（VoiceType4TW／嘴炮輸入法）的 `win-stable` 分支（v3.0.1，`win-go-mask` 主線），原作者為**吉米丘（Jimmy）**與 **CC58TW**；上游 Windows 專用版維護者為 **go-mask**（`win-go-mask-202607` 分支）。上游原生跨平台開發（macOS + Windows），**本 fork 只專注 Windows 10/11 版本的開發與改良**——目前整棵工作樹已是 Windows-only（macOS 專屬程式碼與打包鏈已在上游 `v3.0.0` 的「Windows 專用版」整理中移除，見 `VERSIONS.md`）。授權狀態見 [`NOTICE.md`](NOTICE.md)：上游已於 2026-07-20 補齊 MIT 授權，本 fork 整體採 MIT（`LICENSE`）。GitHub repo 已由維護者更名為 `SanHsien/voxprose`（原 `SanHsien/voicetype`，本機工作目錄名稱維持不變，見 `docs/DECISIONS.md`）。
 
 ## 硬性邊界
 
-- 不移除或竄改上游對吉米丘 / CC58TW 的作者署名；見 [`NOTICE.md`](NOTICE.md)、[`README.md`](README.md)。
+- 不移除或竄改上游對吉米丘 / CC58TW（原創作者）與 go-mask（上游 Windows 專用版維護者）的署名；見 [`NOTICE.md`](NOTICE.md)、[`README.md`](README.md)。
 - 不在文件中宣稱上游程式碼有正式開源授權——見 `LICENSE` 與 `NOTICE.md` 的雙軌說明。
 - 不提交 API key（Groq / OpenAI / Anthropic / Gemini / OpenRouter / Qwen / DeepSeek 等）、`config_local.json`、`config_global.json`、`sync_path.txt`、使用者 `soul.md`、`memory/*.json`、`vocab/*.json`、`audio/*.wav`、`output/*.txt`、`bundled_models/` 等本機/私密/大型資料（`.gitignore` 已涵蓋，勿反向強制加回）。
 - **不破壞既有打包鏈**：`setup_win.bat`（環境建置：偵測/安裝 Python、建 venv、裝 `requirements-win.txt` + 視 GPU 裝 `requirements-cuda-win.txt`、下載 Whisper 模型、建捷徑）、`build_win.py`（PyInstaller 打包 exe）、`release_win.ps1`（自建可攜 ZIP：內嵌 Python + 全部依賴 + medium 模型）、`voicetype_installer.iss`（Inno Setup 安裝程式）——除非任務明確要求，不修改這些檔案；改動 `main.py`/`paths.py`/`config.py` 的路徑或啟動邏輯時，必須確認不會讓這條鏈斷掉。

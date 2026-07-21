@@ -1,13 +1,13 @@
 ---
-name: voicetype
-description: 維護 SanHsien/voicetype（嘴炮輸入法 VoiceType4TW）。本機優先的 Windows 語音輸入法：全域熱鍵錄音（純 ctypes 輪詢，無 pynput）、faster-whisper 本地辨識（Windows 上走獨立子行程避免 PyQt6/CUDA 衝突）或雲端引擎（Groq/Gemini/OpenRouter）、可選 LLM 潤飾（7 種供應商）、三層靈魂系統與詞彙記憶。Fork 自 jfamily4tw/voicetype4tw-mac 的 win-stable 分支（吉米丘、CC58TW），上游未附正式授權條款，本 fork 只做 Windows 10/11 版本、僅作個人研究改良用途。
+name: voxprose
+description: 維護 SanHsien/voxprose（聲成文 VoxProse，前身 嘴炮輸入法 VoiceType4TW）。本機優先的 Windows 語音輸入法：全域熱鍵錄音（純 ctypes 輪詢，無 pynput）、faster-whisper 本地辨識（Windows 上走獨立子行程避免 PyQt6/CUDA 衝突）或雲端引擎（Groq/Gemini/OpenRouter）、可選 LLM 潤飾（7 種供應商）、三層靈魂系統與詞彙記憶。Fork 自 jfamily4tw/voicetype4tw-mac 的 win-stable 分支（原作者吉米丘、CC58TW；上游 Windows 專用版維護 go-mask），上游採 MIT 授權，本 fork 只做 Windows 10/11 版本。
 ---
 
-# voicetype
+# 聲成文 VoxProse
 
 ## 何時使用
 
-使用者要維護 `SanHsien/voicetype`，或開發嘴炮輸入法（VoiceType4TW）功能：
+使用者要維護 `SanHsien/voxprose`，或開發聲成文 VoxProse（前身嘴炮輸入法 VoiceType4TW）功能：
 
 - 修 bug、調整 STT（`stt/`）或 LLM（`llm/`）引擎、熱鍵（`hotkey/`）、UI（`ui/`）。
 - 調整三層靈魂系統（`soul/`）、詞彙記憶（`vocab/`）、長期記憶（`memory/`）、統計（`stats/`）。

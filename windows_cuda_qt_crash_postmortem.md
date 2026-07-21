@@ -1,7 +1,7 @@
 # Postmortem: Windows CUDA (faster-whisper) 與 PyQt6 初始化崩潰衝突
 
 ## 錯誤現象與症狀
-在將 VoiceType4TW 從 macOS 移植到 Windows 的過程中，當應用程式執行到載入 `faster-whisper` (底層依賴 `CTranslate2` 和 CUDA) 時，Python 進程會**無任何例外或錯誤日誌**直接結束 (Exit Code 1)。
+在將本專案（聲成文 VoxProse，前身 VoiceType4TW）從 macOS 移植到 Windows 的過程中，當應用程式執行到載入 `faster-whisper` (底層依賴 `CTranslate2` 和 CUDA) 時，Python 進程會**無任何例外或錯誤日誌**直接結束 (Exit Code 1)。
 
 ## 根本原因 (Root Cause)
 經過大量的隔離測試與追蹤後證實，在 Windows 作業系統上，如果 Python 記憶體中**優先被載入了 PyQt6 相關的動態連結庫 (DLL)** (即使完全尚未宣告或實例化 `QApplication`)，再進行 CUDA 模組或 GPU 相關框架的初始化，就會引發毀滅性的底層視訊驅動 / OpenGL 記憶體衝突。

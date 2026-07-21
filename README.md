@@ -1,18 +1,23 @@
-# VoiceType4TW 嘴炮輸入法 — Windows 開發版
+# 聲成文 VoxProse
 
-> 本 repo 是 [`jfamily4tw/voicetype4tw-mac`](https://github.com/jfamily4tw/voicetype4tw-mac) 的 fork（基於其 `win-stable` 分支 v3.0.1），**只專注於 Windows 10/11 版本的開發與改良**。
+Local-first AI voice typing for Windows.
+Speak naturally and turn your voice into polished text.
+
+> 本 repo（聲成文 VoxProse）是 [`jfamily4tw/voicetype4tw-mac`](https://github.com/jfamily4tw/voicetype4tw-mac)（VoiceType4TW／嘴炮輸入法）的 fork（基於其 `win-stable` 分支 v3.0.1，`win-go-mask` 主線），**只專注於 Windows 10/11 版本的開發與改良**。
 >
-> 原作者：吉米丘（Jimmy）、CC58TW。macOS 版本、官方安裝包與教學影片等內容，以[原專案](https://github.com/jfamily4tw/voicetype4tw-mac)的最新說明為準。
+> 原作者：吉米丘（Jimmy）、CC58TW；上游 Windows 專用版維護：go-mask。macOS 版本、官方安裝包與教學影片等內容，以[原專案](https://github.com/jfamily4tw/voicetype4tw-mac)的最新說明為準。
 
 「出一張嘴就能打字」的本地優先語音輸入法：全域快捷鍵錄音 → 本地 Faster-Whisper（或雲端引擎）辨識 → 可選 LLM 潤飾 → 自動貼回目前輸入焦點。
+
+自然開口，清楚成文。
 
 ---
 
 ## 🚀 快速安裝（三步驟，不需要懂程式）
 
-**1. 下載 ZIP**：[👉 點我直接下載](https://github.com/SanHsien/voicetype/archive/refs/heads/main.zip)（或按上方綠色 **Code** 按鈕 → **Download ZIP**）
+**1. 下載 ZIP**：[👉 點我直接下載](https://github.com/SanHsien/voxprose/archive/refs/heads/main.zip)（或按上方綠色 **Code** 按鈕 → **Download ZIP**）
 
-**2. 解壓縮**到簡單的路徑，例如 `D:\VoiceType4TW`（請避開 `C:\Program Files`，寫入權限不足會被環境檢查擋下）
+**2. 解壓縮**到簡單的路徑，例如 `D:\VoxProse`（請避開 `C:\Program Files`，寫入權限不足會被環境檢查擋下）
 
 **3. 雙擊 `setup_win.bat`**，接下來全自動：
 - 沒裝 Python？自動下載可攜式 Python（免管理員權限、不污染系統）
@@ -21,7 +26,7 @@
 
 ![批次安裝](assets/batch-install.jpg)
 
-需要網路，視網速約 10～30 分鐘。完成後雙擊桌面「**嘴炮輸入法**」捷徑即可使用。
+需要網路，視網速約 10～30 分鐘。完成後雙擊桌面「**聲成文**」捷徑即可使用。
 
 > 💡 若雙擊時 Windows 跳出藍色「已保護您的電腦」視窗，點「其他資訊」→「仍要執行」即可（網路下載的檔案都會如此，之後不會再出現）。
 > 疑難排解請見下方「安裝失敗排除」章節與 [安裝下載教學](安裝下載教學.md)。
@@ -114,7 +119,7 @@
 - Windows 會限制未授權腳本在這些位置寫入大量小檔案
 
 **✅ 解決方案（擇一）：**
-1. **更換安裝路徑（推薦）**：整個資料夾移至 D 槽等非系統磁碟，例如 `D:\Tools\VoiceType4TW`
+1. **更換安裝路徑（推薦）**：整個資料夾移至 D 槽等非系統磁碟，例如 `D:\Tools\VoxProse`
 2. **移到使用者資料夾**：只有 C 槽的話，放在 `C:\Users\<你的名稱>\Documents` 或桌面
 3. 對 `setup_win.bat` 按右鍵 →「以系統管理員身分執行」
 
@@ -125,8 +130,8 @@
 需 Python 3.10–3.12：
 
 ```bat
-git clone https://github.com/SanHsien/voicetype.git
-cd voicetype
+git clone https://github.com/SanHsien/voxprose.git
+cd voxprose
 
 py -3.12 -m venv venv
 venv\Scripts\activate

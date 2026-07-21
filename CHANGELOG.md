@@ -8,12 +8,23 @@
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-07-21
+
+品牌改名：中文品牌「聲成文」／英文品牌「VoxProse」（組合呈現「聲成文 VoxProse」），標語「自然開口，清楚成文。」／"Speak naturally. Write clearly."。同時補正過去一直遺漏的署名鏈——上游 Windows 專用版維護者 **go-mask** 過去只被本 repo 當成分支名（`win-go-mask-202607`）使用，從未在 NOTICE／README／About 視窗等處以「維護者」身分列名；本版起在所有出現作者/致謝的地方補齊完整鏈：原創作者吉米丘（Jimmy）／CC58TW → 上游 Windows 專用版維護 go-mask → 本 fork（Windows）維護 SanHsien。
+
 ### Added
 
 - **上游更新自動檢查**：`tools/check_upstream_updates.py` ＋ `.github/workflows/upstream-check.yml`——每週一 02:00 UTC（另支援 `workflow_dispatch`）檢查上游 `jfamily4tw/voicetype4tw-mac` 的三個追蹤分支（`win-go-mask-202607`／`win-stable`／`main`）是否有新 commit，透過 GitHub compare API 比對 `docs/UPSTREAM.md` 新增的「同步狀態標記區塊」（`<!-- sync-points:start/end -->` 內的 JSON，唯一真相源）記錄的 `last_reviewed`（已審視過的最新上游 commit），只回報比它新的變更；有更新時開/更新「上游更新檢查」issue（比照既有 `dependency-freshness.yml` 的 search-or-create 邏輯）。每個分支同時記 `last_merged`（已實際併入本 fork 的上游 commit，等同 `git merge-base`）。新增「Skipped（審視後未採用）」表記錄審視後決定不採用的 commit 與理由，避免 `last_reviewed` 推進後這些決策消失在視野外。`AGENTS.md` 開發約定補一條處理流程；新增 `tests/test_upstream_check.py`（18 個測試，含真實 `docs/UPSTREAM.md` 解析、解析失敗防護、mock API 的報告產生，不打真網路）。
+- `docs/BRANDING.md`：記錄第二階段 `%APPDATA%` 遷移計畫（新舊路徑並存、遷移六原則），本階段僅寫文件、不實作。
 
 ### Changed
 
+- **視窗標題／系統匣／About 視窗／桌面捷徑品牌字串**：`ui/settings_window.py`（2 處 `setWindowTitle` 改「聲成文」/「VoxProse」，側欄 logo `QLabel` 改「VoxProse」）、`ui/app.py`（系統匣 tooltip 改「聲成文」——實際字串來源在 `ui/app.py:112` 而非 `ui/tray_manager.py`，後者只透傳呼叫端傳入的 `title` 參數）、`ui/about_window.py`（標題／品牌名／標語／署名鏈全面改寫）、`create_shortcut.ps1`（桌面捷徑名稱與 Description 改為新品牌；`setup_win.bat` 本身未硬編捷徑名稱，無需改動）。
+- **Windows AppUserModelID**：`utils/branding.py` 的 `APP_USER_MODEL_ID` 由 `jfamily.voicetype4tw.v87.ultimate.stable` 改為 `tw.sanhsien.VoxProse.windows`，同時讓 Windows 把新版視為獨立的工作列群組。
+- **Release ZIP／安裝檔命名改用新品牌**：`release_win.ps1` 的可攜版資料夾/ZIP 命名由 `VoiceType4TW_Win_Portable_*_V<BUILD>` 改為 `ShengChengWen-Windows-<Edition>-v<major.minor>`（版本號改自 `pyproject.toml` 動態解析，不寫死）；`voicetype_installer.iss` 的 `OutputBaseFilename` 同步改為 `ShengChengWen-Windows-Setup-v3.2`（`MyAppName`/`AppId`/捷徑安裝名稱本次不在授權範圍內，維持 `VoiceType4TW` 原樣，見 `docs/DECISIONS.md`）。`.github/workflows/release.yml` 全部用 `dist/*.zip` 萬用字元，未硬編 ZIP 檔名，核實後無需改動。
+- **版本推進 3.2.0**：`paths.py`（`VERSION_NAME`/`BUILD_ID` → `V3.2.0 Windows Edition (BUILD-3200-STABLE)`）、`pyproject.toml`（`version` → `3.2.0`；`name` 由 `voicetype` 改為 `voxprose`，純 packaging metadata，不影響 `requirements-win.txt` 安裝鏈）、`voicetype_installer.iss`（`MyAppVersion` → `3.2.0`）。
+- **`main.py` 路徑重複定義消除（純重構，行為零變化）**：`main.py` 內原本寫死一份 `os.path.join(os.environ.get('APPDATA', ''), 'VoiceType4TW')` 計算 crash log 目錄，與 `paths.APP_DATA_DIR` 各自獨立定義同一個值；改為直接引用已 import 的 `APP_DATA_DIR`，實際路徑值完全不變（仍是 `%APPDATA%\VoiceType4TW`），為第二階段 `%APPDATA%` 遷移鋪路。`%APPDATA%\VoiceType4TW`（`paths.APP_DATA_DIR`）與 `Documents\VoiceType4TW_Sync`（預設同步目錄）兩個實際路徑值本次**不變**——遷移計畫見 `docs/DECISIONS.md`「第二階段」。
+- **全 repo 文件品牌改寫與署名補正**：`README.md`／`README.en.md`／`AGENTS.md`／`NOTICE.md`／`SKILL.md`／`REVIEW.md`（僅署名/名稱字句，技術結論與問題總帳狀態不動）／`VERSIONS.md`／`安裝下載教學.md`／`docs/DEVELOPMENT.md`／`docs/UPSTREAM.md`／`docs/REFERENCES.md`／`docs/mac-mainline-absorption-analysis.md`／`quality_control_checklist.md`／`windows_cuda_qt_crash_postmortem.md`／`LICENSE` 逐檔改寫產品自稱為「聲成文 VoxProse」，並在提及作者/致謝之處補上 go-mask 這一層署名；描述「衍生自何處」「上游分支名」「歷史沿革」的既有事實敘述（`VoiceType4TW`／`voicetype4tw-mac`／`嘴炮輸入法`）保留原名不竄改。GitHub repo 已由維護者更名為 `SanHsien/voxprose`（原 `SanHsien/voicetype`），全 repo 文件內對應連結／clone 指令同步更新；本機工作目錄名稱維持 `voicetype` 不變（維護者尚未指示更名本機資料夾）。
 - **`ui/settings_window.py` god file 拆分**（REVIEW.md #7）：原本 2164 行的單一設定視窗檔拆成 `ui/settings/` 子套件——七個分頁各一個 mixin 檔（`dashboard_page.py`／`engine_page.py`／`soul_page.py`／`vocab_mem_page.py`／`sync_page.py`／`stats_page.py`／`general_page.py`）+ 共用元件與常數 `common.py`；`ui/settings_window.py` 收斂為 ~490 行薄殼，`SettingsWindow` 用多重繼承混入所有分頁 mixin，對外 `from ui.settings_window import SettingsWindow` 契約不變（`ui/app.py` 零 diff）。純機械搬移，無邏輯／UI 字串變動；唯一的例外是 `_run_self_check` 內用 `__file__` 反推 repo root 的路徑計算——檔案搬到更深一層目錄後補了一次 `os.path.dirname()`，否則會找錯 `self_check.py` 的路徑。`tests/test_stt_engine_dispatch.py` 的 `STT_ENGINES` 靜態原始碼解析目標同步從 `ui/settings_window.py` 改指向 `ui/settings/common.py`（常數搬去哪、測試就跟去哪，防護力不變）。
 - **`requirements-win.txt`／`requirements-cuda-win.txt` 加主版本上限鎖定**（REVIEW.md #8）：每個套件宣告補上一個主版本上限（如 `PyQt6>=6.6.0,<7`），下限維持不變；基準版本取自 `tools/check_dependency_freshness.py` 查得的目前 PyPI 最新版（一般 semver 套件鎖「最新主版本 + 1」）。`pywin32` 無傳統 major.minor.patch 語意（單一遞增 build number，目前 312），改鎖 `<400` 作為寬鬆上限並加註說明；`certifi` 採日曆版本（YYYY.MM.DD），以年份鎖 `<2027`。`docs/DEVELOPMENT.md` 補一句依賴管理策略說明。
 
@@ -82,5 +93,6 @@
 - `ui/settings_window.py:_run_mic_test`：麥克風測試按鈕內有一段「非 macOS 一律拒絕」的假擋板（`if platform.system() != "Darwin": 彈窗「此診斷功能目前專為 macOS 設計」`），但擋板之後的實際測試邏輯（`sd.rec()` + numpy RMS）本來就是跨平台程式碼、錯誤訊息本來就是寫給 Windows 隱私權設定看的，擋板本身是誤植死碼——導致 Windows 使用者連按鈕都被藏起來，完全用不到一個其實能動的功能。已移除擋板並取消 Windows 隱藏。
 - `paths.py`：移除從未被實際使用的死碼常數 `AI_PERMANENT_MEMORY_PATH`（指向雲端同步目錄，與先前已清掉的 `VOCAB_DIR`/`MEMORY_DIR`/`STATS_DIR` 同一批，之前因不在指定範圍暫留）。
 
-[Unreleased]: https://github.com/SanHsien/voicetype/compare/v3.1.0...HEAD
-[3.1.0]: https://github.com/SanHsien/voicetype/compare/b694e40...v3.1.0
+[Unreleased]: https://github.com/SanHsien/voxprose/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/SanHsien/voxprose/compare/v3.1.0...v3.2.0
+[3.1.0]: https://github.com/SanHsien/voxprose/compare/b694e40...v3.1.0

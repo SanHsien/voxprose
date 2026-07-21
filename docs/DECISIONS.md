@@ -4,6 +4,28 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-21 — GitHub repo 更名為 `SanHsien/voxprose`
+
+維護者在本次品牌改名任務進行中途通知：GitHub repo 已由 `SanHsien/voicetype` 更名為 `SanHsien/voxprose`（GitHub 對舊名會自動 302 轉址，但文件不應繼續寫舊名）。本機 remote URL 已由維護者在另一個 session 更新為 `https://github.com/SanHsien/voxprose.git`，本次任務不需要、也沒有動 git remote 設定。
+
+- **事實記錄**：repo 更名日期 2026-07-21。全 repo `.md` 檔內對 `SanHsien/voicetype` 的引用（compare 連結、clone 指令、下載連結，約 11 處）已改為 `SanHsien/voxprose`；`LICENSE` 內的 fork 自我引用（`` `SanHsien/voicetype` ``，中英各一處）同步更新。已 grep 全 repo（`.py`／`.ps1`／`.bat`／`.iss`／`.yml`）確認沒有其他非 `.md` 檔引用 `SanHsien/voicetype` 這個 GitHub 路徑字串。
+- **決定（`pyproject.toml` 的 `name` 一併改為 `voxprose`）**：原值 `name = "voicetype"` 純粹是 packaging metadata（`dependencies = []`，不驅動實際安裝，見既有註解），grep 全 repo 確認沒有任何程式碼或測試讀取這個欄位值（`tools/check_dependency_freshness.py` 用的是 `importlib.metadata.version(package_name)`，`package_name` 來自 requirements 檔解析而非 `pyproject.toml` 自身的 `name`），故隨品牌改名一併更新，零風險。`version` 同時推進至 `3.2.0`（見版本推進批次）。
+- **維持不動（本機目錄名稱）**：本機工作目錄仍是 `C:\Users\SanHsien\OneDrive\文件\GitHub\voicetype`，維護者尚未指示更名本機資料夾，本次任務未變更。**提醒**：未來若本機資料夾更名為 `voxprose`，需同步檢查 IDE/編輯器的 workspace 設定、任何寫死本機路徑字串的個人腳本（如捷徑、`.bat` 啟動器）、以及 Claude Code / 其他 AI agent 工具的專案索引設定，避免路徑對不上。
+
+## 2026-07-21 — 品牌改名「聲成文 VoxProse」＋署名補正（go-mask）
+
+維護者拍板完整品牌規格：中文品牌「聲成文」、英文品牌「VoxProse」、組合呈現「聲成文 VoxProse」、標語「自然開口，清楚成文。」／"Speak naturally. Write clearly."。同時指出過去一直遺漏的署名缺口：上游 Windows 專用版維護者 **go-mask**（`win-go-mask-202607` 分支，該分支 README 明載「Windows 專用版維護：go-mask ｜ 協助開發：Claude Code」）過去在本 repo 只被當成分支名稱使用，從未在 `NOTICE.md`／`README.md`／About 視窗等處以「維護者」身分列名。
+
+- **決定（視窗標題／系統匣改動的實際落點與規格描述不完全一致，依實際程式碼結構落地）**：規格寫「系統匣：聲成文（`ui/tray_manager.py` 相關顯示字串／tooltip）」，但實際查證 `ui/tray_manager.py:TrayManager.__init__` 只接收呼叫端傳入的 `title` 參數並直接 `setToolTip(self.title)`，檔案本身不含任何品牌字面量；真正的字串來源是 `ui/app.py:112`（`TrayManager(title="VoiceType4TW", ...)`）。已在正確落點修改（`ui/app.py:112` → `title="聲成文"`），效果與規格描述一致，僅記錄檔案路徑差異供未來查證。
+- **意外發現並一併修正（`ui/settings_window.py` 側欄 logo）**：規格六項只列「視窗標題」（`setWindowTitle`），但檢視 `ui/settings_window.py:229,233` 發現設定視窗側欄有兩個 `QLabel("VoiceType4TW")`（同一段程式碼重複宣告兩次，第一個從未加入任何 layout、是既有的死碼，此次不修這個既有小 bug，只更新其文字），是視窗內另一處可見的品牌字樣，若不改會讓「視窗標題已改、側欄 logo 卻還是舊名」的半調子改名出現在同一個視窗裡。已一併改為 `QLabel("VoxProse")`（英文單字，比照側欄原本的英文單字風格，與正下方 `Windows Version` 字型/語言一致）。
+- **決定（About 視窗放大尺寸）**：新增標語與完整署名鏈文字後，原 `300×350` 固定尺寸有裁切風險，調整為 `320×430`（`ui/about_window.py`），僅尺寸調整，佈局邏輯不變。
+- **決定（release_win.ps1 ZIP 命名的版本號來源改用 `pyproject.toml`，不用 `paths.py` 的 `BUILD_ID`）**：舊命名 `VoiceType4TW_Win_Portable_*_V<digits>` 的版本號取自 `paths.py` 的 `BUILD_ID`（如 `BUILD-3200-STABLE` 取 `3200`），格式是純數字、不含小數點，與規格範例 `ShengChengWen-Windows-Lite-v3.2.zip` 的 `v3.2`（主.次版號，含小數點）不吻合。改為從 `pyproject.toml` 的 `version = "X.Y.Z"` 動態解析出 `X.Y`（如 `3.2.0` → `3.2`），透過 PowerShell regex `'version = "(\d+)\.(\d+)\.\d+"'` 取前兩段，符合規格「版本號跟著版本走，不要寫死」的要求，同時格式與範例完全一致。`BUILD_ID` 仍保留在 console 輸出中供內部識別（`聲成文 VoxProse Portable Packager v3.2 (BUILD-3200)`），未刪除。
+- **決定（`.github/workflows/release.yml` 核實後判定無需改動）**：規格要求「同步更新 `.github/workflows/release.yml` 內引用 ZIP 檔名的步驟」，但實際讀取該檔案發現所有步驟（SHA256 產生、artifact 上傳、Release 附檔）都用 `dist/*.zip` 萬用字元操作，沒有任何步驟寫死具體 ZIP 檔名字面量——`release_win.ps1` 改名後這個 workflow 不需要任何改動即可正確運作。記錄於此以示已查證而非遺漏。
+- **決定（`voicetype_installer.iss` 只改規格明列的兩個欄位）**：規格在「版本推進 3.2.0」項下明確只點名 `MyAppVersion` 與 `OutputBaseFilename` 兩個欄位；`MyAppName`（`"VoiceType4TW"`，同時決定 Start Menu／桌面捷徑的安裝後顯示名稱與 `DefaultDirName`）與 `AppId`（GUID，決定升級偵測）不在此次授權範圍內，維持原樣不動。這代表 Inno Setup 安裝版目前會出現「安裝檔案名叫 `ShengChengWen-Windows-Setup-v3.2.exe`，但安裝後 Start Menu／桌面捷徑仍顯示 `VoiceType4TW`」的不一致狀態——這是刻意的範圍邊界（照規格逐字執行），不是遺漏，若要讓安裝版品牌完全一致，需要維護者另外拍板是否要改 `MyAppName`（連帶影響既有使用者的安裝目錄/解除安裝機制，風險層級更高，故本次不擅自擴大範圍）。
+- **決定（`main.py` 硬編 APPDATA 路徑改用 `paths.APP_DATA_DIR`，純重構）**：`main.py` 原本有一行獨立寫死的 `os.path.join(os.environ.get('APPDATA', ''), 'VoiceType4TW')` 只為了算 crash log 目錄，與 `paths.py` 的 `APP_DATA_DIR` 各自定義同一個值、從未共用。該行程式碼位置緊接在 `from paths import initialize_paths, APP_DATA_DIR, VERSION_NAME, BUILD_ID` 之後，`APP_DATA_DIR` 已在作用域內，故直接改用 `str(APP_DATA_DIR)`。**驗證行為不變**：`APP_DATA_DIR = Path(os.environ.get("APPDATA", str(HOME / "AppData" / "Roaming"))) / "VoiceType4TW"`（`paths.py`）與原本 `main.py` 寫死的 `os.path.join(os.environ.get('APPDATA', ''), 'VoiceType4TW')` 在 `APPDATA` 環境變數存在時算出完全相同的路徑字串；差異只在 `APPDATA` 不存在的極端情況（`paths.py` 有 fallback 到 `~/AppData/Roaming`，舊的 `main.py` 寫死版本 fallback 到空字串導致 `os.makedirs('')` 拋錯）——這代表本次重構同時**修正**了一個原本存在但幾乎不會觸發的邊界 bug（Windows 環境下 `APPDATA` 環境變數幾乎不可能缺失），純屬重構的良性副作用，非刻意修 bug。
+- **決定（不改 `%APPDATA%\VoiceType4TW` 與 `Documents\VoiceType4TW_Sync` 實際路徑值）**：維護者明確指示第一階段不動這兩個實際路徑。已用 `grep -n "APP_DATA_DIR\s*=" paths.py` 與 `grep -n "VoiceType4TW_Sync"` 核對：`paths.py:APP_DATA_DIR` 的值仍是 `.../AppData/Roaming/VoiceType4TW`、預設同步目錄仍是 `Documents/VoiceType4TW_Sync`，兩者字面量本次未被任何 Edit 觸碰。第二階段遷移計畫見 `docs/BRANDING.md`。
+- **決定（全 repo `.md` 逐檔檢視後的處置）**：`git ls-files "*.md"` 列出的每個檔案都已個別檢視，處置摘要見 `VERSIONS.md` [V3.2.0] 條目與本次任務回報；`soul/**/*.md`（8 個範本檔）用 `grep -riE "VoiceType4TW|嘴炮輸入法|吉米丘|CC58TW"` 確認零匹配，判定不需改（這些是 AI 靈魂/情境範本內容，與品牌名稱無關）。`docs/UPSTREAM.md`／`docs/mac-mainline-absorption-analysis.md`／`CLAUDE.md`（本 repo 專屬薄補丁）同樣 grep 確認不含產品自稱字樣，不需改。`REVIEW.md` 僅改標題（署名/名稱），問題總帳的技術結論與修復狀態欄一字未動。
+
 ## 2026-07-21 — 上游更新自動檢查：`last_merged`／`last_reviewed` 雙欄設計
 
 維護者交辦：除了既有的依賴新鮮度月檢，也要定期檢查來源上游 `jfamily4tw/voicetype4tw-mac` 是否有新 commit，比照 `tools/check_dependency_freshness.py` + `.github/workflows/dependency-freshness.yml` 的範本改寫。

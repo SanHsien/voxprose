@@ -1,4 +1,4 @@
-# VoiceType4TW（嘴炮輸入法）Review
+# 聲成文 VoxProse（前身 VoiceType4TW／嘴炮輸入法）Review
 
 - **日期**：2026-07-20
 - **Reviewer**：Claude Code（fresh-context 靜態 review，不承襲舊版 REVIEW.md 的敘事與判斷，僅取其「哪些問題曾被發現、哪個 commit 修的」事實）

@@ -1,13 +1,14 @@
 # NOTICE
 
-voicetype（嘴炮輸入法 VoiceType4TW，SanHsien fork）
+聲成文 VoxProse（voxprose，前身 嘴炮輸入法 VoiceType4TW，SanHsien fork）
 
 本專案 fork 自 [`jfamily4tw/voicetype4tw-mac`](https://github.com/jfamily4tw/voicetype4tw-mac)。
 
 原始作品：
 
 - Project: `voicetype4tw-mac`（嘴炮輸入法 / VoiceType4TW）
-- 主要開發者：吉米丘（Jimmy）、CC58TW（見上游與本 repo `README.md`）
+- 原創作者：吉米丘（Jimmy）、CC58TW（見上游與本 repo `README.md`）
+- 上游 Windows 專用版維護：**go-mask**（`win-go-mask-202607` 分支；該分支 README 明載「Windows 專用版維護：go-mask ｜ 協助開發：Claude Code」）
 - 協助開發者（README 列名）：Codex、Claude、Gemini、Nebula
 
 ## 授權狀態
@@ -23,11 +24,13 @@ voicetype（嘴炮輸入法 VoiceType4TW，SanHsien fork）
 
 ## Project Scope
 
-`voicetype` 是本機優先的語音輸入法：使用者按住或切換全域快捷鍵錄音，透過本地 Whisper（`faster-whisper` / Apple Silicon 上的 `mlx-whisper`）或選用的雲端引擎（Groq、Gemini、OpenRouter）辨識語音，可選經 LLM（Ollama / OpenAI / Anthropic / Gemini / OpenRouter / Qwen / DeepSeek / Minimax）依「三層式靈魂系統」潤飾語氣，再自動貼回目前有輸入焦點的應用程式。原生支援 macOS（Universal）與 Windows 10/11；本 fork 的維護環境為 Windows 11 原生。
+`聲成文 VoxProse`（voxprose）是本機優先的語音輸入法：使用者按住或切換全域快捷鍵錄音，透過本地 Whisper（`faster-whisper` / Apple Silicon 上的 `mlx-whisper`）或選用的雲端引擎（Groq、Gemini、OpenRouter）辨識語音，可選經 LLM（Ollama / OpenAI / Anthropic / Gemini / OpenRouter / Qwen / DeepSeek / Minimax）依「三層式靈魂系統」潤飾語氣，再自動貼回目前有輸入焦點的應用程式。原生支援 macOS（Universal）與 Windows 10/11；本 fork 的維護環境為 Windows 11 原生。
 
 ## Credits and Acknowledgments
 
-- **Fork 來源**：[`jfamily4tw/voicetype4tw-mac`](https://github.com/jfamily4tw/voicetype4tw-mac) — 吉米丘、CC58TW。本 fork 保留其作者署名與產品命名（嘴炮輸入法 / VoiceType4TW），修改、文件與 Windows 端調整由 SanHsien 維護，另有註明者除外。
+- **Fork 來源**：[`jfamily4tw/voicetype4tw-mac`](https://github.com/jfamily4tw/voicetype4tw-mac) — 原創作者吉米丘、CC58TW。本 fork 保留其作者署名與原產品命名（嘴炮輸入法 / VoiceType4TW）作為歷史沿革記錄；現行品牌為「聲成文 VoxProse」。
+- **上游 Windows 專用版維護**：go-mask（`win-go-mask-202607` 分支）。
+- **本 fork（Windows）維護**：SanHsien，修改、文件與 Windows 端調整由其維護，另有註明者除外。
 - **上游列名的 AI 協助開發者**：Codex、Claude、Gemini、Nebula（沿用上游 README 記載，非本 fork 新增聲明）。
 - **語音辨識**：[Faster Whisper](https://github.com/SYSTRAN/faster-whisper)（CTranslate2 實作）、[MLX Whisper](https://github.com/ml-explore/mlx-examples)（Apple Silicon 加速）——僅作為執行期相依套件使用，程式碼未 vendored 進本 repo。
 - **UI 框架**：PyQt6（Riverbank Computing，GPL v3 / 商業雙授權）——作為執行期相依套件使用，非本 repo 程式碼的一部分；`requirements-win.txt` 直接依賴其官方 PyPI 套件。
