@@ -90,7 +90,7 @@ def _get_windows_total_ram_gb() -> Optional[float]:
 def collect_env_info() -> str:
     """收集 Windows 系統環境資訊，回傳多行字串。"""
     lines = []
-    lines.append("=== VoiceType4TW 診斷環境資訊 (Windows) ===")
+    lines.append("=== VoxProse 診斷環境資訊 (Windows) ===")
     lines.append(f"產生時間: {datetime.datetime.now().isoformat()}")
     lines.append("")
     lines.append("[系統]")
@@ -220,7 +220,7 @@ def export_diagnostic_bundle(
         desktop_dir.mkdir(parents=True, exist_ok=True)
 
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_path = desktop_dir / f"VoiceType4TW_診斷_{stamp}.zip"
+    zip_path = desktop_dir / f"VoxProse_診斷_{stamp}.zip"
 
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)

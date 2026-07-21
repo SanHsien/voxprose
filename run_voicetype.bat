@@ -1,6 +1,6 @@
 @echo off
 setlocal
-title Starting VoiceType4TW...
+title Starting VoxProse...
 chcp 65001 >nul
 
 set "BASE_DIR=%~dp0"
@@ -42,7 +42,7 @@ pause
 exit /b
 
 :LAUNCH_APP
-echo [INFO] Launching VoiceType4TW...
+echo [INFO] Launching VoxProse...
 cd /d "%BASE_DIR%"
 set "PYTHONPATH=%BASE_DIR%"
 start "" "%PYTHONW%" main.py

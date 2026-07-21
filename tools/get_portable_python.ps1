@@ -1,4 +1,4 @@
-﻿# get_portable_python.ps1 - VoiceType4TW Portable Python Installer
+﻿# get_portable_python.ps1 - VoxProse Portable Python Installer
 $PythonVersion = "3.12.2"
 $Url = "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-amd64.zip"
 $CurrentDir = Get-Location
@@ -6,7 +6,7 @@ $RuntimeDir = Join-Path $CurrentDir ".runtime"
 $ZipFile = Join-Path $CurrentDir "python_embed.zip"
 
 Write-Host "========================================================" -ForegroundColor Cyan
-Write-Host "   VoiceType4TW Portable Python Setup" -ForegroundColor Cyan
+Write-Host "   VoxProse Portable Python Setup" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
 
 if (-not (Test-Path $RuntimeDir)) {

@@ -8,7 +8,7 @@ from pathlib import Path
 
 def print_banner():
     print("=" * 60)
-    print("   VoiceType4TW Environment Diagnostic Tool (Doctor)")
+    print("   VoxProse Environment Diagnostic Tool (Doctor)")
     print("=" * 60)
 
 def check_disk_space(path, required_gb=3):

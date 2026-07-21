@@ -32,8 +32,8 @@ def _iter_repo_python_files():
     for path in REPO_ROOT.rglob("*.py"):
         if any(part in EXCLUDED_DIR_NAMES for part in path.relative_to(REPO_ROOT).parts):
             continue
-        # Skip anything under a VoiceType4TW_Win_*_V* release staging folder.
-        if any(part.startswith("VoiceType4TW_Win_") for part in path.relative_to(REPO_ROOT).parts):
+        # Skip anything under a VoxProse_Win_*_V* release staging folder.
+        if any(part.startswith("VoxProse_Win_") for part in path.relative_to(REPO_ROOT).parts):
             continue
         yield path
 

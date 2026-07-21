@@ -44,7 +44,7 @@ def test_stt_recognition():
         return False
 
 def run_self_check():
-    print("=== VoiceType4TW STT-Deep-Check Initialized ===")
+    print("=== VoxProse STT-Deep-Check Initialized ===")
     
     # 1. Check basic structure
     essential_files = ["main.py", "paths.py", "stt/subprocess_whisper.py", "ui/app.py"]

@@ -1,10 +1,10 @@
 @echo off
 setlocal
-title VoiceType4TW Environment Setup
+title VoxProse Environment Setup
 chcp 65001 >nul
 
 echo ========================================================
-echo   VoiceType4TW Environment Setup
+echo   VoxProse Environment Setup
 echo ========================================================
 
 rem 1. Detect Python source
@@ -132,7 +132,7 @@ if errorlevel 1 echo [WARNING] CUDA library install failed. The app will fall ba
 
 :DOWNLOAD_MODELS
 rem 4. Install STT Model (bundled or download)
-set "MODEL_DEST=%APPDATA%\VoiceType4TW\whisper_models\models--Systran--faster-whisper-medium"
+set "MODEL_DEST=%APPDATA%\VoxProse\whisper_models\models--Systran--faster-whisper-medium"
 set "MODEL_BUNDLE=%~dp0bundled_models\models--Systran--faster-whisper-medium"
 
 if exist "%MODEL_DEST%\snapshots" (
@@ -155,7 +155,7 @@ if not exist "%CSC%" (
     goto CREATE_SHORTCUT
 )
 echo [INFO] Building launcher EXE...
-"%CSC%" /nologo /target:winexe /out:"%~dp0VoiceType4TW.exe" /win32icon:"%~dp0assets\icon.ico" /r:System.Windows.Forms.dll "%~dp0tools\launcher.cs"
+"%CSC%" /nologo /target:winexe /out:"%~dp0VoxProse.exe" /win32icon:"%~dp0assets\icon.ico" /r:System.Windows.Forms.dll "%~dp0tools\launcher.cs"
 if errorlevel 1 echo [WARN] Launcher build failed. Shortcut will use run_voicetype.bat instead.
 
 :CREATE_SHORTCUT

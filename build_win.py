@@ -5,14 +5,14 @@ import PyInstaller.__main__
 from pathlib import Path
 
 # --- 配置區 ---
-APP_NAME = "VoiceType4TW"
+APP_NAME = "VoxProse"
 ENTRY_POINT = "main.py"
 ICON_PATH = "assets/icon.png"
 DIST_PATH = Path("dist")
 BUILD_PATH = Path("build")
 
 def build():
-    print("\n   VoiceType4TW - Windows Build Script")
+    print("\n   VoxProse - Windows Build Script")
     print("   Version: 2.8.27 (V69-ALLOC-CONSOLE)")
     
     # 1. 清理舊檔案

@@ -157,7 +157,7 @@ Pushing a `v*` tag triggers `.github/workflows/release.yml`, which automatically
 
 ## Settings
 
-The config file lives at `%APPDATA%\VoiceType4TW\` (`config_local.json` for machine-local settings, `config_global.json` participates in cloud sync); most options can be adjusted from the settings window:
+The config file lives at `%APPDATA%\VoxProse\` (`config_local.json` for machine-local settings, `config_global.json` participates in cloud sync); most options can be adjusted from the settings window:
 
 | Field | Description | Default |
 |------|------|--------|

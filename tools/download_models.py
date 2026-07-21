@@ -37,7 +37,7 @@ def download_model_with_progress(model_size):
         return False
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Download Faster-Whisper models for VoiceType4TW")
+    parser = argparse.ArgumentParser(description="Download Faster-Whisper models for VoxProse")
     parser.add_argument("size", nargs="?", default="medium", help="Model size (tiny, base, small, medium, large-v3, etc.)")
     args = parser.parse_args()
     

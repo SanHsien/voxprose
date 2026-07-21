@@ -39,7 +39,7 @@ bundled_models/
 # Build & App Pack
 build/
 dist/
-VoiceType4TW_Win_Stable_V*/
+VoxProse_Win_Stable_V*/
 .eggs/
 *.egg-info/
 *.zip

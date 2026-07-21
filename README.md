@@ -157,7 +157,7 @@ python main.py
 
 ## 設定
 
-設定檔位於 `%APPDATA%\VoiceType4TW\`（`config_local.json` 本機、`config_global.json` 參與雲端同步），多數選項可在設定視窗調整：
+設定檔位於 `%APPDATA%\VoxProse\`（`config_local.json` 本機、`config_global.json` 參與雲端同步），多數選項可在設定視窗調整：
 
 | 欄位 | 說明 | 預設值 |
 |------|------|--------|

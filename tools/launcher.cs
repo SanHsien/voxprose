@@ -1,4 +1,4 @@
-﻿// VoiceType4TW native launcher (replaces BAT entry point).
+﻿// VoxProse native launcher (replaces BAT entry point).
 // Compiled by setup_win.bat with the .NET Framework 4.x csc.exe that ships
 // with Windows 10/11 — no extra toolchain needed, and a locally-built EXE
 // carries no Mark-of-the-Web, so SmartScreen stays quiet.
@@ -47,7 +47,7 @@ static class Launcher
                 {
                     MessageBox.Show(
                         "找不到 setup_win.bat，請確認程式資料夾完整。\n(setup_win.bat not found)",
-                        "VoiceType4TW", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        "VoxProse", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
@@ -64,7 +64,7 @@ static class Launcher
                 {
                     MessageBox.Show(
                         "環境安裝未完成，無法啟動。請重新執行 setup_win.bat。\n(Setup did not complete)",
-                        "VoiceType4TW", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        "VoxProse", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
             }
@@ -80,7 +80,7 @@ static class Launcher
         {
             MessageBox.Show(
                 "啟動失敗 (Launch failed):\n" + ex.Message,
-                "VoiceType4TW", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                "VoxProse", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

@@ -136,7 +136,7 @@ class VoiceTypeApp(QObject):
         self.menu_bar.refresh_ui()
 
     def run(self):
-        log.info(f"Starting VoiceType4TW {VERSION_NAME} ({BUILD_ID})")
+        log.info(f"Starting VoxProse {VERSION_NAME} ({BUILD_ID})")
         
         # v2.8.27_V87: Ensure QApplication instance for Event Loop
         app_inst = QApplication.instance()

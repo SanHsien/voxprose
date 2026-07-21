@@ -3,7 +3,7 @@
 # 產出「解壓即用」的可攜資料夾與 ZIP：
 #   - 自建 .runtime（嵌入式 Python 3.12 + 全部依賴，路徑無關、免安裝 Python）
 #   - 隨附 Whisper medium 模型（bundled_models/，首次啟動自動裝入 %APPDATA%）
-#   - 隨附 VoiceType4TW.exe 啟動器（無現成檔案時以內建 csc 現場編譯）
+#   - 隨附 VoxProse.exe 啟動器（無現成檔案時以內建 csc 現場編譯）
 #
 # 用法:
 #   .\release_win.ps1           → Full（含 CUDA 加速函式庫 + medium 模型）
@@ -104,7 +104,7 @@ try {
 
 # 5. Bundle Whisper medium model (Full only) — installed to %APPDATA% on first launch
 if (-not $Lite -and -not $NoModel) {
-    $ModelSrc  = "$env:APPDATA\VoiceType4TW\whisper_models\models--Systran--faster-whisper-medium"
+    $ModelSrc  = "$env:APPDATA\VoxProse\whisper_models\models--Systran--faster-whisper-medium"
     $ModelDest = "$Release\bundled_models\models--Systran--faster-whisper-medium"
     if (Test-Path "$ModelSrc\snapshots") {
         Write-Host "[INFO] Bundling Whisper medium model..."
@@ -115,15 +115,15 @@ if (-not $Lite -and -not $NoModel) {
 }
 
 # 6. Include the launcher EXE (copy prebuilt, or compile with the built-in csc)
-if (Test-Path "$ProjectRoot\VoiceType4TW.exe") {
-    Copy-Item "$ProjectRoot\VoiceType4TW.exe" "$Release\VoiceType4TW.exe"
+if (Test-Path "$ProjectRoot\VoxProse.exe") {
+    Copy-Item "$ProjectRoot\VoxProse.exe" "$Release\VoxProse.exe"
     Write-Host "[INFO] Copied existing launcher EXE."
 } else {
     $Csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
     if (-not (Test-Path $Csc)) { $Csc = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe" }
     if (Test-Path $Csc) {
         Write-Host "[INFO] Compiling launcher EXE..."
-        & $Csc /nologo /target:winexe /out:"$Release\VoiceType4TW.exe" /win32icon:"$Release\assets\icon.ico" /r:System.Windows.Forms.dll "$Release\tools\launcher.cs"
+        & $Csc /nologo /target:winexe /out:"$Release\VoxProse.exe" /win32icon:"$Release\assets\icon.ico" /r:System.Windows.Forms.dll "$Release\tools\launcher.cs"
     } else {
         Write-Host "[WARN] csc.exe not found — users will launch via run_voicetype.bat."
     }
@@ -136,13 +136,13 @@ $Notes = @"
 
 【使用方式】
 1. 把整個資料夾放到任何位置（硬碟、隨身碟皆可，建議路徑不含中文）
-2. 雙擊 VoiceType4TW.exe 即可使用（或 run_voicetype.bat）
-3. 首次啟動會自動把隨附的辨識模型裝入 %APPDATA%\VoiceType4TW（約需十幾秒）
+2. 雙擊 VoxProse.exe 即可使用（或 run_voicetype.bat）
+3. 首次啟動會自動把隨附的辨識模型裝入 %APPDATA%\VoxProse（約需十幾秒）
 
 【注意事項】
 - 免安裝 Python、免網路（Full 版）；Lite 版、NoModel 版首次啟動需網路下載模型
 - NoModel 版已含 CUDA 加速函式庫（與 Full 版相同），僅不隨附 medium 模型，體積較小
-- 個人設定與詞庫存於 %APPDATA%\VoiceType4TW，不在本資料夾內
+- 個人設定與詞庫存於 %APPDATA%\VoxProse，不在本資料夾內
 - 有 NVIDIA 顯示卡自動使用 CUDA 加速，沒有則自動改用 CPU
 - 桌面捷徑可執行 create_shortcut.ps1 建立（非必要）
 "@

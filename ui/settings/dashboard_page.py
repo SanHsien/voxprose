@@ -312,7 +312,7 @@ class DashboardPageMixin:
     def _is_model_present(self, size: str) -> bool:
         try:
             from paths import APP_DATA_DIR
-            # 先查 App 實際的 download_root（%APPDATA%/VoiceType4TW/whisper_models），
+            # 先查 App 實際的 download_root（%APPDATA%/VoxProse/whisper_models），
             # 再退回 HuggingFace 預設快取（手動裝過的人可能放這）
             candidates = [
                 APP_DATA_DIR / "whisper_models",

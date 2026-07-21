@@ -78,7 +78,7 @@ python main.py
 
 ## 設定
 
-`config.py` 的 `DEFAULT_CONFIG` 是所有設定欄位的預設值來源，實際運行時的值儲存在兩個檔案（皆不進版控，見 `.gitignore`，路徑在 `%APPDATA%\VoiceType4TW\`）：
+`config.py` 的 `DEFAULT_CONFIG` 是所有設定欄位的預設值來源，實際運行時的值儲存在兩個檔案（皆不進版控，見 `.gitignore`，路徑在 `%APPDATA%\VoxProse\`）：
 
 - 本機設定 `config_local.json`（`LOCAL_KEYS` 白名單：熱鍵、STT 引擎、全時模式偵測參數、麥克風設定等，不隨雲端同步）。
 - 全域設定 `config_global.json`（其餘欄位，例如各 LLM 供應商的 API key、啟用的引擎；可透過 `paths.py` 的同步指標檔 `sync_path.txt` 在多台機器間共用）。
@@ -95,7 +95,7 @@ python -m pytest tests/ -v
 ```
 
 - `tests/test_smoke.py`：對全 repo 每個 `.py` 檔跑 `py_compile`（擋語法/明顯匯入錯誤）；另外對不依賴 PyQt6/sounddevice/faster-whisper/各 LLM SDK 的「純邏輯模組」（`config`、`paths`、`stt.base`、`llm.base`、`vocab.manager`、`memory.manager`、`stats.tracker`、`utils.resources`）做匯入驗證；對需要選用第三方套件的模組（`stt.groq_whisper`、`llm.claude`、`llm.openai_llm`、`audio.recorder`、`ui.positions` 等）用「匯入失敗就跳過」策略，不強迫開發環境安裝全部 SDK 才能跑測試。
-- `tests/test_config.py`：`config.py` 的 `load_config()`/`save_config()` 讀寫回圈與 `LOCAL_KEYS` 拆分邏輯，用 `monkeypatch` 把 `APP_DATA_DIR`/`LOCAL_CONFIG_PATH`/`GLOBAL_CONFIG_PATH` 導向 `tmp_path`，不會碰到開發者真正的 `%APPDATA%\VoiceType4TW\`。
+- `tests/test_config.py`：`config.py` 的 `load_config()`/`save_config()` 讀寫回圈與 `LOCAL_KEYS` 拆分邏輯，用 `monkeypatch` 把 `APP_DATA_DIR`/`LOCAL_CONFIG_PATH`/`GLOBAL_CONFIG_PATH` 導向 `tmp_path`，不會碰到開發者真正的 `%APPDATA%\VoxProse\`。
 - `tests/test_stt_engine_dispatch.py`：從 `ui/settings_window.py` 原始碼靜態解析 `STT_ENGINES` 清單（不 import PyQt6），驗證清單裡每個引擎值在 `stt/__init__.py:get_stt()` 都有對應的專屬分派分支（而非靜默落到平台預設分支）。重現並鎖死 REVIEW.md 記錄的「Gemini 選項選了但沒對應分支」問題。
 - `tests/test_gemini_stt.py`：`stt/gemini_stt.py:GeminiSTT.transcribe()` 的行為測試（`httpx.post` 全部 monkeypatch，不打真網路）。涵蓋修復前的隱性 bug：舊版用 `soundfile.write(buf, audio_bytes, sample_rate, format="WAV")` 把呼叫端傳入的完整 WAV bytes 當作裸樣本陣列重新編碼，必定拋 `IndexError` 並被吞掉，導致這個引擎其實從未成功轉錄過。
 - `tests/test_stt_hallucination_filter.py`：`stt/hallucination_filter.py:is_hallucination()` 的行為測試，從歷史（`git show 51094bf:test_stt_hallucination_filter.py`）移植原始 4 案例並新增 3 個。此邏輯現已接在 `ui/app.py:_process_audio`（STT 拿到文字之後、詞庫修正之前）的統一路徑，對所有 STT 引擎生效。

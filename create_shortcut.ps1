@@ -16,7 +16,7 @@ try {
     $Shortcut = $WScriptShell.CreateShortcut($ShortcutPath)
     # Prefer the native launcher EXE (no console window, no cmd encoding issues);
     # fall back to run_voicetype.bat when the EXE was not built.
-    $ExeLauncher = Join-Path $PSScriptRoot "VoiceType4TW.exe"
+    $ExeLauncher = Join-Path $PSScriptRoot "VoxProse.exe"
     if (Test-Path $ExeLauncher) {
         $Shortcut.TargetPath = $ExeLauncher
         $Shortcut.Arguments = ""

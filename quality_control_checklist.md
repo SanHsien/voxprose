@@ -29,6 +29,6 @@
 - [ ] **長時間運行**: 背景待機 1 小時後，熱鍵功能是否依然靈敏？
 
 ## 6. 打包與部署 (Release)
-- [ ] **Starter EXE**: `setup_win.bat` 是否成功編譯 `VoiceType4TW.exe`（啟動器檔名沿用既有打包鏈，未隨品牌改名）？桌面捷徑（顯示名稱「聲成文」）是否指向 EXE 且圖示正確？
+- [ ] **Starter EXE**: `setup_win.bat` 是否成功編譯 `VoxProse.exe`（啟動器檔名已隨品牌改名同步）？桌面捷徑（顯示名稱「聲成文」）是否指向 EXE 且圖示正確？
 - [ ] **乾淨安裝**: 刪除 `venv`/`.runtime` 後執行 `setup_win.bat` 全流程是否通過（Python 偵測、CUDA 條件安裝、模型下載）？
-- [ ] **路徑檢查**: 資料是否正確寫入 `%APPDATA%\VoiceType4TW` 而非唯讀的安裝目錄？
+- [ ] **路徑檢查**: 資料是否正確寫入 `%APPDATA%\VoxProse` 而非唯讀的安裝目錄？

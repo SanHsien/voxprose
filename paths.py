@@ -4,9 +4,9 @@ from pathlib import Path
 
 IS_WINDOWS = sys.platform == "win32"
 
-# Windows: %APPDATA%/VoiceType4TW
+# Windows: %APPDATA%/VoxProse
 HOME = Path.home()
-APP_DATA_DIR = Path(os.environ.get("APPDATA", str(HOME / "AppData" / "Roaming"))) / "VoiceType4TW"
+APP_DATA_DIR = Path(os.environ.get("APPDATA", str(HOME / "AppData" / "Roaming"))) / "VoxProse"
 
 # v2.8.27_V39: Side-effects moved to initialize_paths()
 
@@ -31,8 +31,8 @@ def get_sync_base_dir() -> Path:
                     return sync_path
         except Exception as e:
             print(f"[paths] Sync pointer error: {e}")
-    # 預設：本機 Documents 內的 VoiceType4TW_Sync
-    default_sync = Path.home() / "Documents" / "VoiceType4TW_Sync"
+    # 預設：本機 Documents 內的 VoxProse_Sync
+    default_sync = Path.home() / "Documents" / "VoxProse_Sync"
     return default_sync
 
 # 核心同步目錄

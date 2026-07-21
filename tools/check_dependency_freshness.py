@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""檢查 VoiceType4TW 依賴（requirements-win.txt / requirements-cuda-win.txt）是否落後。
+"""檢查 VoxProse 依賴（requirements-win.txt / requirements-cuda-win.txt）是否落後。
 
 此工具供 GitHub Actions 排程與本地維護使用；它只檢查版本並輸出報告，
 不會自行升級套件或建立 Release。比照 yt_fetch 專案的
@@ -111,7 +111,7 @@ def collect_status(packages: "Dict[str, str]") -> "List[Dict[str, object]]":
 def render_markdown(rows: "List[Dict[str, object]]") -> str:
     """輸出 GitHub issue / log 可讀的 Markdown。"""
     lines = [
-        "# VoiceType4TW 依賴新鮮度檢查",
+        "# VoxProse 依賴新鮮度檢查",
         "",
         "| 套件 | 目前版本（來源） | PyPI 最新 | 狀態 |",
         "| --- | --- | --- | --- |",
@@ -149,7 +149,7 @@ def write_github_output(outdated: bool, report_path: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="檢查 VoiceType4TW requirements-win.txt / requirements-cuda-win.txt 是否落後"
+        description="檢查 VoxProse requirements-win.txt / requirements-cuda-win.txt 是否落後"
     )
     parser.add_argument(
         "--output",

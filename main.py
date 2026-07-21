@@ -111,7 +111,7 @@ if __name__ == "__main__":
             banner_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             log_header = f"\n{'='*50}\n[START] {banner_time} {VERSION_NAME} ({BUILD_ID})\n{'='*50}"
             logging.getLogger("voicetype").info(log_header)
-            logging.getLogger("voicetype").info(f"=== VoiceType4TW Starting === Log: {log_path} (Level: INFO)")
+            logging.getLogger("voicetype").info(f"=== VoxProse Starting === Log: {log_path} (Level: INFO)")
             
             # v2.8.27_V61: Record Keystrike location
             from paths import KEYSTRIKE_LOG_PATH
