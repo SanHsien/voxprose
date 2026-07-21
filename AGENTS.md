@@ -11,7 +11,7 @@
 ## 硬性邊界
 
 - 不移除或竄改上游對吉米丘 / CC58TW（原創作者）與 go-mask（上游 Windows 專用版維護者）的署名；見 [`NOTICE.md`](NOTICE.md)、[`README.md`](README.md)。
-- 不在文件中宣稱上游程式碼有正式開源授權——見 `LICENSE` 與 `NOTICE.md` 的雙軌說明。
+- 授權引用以現況為準：上游已於 2026-07-20 補齊 MIT 授權，本 fork 整體採 MIT——見 `LICENSE` 與 `NOTICE.md`（過去上游未補齊授權前的雙軌查證過程僅作背景記錄，已不適用，勿在新文件中重述為現況）。
 - 不提交 API key（Groq / OpenAI / Anthropic / Gemini / OpenRouter / Qwen / DeepSeek 等）、`config_local.json`、`config_global.json`、`sync_path.txt`、使用者 `soul.md`、`memory/*.json`、`vocab/*.json`、`audio/*.wav`、`output/*.txt`、`bundled_models/` 等本機/私密/大型資料（`.gitignore` 已涵蓋，勿反向強制加回）。
 - **不破壞既有打包鏈**：`setup_win.bat`（環境建置：偵測/安裝 Python、建 venv、裝 `requirements-win.txt` + 視 GPU 裝 `requirements-cuda-win.txt`、下載 Whisper 模型、建捷徑）、`build_win.py`（PyInstaller 打包 exe）、`release_win.ps1`（自建可攜 ZIP：內嵌 Python + 全部依賴 + medium 模型）、`voicetype_installer.iss`（Inno Setup 安裝程式）——除非任務明確要求，不修改這些檔案；改動 `main.py`/`paths.py`/`config.py` 的路徑或啟動邏輯時，必須確認不會讓這條鏈斷掉。
 - **Windows 上 PyQt6 與 CUDA 的載入順序有致命衝突**（見 `windows_cuda_qt_crash_postmortem.md`）：`main.py` 透過 `stt/__init__.py` 的 `get_stt()` 在 Windows 上強制走 `SubprocessWhisperSTT`（獨立子行程跑 CTranslate2/faster-whisper，避免與同行程的 PyQt6 事件迴圈衝突）。修改啟動流程或 STT 掛載方式時，**不要**把 Whisper 模型改回與 PyQt6 同行程載入。

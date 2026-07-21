@@ -17,7 +17,7 @@ description: 維護 SanHsien/voxprose（聲成文 VoxProse，前身 嘴炮輸入
 
 ## 不適用
 
-- 未查證前，在文件或回覆中宣稱上游程式碼有 MIT / Apache / GPL 等正式開源授權——見 [`NOTICE.md`](NOTICE.md) 與根目錄 `LICENSE` 的雙軌說明。
+- 授權引用以現況為準：上游已於 2026-07-20 補齊 MIT 授權，本 fork 整體採 MIT——見 [`NOTICE.md`](NOTICE.md) 與根目錄 `LICENSE`（過去上游未補齊授權前的雙軌查證過程僅作背景記錄，已不適用，勿在新文件中重述為現況）。
 - 未經任務明確要求，修改打包鏈（`setup_win.bat`、`build_win.py`、`release_win.ps1`、`voicetype_installer.iss`、`tools/get_portable_python.ps1`、`tools/launcher.cs`）。
 - 假設或新增 macOS 專屬程式碼（`AppKit`/`Quartz`/`py2app`/`pyobjc-*`/`mlx`）——目前工作樹已是 Windows-only，這些依賴與分支不存在。
 - 提交 API key、`config_local.json`、`config_global.json`、`sync_path.txt`、`soul.md`、`memory/*.json`、`vocab/*.json`、`audio/*.wav`、`output/*.txt`、`bundled_models/` 等私密/本機/大型資料。

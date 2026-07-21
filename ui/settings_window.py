@@ -230,10 +230,6 @@ class SettingsWindow(
         lbl_en.setStyleSheet("font-family: 'Myriad Pro'; font-weight: bold; font-size: 28px; color: white;")
         lbl_en.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        lbl_en = QLabel("VoxProse")
-        lbl_en.setStyleSheet("font-family: 'Myriad Pro'; font-weight: bold; font-size: 28px; color: white;")
-        lbl_en.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
         from paths import VERSION_NAME
         os_ver = f"Windows Version" if platform.system() == "Windows" else f"macOS Version "
         lbl_os = QLabel(os_ver)
