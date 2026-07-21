@@ -30,7 +30,7 @@
 | 4 | API Key 明碼且設計上會同步到第三方雲端資料夾（iCloud/Google Drive/NAS） | 高 | ✅ 已修（`cc1e2d1`，2026-07-19） | 本次核實：`config.py:55` `API_KEY_FIELDS = {k for k in DEFAULT_CONFIG if k.endswith("_api_key")}`，`LOCAL_KEYS` 收錄；`load_config()` 有一次性遷移邏輯（`config.py:102-112`）；`tests/test_config.py::test_load_config_migrates_leaked_api_key_from_global_to_local` 通過 |
 | 5 | 完全沒有 `test_*.py`，核心 pipeline 零自動化測試覆蓋 | 中高 | ✅ 已修（`f8633de` 起，2026-07-19） | 本次核實：現樹 `tests/` 目錄 23 個測試檔，`python -m pytest tests/ -v` 實跑 **233 passed, 10 skipped**（見第 6 節） |
 | 6 | `paths.py` 宣告的雲端同步路徑常數（`VOCAB_DIR`/`MEMORY_DIR`/`STATS_DIR`）是死碼，實際未同步 | 中（誤導性） | ✅ 已修（`c37b286` 2026-07-19 移除前三個；`AI_PERMANENT_MEMORY_PATH` 尾巴 `53a4ef3` 2026-07-20 補removed） | 本次核實：`paths.py:58-61` 現為說明性註解，四個常數本體已不存在；`vocab/manager.py:17` 註解確認命名撞名風險已知並處理 |
-| 7 | `ui/settings_window.py` god file | 中 | ⏳ 待修（建議優先序：低——先求可跑再拆） | 本次核實：現行 **2164 行**（舊版 REVIEW.md 記錄 2050 行，2026-07-20 麥克風裝置/增益/AGC UI 等新功能持續往裡塞，不減反增）。建議拆分頁邏輯到獨立檔案，但應排在「實機驗證整條鏈路」之後 |
+| 7 | `ui/settings_window.py` god file | 中 | ✅ 已修（`1252a68`，2026-07-21；squash 後短碼，見 docs/DECISIONS.md 關於歷史 commit hash 的說明） | 本次核實：`ui/settings_window.py` 從 2164 行縮減為 ~490 行薄殼（`SettingsWindow` 用多重繼承混入 7 個分頁 mixin，`_setup_ui`/`_load_data`/`_save_action` 等視窗骨架邏輯留在殼內）；七個分頁邏輯拆到 `ui/settings/`（`dashboard_page.py`／`engine_page.py`／`soul_page.py`／`vocab_mem_page.py`／`sync_page.py`／`stats_page.py`／`general_page.py`）+ 共用元件 `common.py`；對外 `from ui.settings_window import SettingsWindow` 契約不變（`ui/app.py` 零 diff）；`tests/test_stt_engine_dispatch.py` 的 `STT_ENGINES` 靜態解析目標同步改指向 `ui/settings/common.py`，防護力不變。`python -m pytest tests/ -v`：246 passed, 10 skipped（較拆分前 241 passed 多 5，為新增的 5 個分頁檔被 `test_smoke.py` 全 repo py_compile 掃描一併計入）；另在乾淨 venv（僅裝 PyQt6，不裝 CUDA/faster-whisper）跑實機建構煙霧測試，`SettingsWindow()` 建構＋七頁逐一切換＋各頁 widget 存取＋正常 close，exit code 0 |
 | 8 | `requirements-win.txt` 無版本上限鎖定 | 中低 | ⏳ 待修（建議優先序：低——待 `tools/check_dependency_freshness.py` 月檢有實際落後案例後再決定鎖法） | 本次核實：全檔 14 行套件宣告皆為 `>=`，無任何 `<`/`==` 上限；新增的 `tools/check_dependency_freshness.py` 只做「是否落後」提醒，不做版本上限治理，兩者是互補而非取代關係 |
 | 9 | `diagnose_mic.py` 在 Windows 上是 macOS-only 死碼空殼 | 低（誤導性，非功能風險） | ✅ 已修（`0ee2730`，2026-07-19） | 本次核實：全檔已重寫（90 行），無任何 `Darwin`/`platform.system()` 判斷式，改為真實列裝置＋實錄 0.5 秒 RMS 診斷 |
 | 10 | PTT／VAD 全時模式並行時缺乏互斥檢查 | 低中 | ✅ 已修（`e33d479`，2026-07-19） | 本次核實：`audio/mutex.py`（79 行，`PttVadMutex` 純狀態機）存在，接線於 `ui/app.py:70-72,209-210,282-283,294`；`tests/test_recording_mutex.py` 7 個測試通過 |
@@ -49,7 +49,7 @@
 | 23 | `requirements-win.txt` 列了 `pystray`，但 UI 已全面改用 `QSystemTrayIcon`（PyQt6 內建），是多餘依賴 | 低（清理項，非風險項） | ⏳ 待修（建議優先序：低，可與 god file 拆分同批清） | 本次新查證：全 repo grep `pystray` 僅剩 `ui/menu_bar.py:193` 一處**註解**（`# 2. pystray check (label)`），無任何實際 `import pystray`；`ui/tray_manager.py:13,39,50,55` 確認為 `QSystemTrayIcon` 實作。舊版 REVIEW.md 已指出此問題（2026-07-19），至今未清理，見第 4 節新發現 24-2 |
 | 24 | 見第 4 節「本次新發現」24-1～24-3 | — | 🔍/⏳ | 本次 review 新增項目，非歷史清單延續 |
 
-**統計**：已修 19 項、待修 3 項（#7 god file、#8 requirements 版本上限、#23 pystray 殘留依賴）、決定不做 0 項（歷史上的「不吸收」項目屬於功能吸收分析的範圍，非本問題總帳的 bug/風險，詳見第 5 節與 `docs/mac-mainline-absorption-analysis.md` 第 6 節，不重複列在此表）、需實機驗證 1 項大類（#24-1，涵蓋全部 UI/錄音/雲端 API 行為，見第 7 節）。
+**統計**：已修 20 項、待修 2 項（#8 requirements 版本上限、#23 pystray 殘留依賴——後者狀態待下次覆核統一同步，見 2026-07-21 commit `aa1e220`）、決定不做 0 項（歷史上的「不吸收」項目屬於功能吸收分析的範圍，非本問題總帳的 bug/風險，詳見第 5 節與 `docs/mac-mainline-absorption-analysis.md` 第 6 節，不重複列在此表）、需實機驗證 1 項大類（#24-1，涵蓋全部 UI/錄音/雲端 API 行為，見第 7 節）。
 
 ---
 

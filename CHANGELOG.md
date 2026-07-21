@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **`ui/settings_window.py` god file 拆分**（REVIEW.md #7）：原本 2164 行的單一設定視窗檔拆成 `ui/settings/` 子套件——七個分頁各一個 mixin 檔（`dashboard_page.py`／`engine_page.py`／`soul_page.py`／`vocab_mem_page.py`／`sync_page.py`／`stats_page.py`／`general_page.py`）+ 共用元件與常數 `common.py`；`ui/settings_window.py` 收斂為 ~490 行薄殼，`SettingsWindow` 用多重繼承混入所有分頁 mixin，對外 `from ui.settings_window import SettingsWindow` 契約不變（`ui/app.py` 零 diff）。純機械搬移，無邏輯／UI 字串變動；唯一的例外是 `_run_self_check` 內用 `__file__` 反推 repo root 的路徑計算——檔案搬到更深一層目錄後補了一次 `os.path.dirname()`，否則會找錯 `self_check.py` 的路徑。`tests/test_stt_engine_dispatch.py` 的 `STT_ENGINES` 靜態原始碼解析目標同步從 `ui/settings_window.py` 改指向 `ui/settings/common.py`（常數搬去哪、測試就跟去哪，防護力不變）。
+
 ## [3.1.0] - 2026-07-20
 
 以 `win-stable` 分支 v3.0.1（`win-go-mask`，`BUILD-3010-STABLE`）為基底，建立 fork 的開發鷹架（比照 `SanHsien/sticker-forge`、`SanHsien/gpt-ai-assistant` 的既有範本）。發版工程收尾：新增 `docs/UPSTREAM.md` 上游追蹤、`release_win.ps1` `-NoModel` 打包選項、`.github/workflows/release.yml` 與 `dependency-freshness.yml` 兩條 CI workflow、`tools/check_dependency_freshness.py` 依賴新鮮度檢查工具，版本推進至 3.1.0（`BUILD-3100-STABLE`）。

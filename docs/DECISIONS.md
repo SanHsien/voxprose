@@ -4,6 +4,78 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-21 — `ui/settings_window.py` god file 拆分（REVIEW.md #7）
+
+維護者交辦：前一個 agent 已建立 `ui/settings/` 子套件的部分頁面（`common.py`／
+`dashboard_page.py`／`engine_page.py`）但未接線進主檔就因額度中斷；本次先驗證
+半成品可信度，再完成剩餘頁面拆分並接線。
+
+- **驗證半成品**：用 `ast` 逐一抽取 `common.py`／`dashboard_page.py`／
+  `engine_page.py` 裡的每個函式/方法，與 `ui/settings_window.py` 原始碼裡對應
+  區塊做 `difflib` 逐行比對——三個檔案全部通過，僅有的差異是空白行的尾端空格
+  被清掉（純格式，非邏輯）。判定：**半成品可信、忠實、完整**，可以直接沿用，
+  不需重做。
+- **決定（用多重繼承 mixin 而非組合/委派）**：`SettingsWindow` 目前的所有
+  `_create_*_page` 方法內部大量互相依賴同一個 `self`（例如 `_create_stt_llm_page`
+  呼叫 `self._add_grid_row`、`self._populate_whisper_models`；`_load_data`/
+  `_save_action` 直接讀寫十幾個分頁建立的 widget 屬性）。若改成「每頁一個獨立
+  物件、組合進 SettingsWindow」，等於要把這些方法簽章全部改寫成跨物件呼叫，
+  屬於「順手優化」而非「機械搬移」，且範圍會大幅超出本次任務（純拆分，不改
+  行為）。多重繼承 mixin 讓每個分頁類別只多出 `XxxPageMixin` 這一層，方法定義
+  搬到別的檔案，但 `self.xxx` 呼叫方式完全不變——這是唯一能同時滿足「純機械
+  搬移」與「god file 拆分」兩個要求的做法。
+- **決定（`STT_ENGINES` 常數搬到 `common.py`，同步改測試解析目標而非留在殼裡
+  重複宣告）**：`tests/test_stt_engine_dispatch.py` 原本用正則從
+  `ui/settings_window.py` 的原始碼文字裡抓 `STT_ENGINES = [...]` 這行字面量
+  （刻意不 import 該模組，因為它頂層 import PyQt6）。常數的唯一正確歸屬是
+  `ui/settings/common.py`（其他分頁 mixin 從那裡 import），若為了不動測試而在
+  殼檔裡重複宣告一份字面量，會製造「兩份 STT_ENGINES 定義，改一個忘改另一個」
+  的新技術債。改為讓測試的解析目標跟著常數搬——`SETTINGS_COMMON_SRC` 讀
+  `ui/settings/common.py`，正則與 `ast.literal_eval` 解析邏輯不變，防護力（UI
+  引擎清單 ↔ `stt.get_stt()` 分派一致性）沒有被弱化。
+- **意外發現並修正（`_run_self_check` 的 `__file__` 路徑計算）**：原本
+  `os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "self_check.py")`
+  依賴 `__file__` 是 `ui/settings_window.py`（往上兩層 `dirname` = repo root）。
+  搬到 `ui/settings/general_page.py` 後，同樣的兩層 `dirname` 會變成 repo root
+  的 `ui/`，導致 `self_check.py` 路徑算錯（永遠找不到檔案，按鈕會跳「找不到
+  檢測程式」錯誤視窗）。這是純機械搬移必然會踩到的陷阱——檔案换位置但邏輯
+  沒跟著調整就會壞掉，因此補了一次 `os.path.dirname()`（改三層），行為與拆分
+  前完全一致（本機驗證：`self_check.py` 確實在 repo root）。用 `ast` 逐一比對
+  原始檔與新檔的每個函式/方法/模組常數（共 63 個項目）後，這是**唯一**一處
+  必要的非空白差異，其餘全部逐字相同。
+- **對外契約**：`from ui.settings_window import SettingsWindow` 不變；
+  `git diff ui/app.py` 為空（`ui/app.py` 只 `from ui.settings_window import
+  SettingsWindow`，未引用任何被搬移的內部符號）。
+- **原方法 → 新檔對應表**：
+
+  | 原本在 `ui/settings_window.py` | 現在在 |
+  |---|---|
+  | `GlassCard`／`SidebarButton`／`SNSButton`／`HotkeyRecorderButton`／`PermissionLight`／`ModelStatusLight`／`translate_key_string`／`CODE_TO_MAC_NAME`／`CODE_TO_WIN_NAME`／`STT_ENGINES`／`LLM_ENGINES`／`WHISPER_MODELS`／`TRIGGER_MODES`／`HOTKEYS`／`LLM_MODES` | `ui/settings/common.py`（模組層級元件/常數）+ `CommonPageMixin`（`_page_section_header`／`_add_grid_row`） |
+  | `_create_dashboard_page`／`_update_dashboard_status`／`update_download_progress`／`_check_all_permissions`／`_check_local_models`／`_is_model_present` | `ui/settings/dashboard_page.py`（`DashboardPageMixin`） |
+  | `_create_stt_llm_page`／`_populate_whisper_models`／`_check_mic_devices_changed`／`_populate_mic_devices` | `ui/settings/engine_page.py`（`EnginePageMixin`） |
+  | `_create_soul_page`／`_create_file_list_tab` | `ui/settings/soul_page.py`（`SoulPageMixin`） |
+  | `_create_vocab_mem_page`／`_refresh_vocab`／`_refresh_learned_vocab`／`_promote_vocab`／`_delete_learned_word`／`_refresh_memory`／`_delete_memory_entry`／`_purge_memory`／`_add_vocab`／`_del_vocab` | `ui/settings/vocab_mem_page.py`（`VocabMemPageMixin`） |
+  | `_create_sync_page`／`_set_sync_directory`／`_migrate_to_sync`／`_clear_sync_directory` | `ui/settings/sync_page.py`（`SyncPageMixin`） |
+  | `_create_stats_page`／`_refresh_stats` | `ui/settings/stats_page.py`（`StatsPageMixin`） |
+  | `_create_general_page`／`_run_self_check`（含 `__file__` 路徑修正）／`_run_export_diagnostics`／`_view_debug_log`／`_view_keystrike_log`／`_open_data_folder`／`_run_mic_test` | `ui/settings/general_page.py`（`GeneralPageMixin`） |
+  | `__init__`／`_setup_ui`／`_on_sidebar_changed`／`_load_data`／`refresh_config`／`_save_action`／`run`／`has_api_key`／`if __name__ == "__main__":` | 留在 `ui/settings_window.py`（薄殼，`SettingsWindow` 組裝所有 mixin） |
+
+- **測試**：`python -m pytest tests/ -v`：**246 passed, 10 skipped**（拆分前
+  241 passed；+5 為新增 5 個分頁檔被 `tests/test_smoke.py` 全 repo
+  `py_compile` 掃描一併計入，非新增測試案例）。全 repo `py_compile` 通過。
+  PyQt6 實機建構煙霧測試：在 scratchpad 建乾淨 venv（Python 3.11.15，僅
+  `pip install PyQt6`，不裝 CUDA/faster-whisper/sounddevice），把 repo 加進
+  `sys.path` 後直接 import 真正的 `ui.settings_window.SettingsWindow`，用
+  `load_config()` 的真實預設設定建構視窗、逐一切換全部 7 個分頁（用
+  `win.stack.currentIndex() == i` 斷言，非僅呼叫不驗證）、存取各頁關鍵 widget
+  （`stt_engine`／`whisper_model`／`soul_prompt`／`vocab_list`／`mem_tree`／
+  `sync_status_lbl`／`stats_tree`／`btn_ptt`／`btn_mic_test`／
+  `_mic_poll_timer`），最後正常 `close()`。**exit code 0**，`ctranslate2`／
+  `sounddevice` 缺失時的既有例外處理分支也正確觸發（非崩潰），符合設計預期。
+  腳本存於本機 scratchpad（session 隔離目錄，非 repo 一部分）。
+- **commit**：`1252a68`（`ui/settings/` 子套件 + 薄殼 `ui/settings_window.py` +
+  `tests/test_stt_engine_dispatch.py` 解析目標更新，單一 atomic commit）。
+
 ## 2026-07-20 — v3.1.0 發版工程收尾（UPSTREAM 追蹤、-NoModel 打包、release/dependency-freshness workflow、版本推進）
 
 維護者指示：v3.1.0 發版前最後一批工程項，完成後主 session 會把 fork 全部 commit squash 成單一 v3.1.0。
