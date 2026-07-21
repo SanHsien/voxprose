@@ -7,7 +7,9 @@ log = logging.getLogger("voicetype.branding")
 
 # v2.8.27_V87: Ultimate Taskbar Branding Utility
 # This ID is rotated to force Windows to clear its taskbar icon cache.
-APP_USER_MODEL_ID = 'jfamily.voicetype4tw.v87.ultimate.stable'
+# 2026-07-21: rebranded to VoxProse (聲成文) — new AppUserModelID also forces
+# Windows to treat this as a distinct taskbar group from the old jfamily.* id.
+APP_USER_MODEL_ID = 'tw.sanhsien.VoxProse.windows'
 
 def init_windows_id():
     """Set the AppUserModelID for Windows Taskbar grouping."""

@@ -86,8 +86,11 @@ if __name__ == "__main__":
             initialize_paths()
 
             # Enable faulthandler for main process crash logging
+            # 2026-07-21: was a hardcoded os.environ['APPDATA']/'VoiceType4TW' literal
+            # duplicating paths.APP_DATA_DIR; now references it directly. Pure
+            # refactor — the actual on-disk path is unchanged (see docs/DECISIONS.md).
             import faulthandler
-            app_data_dir = os.path.join(os.environ.get('APPDATA', ''), 'VoiceType4TW')
+            app_data_dir = str(APP_DATA_DIR)
             if app_data_dir:
                 os.makedirs(app_data_dir, exist_ok=True)
                 crash_log = open(os.path.join(app_data_dir, "main_crash.log"), 'w', encoding='utf-8')

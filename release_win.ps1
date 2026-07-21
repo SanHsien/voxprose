@@ -1,4 +1,4 @@
-﻿# release_win.ps1 - VoiceType4TW 真可攜版打包器 (Portable Release Packager)
+﻿# release_win.ps1 - 聲成文 VoxProse 真可攜版打包器 (Portable Release Packager)
 #
 # 產出「解壓即用」的可攜資料夾與 ZIP：
 #   - 自建 .runtime（嵌入式 Python 3.12 + 全部依賴，路徑無關、免安裝 Python）
@@ -16,24 +16,28 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
 Set-Location $ProjectRoot
 
-# 0. 從 paths.py 取得版本號，命名跟著版本走
+# 0. 從 paths.py 取得 BUILD_ID（內部識別）與 pyproject.toml 取得 semver 版本號
+#    （命名跟著版本走，不寫死；ZIP 命名採主.次版號，如 v3.2）
 $buildMatch = Select-String -Path "paths.py" -Pattern 'BUILD_ID = "BUILD-(\w+)-STABLE"'
 $Build = if ($buildMatch) { $buildMatch.Matches[0].Groups[1].Value } else { "UNKNOWN" }
 
+$verMatch = Select-String -Path "pyproject.toml" -Pattern 'version = "(\d+)\.(\d+)\.\d+"'
+$VerShort = if ($verMatch) { "{0}.{1}" -f $verMatch.Matches[0].Groups[1].Value, $verMatch.Matches[0].Groups[2].Value } else { "UNKNOWN" }
+
 if ($Lite) {
-    $ReleaseFolder = "dist\VoiceType4TW_Win_Portable_Lite_V$Build"
+    $ReleaseFolder = "dist\ShengChengWen-Windows-Lite-v$VerShort"
     $Edition = "Lite (no CUDA, no model)"
 } elseif ($NoModel) {
-    $ReleaseFolder = "dist\VoiceType4TW_Win_Portable_NoModel_V$Build"
+    $ReleaseFolder = "dist\ShengChengWen-Windows-NoModel-v$VerShort"
     $Edition = "NoModel (CUDA, no model)"
 } else {
-    $ReleaseFolder = "dist\VoiceType4TW_Win_Portable_V$Build"
+    $ReleaseFolder = "dist\ShengChengWen-Windows-v$VerShort"
     $Edition = "Full (CUDA + medium model)"
 }
 $ZipFile = "$ReleaseFolder.zip"
 
 Write-Host "========================================================" -ForegroundColor Cyan
-Write-Host "   VoiceType4TW Portable Packager V$Build — $Edition" -ForegroundColor Cyan
+Write-Host "   聲成文 VoxProse Portable Packager v$VerShort (BUILD-$Build) — $Edition" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
 
 # 1. Cleanup
@@ -127,7 +131,7 @@ if (Test-Path "$ProjectRoot\VoiceType4TW.exe") {
 
 # 7. Portable readme
 $Notes = @"
-VoiceType4TW 嘴炮輸入法 — Windows 真可攜版 (V$Build)
+聲成文 VoxProse — Windows 真可攜版 (v$VerShort)
 =====================================================
 
 【使用方式】

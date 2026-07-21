@@ -109,7 +109,7 @@ class VoiceTypeApp(QObject):
         self.menu_bar.on_set_template = self._on_set_template
         
         self.tray = TrayManager(
-            title="VoiceType4TW",
+            title="聲成文",
             icon_path=icon_path,
             menu_items=self.menu_bar.get_tray_menu_items() if IS_WINDOWS else self.menu_bar.get_menu_items()
         )

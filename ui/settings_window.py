@@ -78,9 +78,9 @@ class SettingsWindow(
         if "zh" in lang:
             win_font = "Microsoft JhengHei" if platform.system() == "Windows" else "Taipei Sans TC Beta"
             self.setFont(QFont(win_font))
-            self.setWindowTitle(f"嘴炮輸入法 {VERSION_NAME}")
+            self.setWindowTitle(f"聲成文 {VERSION_NAME}")
         else:
-            self.setWindowTitle(f"VoiceType4TW {VERSION_NAME}")
+            self.setWindowTitle(f"VoxProse {VERSION_NAME}")
 
         # 設定啟動頁面
         if 0 <= start_page < len(self.sidebar_buttons):
@@ -89,7 +89,7 @@ class SettingsWindow(
 
     def _setup_ui(self):
         from paths import VERSION_NAME
-        self.setWindowTitle(f"VoiceType4TW {VERSION_NAME}")
+        self.setWindowTitle(f"VoxProse {VERSION_NAME}")
         # 最小寬度需容納側欄 240px + 三張卡片不被裁切
         self.setMinimumSize(1080, 720)
         self.resize(1200, 840)
@@ -226,11 +226,11 @@ class SettingsWindow(
         logo_vbox.setContentsMargins(0, 50, 0, 0) # Apply 50px Margin Top
         logo_vbox.setSpacing(0)
 
-        lbl_en = QLabel("VoiceType4TW")
+        lbl_en = QLabel("VoxProse")
         lbl_en.setStyleSheet("font-family: 'Myriad Pro'; font-weight: bold; font-size: 28px; color: white;")
         lbl_en.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        lbl_en = QLabel("VoiceType4TW")
+        lbl_en = QLabel("VoxProse")
         lbl_en.setStyleSheet("font-family: 'Myriad Pro'; font-weight: bold; font-size: 28px; color: white;")
         lbl_en.setAlignment(Qt.AlignmentFlag.AlignCenter)
 

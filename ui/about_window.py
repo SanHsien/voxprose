@@ -1,5 +1,5 @@
 """
-About VoiceType4TW-Mac dialog.
+About 聲成文 VoxProse dialog (formerly VoiceType4TW-Mac).
 """
 import sys
 from pathlib import Path
@@ -10,8 +10,8 @@ from PyQt6.QtGui import QPixmap, QFont
 class AboutDialog(QDialog):
     def __init__(self, is_dark=False):
         super().__init__()
-        self.setWindowTitle("關於 VoiceType4TW")
-        self.setFixedSize(300, 350)
+        self.setWindowTitle("關於 聲成文 VoxProse")
+        self.setFixedSize(320, 430)
         self._is_dark = is_dark
         self._setup_ui()
 
@@ -37,11 +37,17 @@ class AboutDialog(QDialog):
         # App Name
         import platform
         font_family = "PingFang TC" if platform.system() == "Darwin" else "Microsoft JhengHei"
-        name_label = QLabel("VoiceType4TW")
+        name_label = QLabel("聲成文 VoxProse")
         name_label.setFont(QFont(font_family, 18, QFont.Weight.Bold))
         name_label.setStyleSheet(f"color: {text_color};")
         name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(name_label)
+
+        # Tagline
+        tagline_label = QLabel("A local-first AI voice typing tool for Windows.\nSpeak naturally. Write clearly.")
+        tagline_label.setStyleSheet(f"color: {text_color}; font-size: 12px;")
+        tagline_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(tagline_label)
 
         # Version
         from paths import VERSION_NAME
@@ -53,16 +59,25 @@ class AboutDialog(QDialog):
         # Credits
         credit_box = QVBoxLayout()
         credit_box.setSpacing(5)
-        
-        dev_label = QLabel("主要開發者：吉米丘")
-        dev_label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
-        dev_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
+
+        derived_label = QLabel("Derived from VoiceType4TW.\nWindows fork maintained by SanHsien.")
+        derived_label.setStyleSheet(f"color: {text_color}; font-size: 12px;")
+        derived_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        zh_label = QLabel(
+            "聲成文是由 SanHsien 維護的 Windows 語音輸入工具，\n"
+            "衍生自 VoiceType4TW。原作者：吉米丘、CC58TW；\n"
+            "上游 Windows 專用版維護：go-mask。"
+        )
+        zh_label.setStyleSheet(f"color: {text_color}; font-size: 12px;")
+        zh_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
         assist_label = QLabel("協助開發者：Claude Code")
         assist_label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
         assist_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        credit_box.addWidget(dev_label)
+
+        credit_box.addWidget(derived_label)
+        credit_box.addWidget(zh_label)
         credit_box.addWidget(assist_label)
         layout.addLayout(credit_box)
 

@@ -1,7 +1,7 @@
 # create_shortcut_v83.ps1
 # Use hexadecimal character codes to avoid encoding issues with Chinese characters in PS5.1
-# "嘴炮輸入法" = 0x5634, 0x70AE, 0x8F38, 0x5165, 0x6CD5
-$ShortcutName = [char]0x5634 + [char]0x70AE + [char]0x8F38 + [char]0x5165 + [char]0x6CD5
+# "聲成文" = 0x8072, 0x6210, 0x6587
+$ShortcutName = [char]0x8072 + [char]0x6210 + [char]0x6587
 $ShortcutPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "$ShortcutName.lnk"
 $TargetFile = Join-Path $PSScriptRoot "run_voicetype.bat"
 $IconLocation = Join-Path $PSScriptRoot "assets\icon.ico" 
@@ -27,7 +27,7 @@ try {
     $Shortcut.WorkingDirectory = $PSScriptRoot
     $Shortcut.WindowStyle = 7 # Minimized
     $Shortcut.IconLocation = "$IconLocation,0"
-    $Shortcut.Description = "VoiceType4TW - AI Voice Typing"
+    $Shortcut.Description = "VoxProse - AI Voice Typing"
     $Shortcut.Save()
     Write-Host "[SUCCESS] Shortcut created on Desktop: $ShortcutName" -ForegroundColor Green
 } catch {
