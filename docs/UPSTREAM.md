@@ -25,9 +25,9 @@
     },
     "main": {
       "last_merged": null,
-      "last_reviewed": "10b2fc8",
+      "last_reviewed": "46346d3",
       "license_source": "46346d3",
-      "note": "Mac 線，程式碼不追蹤（僅分析吸收），license_source 記錄 LICENSE 取自 main 的哪個 commit"
+      "note": "Mac 線，程式碼不追蹤（僅分析吸收），license_source 記錄 LICENSE 取自 main 的哪個 commit。last_reviewed 為 2026-07-21 時 main 的 tip：其間三個 commit 皆已審視——10b2fc8／0ed0c47 為 macOS 專屬已列 Skipped 表，46346d3 的 LICENSE 已採用"
     }
   }
 }
@@ -43,7 +43,7 @@
 | 上游分支 | Commit | 標題 | 審視日期 | 未採用理由 |
 |---|---|---|---|---|
 | `main`（Mac 線） | [`0ed0c47`](https://github.com/jfamily4tw/voicetype4tw-mac/commit/0ed0c47) | fix: clean up runtime on native macOS quit | 2026-07-20 | macOS 專屬（AppKit 應用程式退出清理流程），本 fork 是 Windows-only 樹、無 AppKit 相依，不適用。 |
-| `main`（Mac 線） | [`10b2fc8`](https://github.com/jfamily4tw/voicetype4tw-mac/commit/10b2fc8) | fix: keep hotkey watchdog recovering | 2026-07-20 | macOS 專屬（CGEventTap watchdog 復原機制），本 fork 熱鍵走 `hotkey/listener.py` 的 Win32 `GetAsyncKeyState` 輪詢架構，兩者監聽機制完全不同，不適用；此 commit 同時也是 `main` 分支目前的 `last_reviewed`。 |
+| `main`（Mac 線） | [`10b2fc8`](https://github.com/jfamily4tw/voicetype4tw-mac/commit/10b2fc8) | fix: keep hotkey watchdog recovering | 2026-07-20 | macOS 專屬（CGEventTap watchdog 復原機制），本 fork 熱鍵走 `hotkey/listener.py` 的 Win32 `GetAsyncKeyState` 輪詢架構，兩者監聽機制完全不同，不適用。 |
 
 ## Upstream remote
 
