@@ -23,7 +23,7 @@ from ui.tray_manager import TrayManager, IS_WINDOWS
 from ui.floating_button import FloatingButton
 from utils.permissions import ensure_all_permissions
 from utils.resources import get_resource_path
-from paths import VERSION_NAME, BUILD_ID, initialize_paths, APP_DATA_DIR
+from paths import VERSION_NAME, initialize_paths, APP_DATA_DIR
 from audio.mutex import PttVadMutex
 
 log = logging.getLogger("voicetype")
@@ -136,7 +136,7 @@ class VoiceTypeApp(QObject):
         self.menu_bar.refresh_ui()
 
     def run(self):
-        log.info(f"Starting VoxProse {VERSION_NAME} ({BUILD_ID})")
+        log.info(f"Starting VoxProse {VERSION_NAME}")
         
         # v2.8.27_V87: Ensure QApplication instance for Event Loop
         app_inst = QApplication.instance()

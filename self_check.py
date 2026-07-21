@@ -55,7 +55,7 @@ def run_self_check():
     # 2. Check Version Logic (NameError fix verification)
     try:
         from paths import VERSION_NAME, BUILD_ID
-        print(f"[PASS] Constants: {VERSION_NAME} ({BUILD_ID})")
+        print(f"[PASS] Constants: VERSION_NAME={VERSION_NAME!r} BUILD_ID={BUILD_ID!r}")
     except Exception as e:
         print(f"[FAIL] Version constants missing: {e}")
         sys.exit(1)

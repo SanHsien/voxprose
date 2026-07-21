@@ -82,7 +82,7 @@ if __name__ == "__main__":
     
     if is_main_process:
         try:
-            from paths import initialize_paths, APP_DATA_DIR, VERSION_NAME, BUILD_ID
+            from paths import initialize_paths, APP_DATA_DIR, VERSION_NAME
             initialize_paths()
 
             # Enable faulthandler for main process crash logging
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             # v2.8.27_V73: Restore the "Flagship Banner" log style per user request
             from datetime import datetime
             banner_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            log_header = f"\n{'='*50}\n[START] {banner_time} {VERSION_NAME} ({BUILD_ID})\n{'='*50}"
+            log_header = f"\n{'='*50}\n[START] {banner_time} {VERSION_NAME}\n{'='*50}"
             logging.getLogger("voicetype").info(log_header)
             logging.getLogger("voicetype").info(f"=== VoxProse Starting === Log: {log_path} (Level: INFO)")
             
