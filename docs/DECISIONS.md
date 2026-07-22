@@ -4,6 +4,33 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-22 — 上游 main 分支 805b007 審視：吸收 3 項平台無關修正，推進 3.3.0
+
+上游 `jfamily4tw/voicetype4tw-mac` `main` 分支新 commit `805b007`（v2.9.18「mac apple local correction」，2026-07-21）審視完畢。此 commit 主體是 macOS 26 裝置端 LLM（Apple Foundation Models）校正功能，但夾帶三項與平台無關、對本 fork 有實際價值的修正。
+
+### 採用
+
+1. **`vocab/manager.py` 模糊比對短 ASCII 縮寫守衛**：`apply_vocab_correction()` 對 4 字以下純 ASCII 縮寫（STT/PTT/API 等）做 edit-distance-1 模糊修正太激進，會把使用者詞庫裡另一個縮寫誤植進來（例：詞庫有 PTT，講 STT 卻被改成 PTT）。這是本 fork 自己樹上結構相同的既有 bug（`apply_vocab_correction`／`_edit_distance_1` 與上游修法前版本邏輯一致），不是「上游獨有問題」，直接移植上游的守衛條件 `len(vocab_word) <= 4 and vocab_word.isascii() and vocab_word.isalnum()`。
+2. **OpenCC 簡體→繁體後處理**：Whisper 偶爾把中文誤判輸出成簡體，本產品定位是繁體中文工具，簡體輸出對使用者而言就是辨識錯誤。上游把這段轉換嵌在 macOS 專屬的 Apple Local LLM 校正流程（`llm/apple_local.py:_to_traditional()`）內，我們沒有那個平台專屬功能——**不直接搬移該檔案**，而是把「簡轉繁」這個概念獨立抽成通用模組 `utils/zh_convert.py`，接在 `ui/app.py:_process_audio` 的統一路徑（幻覺過濾之後、詞彙修正之前），對所有 STT 引擎一視同仁生效。
+   - **OpenCC 設定檔選 `s2t`（純簡轉繁）而非 `s2twp`**：後者會額外把大陸慣用詞轉換成台灣慣用詞（例如「軟件」→「軟體」），已經觸及詞彙選字層，可能與使用者在 `vocab/manager.py` 自訂的詞彙/慣用語衝突，超出「修正 Whisper 誤判簡體」這個單純目的。
+   - **新增設定開關 `zh_convert_enabled`（預設 `True`）不列入 `LOCAL_KEYS`**：這是文字處理行為偏好，跟 `memory_enabled`/`llm_enabled` 同類——不是像 hotkey／麥克風裝置那樣「換一台機器就該重設」的機器特定設定，值得跨裝置同步。
+   - **`opencc-python-reimplemented` 為選用依賴**：`utils/zh_convert.py` 未安裝時優雅降級為原樣返回文字，不拋錯、不擋主流程。已在裝有 opencc 的環境（`pip install opencc-python-reimplemented`）實測兩組 Whisper 常見簡體誤判詞彙（「列進來」「協助開發者」對應的簡體寫法）皆正確轉為繁體；本文件與 `utils/zh_convert.py`/`tests/test_zh_convert.py` 刻意不逐字寫出簡體樣本原文，因本 repo 有全文掃描的簡體字守門測試（`tests/test_brand_and_charset_guard.py`），測試檔改以 `chr()` 碼點組字避免誤觸發。
+3. **`load_all_learned_words()` 排序穩定化**：排序 key 由 `-count` 改為 `(-count, word.casefold(), word)`，次數相同的學習詞彙不再依賴 dict 插入順序，UI 清單顯示次序具確定性。我們的對應函式行為與上游修法前完全一致，直接移植同一 key。
+
+### 不採用（Mac 專屬／個人化）
+
+- Apple Foundation Models 整套：`helpers/apple_local_llm.swift`＋編譯後二進位、`llm/apple_local.py`、`llm/__init__.py` 註冊、UI 選單/設定開關、`main.py` 接線——macOS 26 裝置端 LLM，Windows 無對應物。
+- Mac 打包鏈：`build_all.sh`、`pack_dmg.sh`、`setup.py`、`paths.py` 的 Mac 路徑調整。
+- Mac 專屬 UI 改動（`ui/about_window.py`／`ui/menu_bar.py`／`ui/settings_window.py` 的 Apple Local 開關）、Mac 截圖、上游 `VERSIONS.md`／`README.md` 的 Mac 版本敘述。
+- `COMMON_ALIAS_CORRECTIONS = {"Talescale": "Tailscale"}`：原作者個人常用詞別名，對本 fork 無普遍價值。
+- 「句尾標點保護」：屬 Apple Local helper 內部行為，我們無對應元件。
+
+詳細審視記錄與逐項理由見 `docs/UPSTREAM.md` 的「Skipped（審視後未採用）」表 805b007 條目；`last_reviewed` 已推進至 `805b007`。
+
+### 版本推進 3.3.0
+
+採用項含新功能（OpenCC 後處理）＋新依賴（`opencc-python-reimplemented>=0.1.7,<1`）→ 推進 `paths.py`（`VERSION_NAME`/`BUILD_ID` → `V3.3.0 Windows Edition (BUILD-3300-STABLE)`/`BUILD-3300-STABLE`）、`pyproject.toml`（`version` → `3.3.0`）、`voicetype_installer.iss`（`MyAppVersion` → `3.3.0`，`OutputBaseFilename` → `ShengChengWen-Windows-Setup-v3.3`）。本次**不 tag、不發佈**，版本字串與 `CHANGELOG.md` 先就緒，待驗收後由主 session 決定發版時機。
+
 ## 2026-07-22 — 設定視窗署名鏈補正＋Dashboard CUDA 文案誠實化＋截圖重拍
 
 主 session 檢視前次重拍的 7 張截圖時發現兩個問題：`ui/settings_window.py` 側欄署名區塊框架錯誤且不完整、Dashboard 的 CUDA 狀態文案與 STT worker 實際行為矛盾。

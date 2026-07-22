@@ -25,9 +25,9 @@
     },
     "main": {
       "last_merged": null,
-      "last_reviewed": "46346d3",
+      "last_reviewed": "805b007",
       "license_source": "46346d3",
-      "note": "Mac 線，程式碼不追蹤（僅分析吸收），license_source 記錄 LICENSE 取自 main 的哪個 commit。last_reviewed 為 2026-07-21 時 main 的 tip：其間三個 commit 皆已審視——10b2fc8／0ed0c47 為 macOS 專屬已列 Skipped 表，46346d3 的 LICENSE 已採用"
+      "note": "Mac 線，程式碼不追蹤（僅分析吸收），license_source 記錄 LICENSE 取自 main 的哪個 commit。last_reviewed 推進至 805b007（v2.9.18，2026-07-21，mac apple local correction）：Apple Foundation Models 整套與 Mac 打包/UI 專屬改動評估為 macOS 專屬，已列 Skipped 表；其中 3 項平台無關修正（vocab 模糊比對縮寫守衛、OpenCC 簡轉繁後處理概念、學習詞排序穩定化）已另行吸收，見 CHANGELOG v3.3.0。10b2fc8／0ed0c47 為更早的 macOS 專屬 commit，已列 Skipped 表；46346d3 的 LICENSE 已採用"
     }
   }
 }
@@ -44,6 +44,7 @@
 |---|---|---|---|---|
 | `main`（Mac 線） | [`0ed0c47`](https://github.com/jfamily4tw/voicetype4tw-mac/commit/0ed0c47) | fix: clean up runtime on native macOS quit | 2026-07-20 | macOS 專屬（AppKit 應用程式退出清理流程），本 fork 是 Windows-only 樹、無 AppKit 相依，不適用。 |
 | `main`（Mac 線） | [`10b2fc8`](https://github.com/jfamily4tw/voicetype4tw-mac/commit/10b2fc8) | fix: keep hotkey watchdog recovering | 2026-07-20 | macOS 專屬（CGEventTap watchdog 復原機制），本 fork 熱鍵走 `hotkey/listener.py` 的 Win32 `GetAsyncKeyState` 輪詢架構，兩者監聽機制完全不同，不適用。 |
+| `main`（Mac 線） | [`805b007`](https://github.com/jfamily4tw/voicetype4tw-mac/commit/805b007) | release: v2.9.18 mac apple local correction | 2026-07-22 | Apple Foundation Models 整套（`helpers/apple_local_llm.swift`＋編譯後二進位、`llm/apple_local.py`、`llm/__init__.py` 註冊、UI 選單/設定開關、`main.py` 接線）是 macOS 26 裝置端 LLM 校正功能，Windows 無對應物，不適用；Mac 打包鏈（`build_all.sh`／`pack_dmg.sh`／`setup.py`／`paths.py` Mac 路徑）與 Mac 專屬 UI 改動（`ui/about_window.py`／`ui/menu_bar.py`／`ui/settings_window.py` 的 Apple Local 開關）、Mac 截圖、`VERSIONS.md`／`README.md` 的 Mac 版本敘述同樣不適用；`COMMON_ALIAS_CORRECTIONS = {"Talescale": "Tailscale"}` 是原作者個人常用詞別名，對本 fork 無普遍價值；「句尾標點保護」屬 Apple Local helper 內部行為，我們無對應元件。其中 3 項平台無關修正已另行吸收，見 CHANGELOG v3.3.0：vocab 模糊比對短 ASCII 縮寫守衛（`vocab/manager.py`）、OpenCC 簡轉繁後處理概念（獨立實作為 `utils/zh_convert.py`，非直接搬移 Mac 專屬的 `llm/apple_local.py`）、`load_all_learned_words()` 排序穩定化。 |
 
 ## Upstream remote
 

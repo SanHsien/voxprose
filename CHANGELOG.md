@@ -8,6 +8,22 @@
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-07-22
+
+上游 `jfamily4tw/voicetype4tw-mac` `main` 分支新 commit `805b007`（v2.9.18，「mac apple local correction」）審視完成：Apple Foundation Models 整套 macOS 專屬功能不適用（詳見 `docs/UPSTREAM.md` Skipped 表），但吸收其中 3 項平台無關的修正/概念，詳見 `docs/DECISIONS.md` 2026-07-22 條目。
+
+### Added
+
+- **STT 後簡體→繁體轉換**：新增 `utils/zh_convert.py`，用 OpenCC `s2t`（純簡轉繁，不含大陸→台灣用詞轉換）修正 Whisper 偶爾把中文誤判成簡體輸出的問題（概念吸收自上游 `main` 分支 805b007 的 `llm/apple_local.py:_to_traditional()`，但獨立成不依賴 macOS 的通用後處理步驟）。接線於 `ui/app.py:_process_audio`，在幻覺過濾之後、詞彙修正之前執行。新增設定開關 `config.py` `zh_convert_enabled`（預設 `True`，不列入 `LOCAL_KEYS`——理由見該處註解）。新依賴 `opencc-python-reimplemented>=0.1.7,<1`（`requirements-win.txt`），未安裝時優雅降級為原樣返回文字。新增 `tests/test_zh_convert.py`（graceful degradation 全 mock、真實轉換測試用 `pytest.importorskip("opencc")`；簡體樣本刻意以 `chr()` 碼點組出而非逐字寫入原始碼，避免觸發本 repo 的簡體字守門測試）。已在裝有 opencc 的環境實測 Whisper 常見簡體誤判詞彙轉換正確（實際輸出見 `docs/DECISIONS.md` 本條目與任務執行記錄）。
+
+### Fixed
+
+- **`vocab/manager.py` 模糊比對誤改短 ASCII 縮寫**：`apply_vocab_correction()` 的 edit-distance-1 模糊修正對 4 字以下的純 ASCII 縮寫（如 STT/PTT/API）過於激進——使用者詞庫若同時有 PTT，講到 STT 會被誤改成 PTT。移植自上游 `main` 分支 805b007 的守衛：`len(vocab_word) <= 4 and vocab_word.isascii() and vocab_word.isalnum()` 時停用模糊比對，僅允許完全相符。新增 `tests/test_vocab_manager.py` 涵蓋此守衛與長詞模糊修正的回歸案例。
+
+### Changed
+
+- **`vocab/manager.py:load_all_learned_words()` 排序穩定化**：排序 key 由 `-count` 改為 `(-count, word.casefold(), word)`，次數相同的學習詞彙不再依賴 dict 插入順序，UI 清單顯示次序具確定性。移植自上游 `main` 分支 805b007。
+
 ## [3.2.0] - 2026-07-22
 
 品牌改名：中文品牌「聲成文」／英文品牌「VoxProse」（組合呈現「聲成文 VoxProse」），標語「自然開口，清楚成文。」／"Speak naturally. Write clearly."。同時補正過去一直遺漏的署名鏈——上游 Windows 專用版維護者 **go-mask** 過去只被本 repo 當成分支名（`win-go-mask-202607`）使用，從未在 NOTICE／README／About 視窗等處以「維護者」身分列名；本版起在所有出現作者/致謝的地方補齊完整鏈：原創作者吉米丘（Jimmy）／CC58TW → 上游 Windows 專用版維護 go-mask → 本 fork（Windows）維護 SanHsien。
