@@ -32,7 +32,7 @@ Windows fork maintained by SanHsien
 
 ## 第二階段已完成（2026-07-21，同日稍後）——資料路徑正名，無遷移邏輯
 
-維護者事後確認：本程式從未實際使用過，本機不存在任何 `%APPDATA%\VoiceType4TW` 或 `Documents\VoiceType4TW_Sync` 的真實資料（已查證兩者皆不存在），也不需要顧慮 v3.1.0 release ZIP 是否有人下載安裝過。**第一階段規劃的「遷移邏輯六條原則」（新舊路徑並存、時間戳備份、fallback 等）因此整批作廢，未實作、也不會實作**——沒有舊資料可遷移，寫這類邏輯只會是永遠不會執行到的死碼。改為直接把所有路徑常數與字面量改名，不留 old→new 的搬移/備份/fallback 程式碼。
+維護者事後確認：本程式從未實際使用過，本機不存在任何 `%APPDATA%\VoiceType4TW` 或 `Documents\VoiceType4TW_Sync` 的真實資料。**第一階段規劃的「遷移邏輯六條原則」因此整批作廢，未實作、也不會實作**——沒有舊資料可遷移，寫這類邏輯只會是永遠不會執行到的死碼。改為直接把所有路徑常數與字面量改名，不留 old→new 的搬移/備份/fallback 程式碼。
 
 - `paths.py`：`APP_DATA_DIR` → `%APPDATA%\VoxProse`；`get_sync_base_dir()` 預設值 → `Documents\VoxProse_Sync`。`whisper_models` 等子目錄透過 `get_data_dir()`/`APP_DATA_DIR` 常數跟著走，無需個別修改。
 - `setup_win.bat`：`MODEL_DEST` 改為 `%APPDATA%\VoxProse\whisper_models`；console 標題/banner 改 VoxProse；編譯輸出改 `VoxProse.exe`。

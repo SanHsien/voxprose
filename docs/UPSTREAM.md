@@ -5,9 +5,9 @@
 
 ## 同步狀態標記區塊（機器可讀，唯一真相源）
 
-`tools/check_upstream_updates.py` 只解析下面這個標記區塊來取得每個上游分支的同步狀態，**不會**去讀下方「同步狀態表」的文字敘述。這是刻意設計：人類讀敘述、機器讀 JSON，避免兩處各自維護造成漂移。**改動任一分支的狀態時，這個區塊與下方「同步狀態表」必須同步更新**——區塊是唯一真相源，敘述表只是給人看的說明，不一致以區塊為準。
+`tools/check_upstream_updates.py` 只解析下面這個標記區塊取得每個上游分支的同步狀態，**不會**讀下方「同步狀態表」的文字敘述——人類讀敘述、機器讀 JSON，避免兩處各自維護造成漂移；**改動任一分支狀態時兩處必須同步更新**，不一致以區塊為準。
 
-本表記錄本 fork 與上游各分支的同步狀態：`last_merged` = 已合併進本 fork 的最後一個上游 commit（等同 `git merge-base HEAD upstream/<branch>` 可驗證的那個 commit）；`last_reviewed` = 已審視過的最後一個上游 commit（含審視後決定不採用者）。兩者之間的差距列於下方「Skipped（審視後未採用）」表。`tools/check_upstream_updates.py` 只會回報比 `last_reviewed` 新的變更，避免每次都重複列出已經審視過、決定不採用的上游 commit。
+`last_merged` = 已合併進本 fork 的最後一個上游 commit（等同 `git merge-base HEAD upstream/<branch>`）；`last_reviewed` = 已審視過的最後一個上游 commit（含決定不採用者，只負責「不再重複騷擾」）。兩者差距列於下方「Skipped（審視後未採用）」表，負責「不失憶」；`tools/check_upstream_updates.py` 只回報比 `last_reviewed` 新的變更。
 
 <!-- sync-points:start -->
 ```json
@@ -36,15 +36,13 @@
 
 ## Skipped（審視後未採用）
 
-`last_reviewed` 只負責「不再重複騷擾」——一旦推進過，`tools/check_upstream_updates.py` 就不會再報告該 commit。但這也代表「當初審視後認定不適用、但日後情勢改變可能變得該採用」的 commit 會永遠消失在檢查報告視野外。這張表就是防失憶用的留檔：**每次審視後決定「不採用」，除了推進 `last_reviewed`，都必須在這裡補一列**，讓未來有人（或自己）想查「這條上游分支曾經有過哪些被跳過的變更」時查得到。
-
-**日後若對熱鍵監聽（`hotkey/listener.py`）、程式退出流程或類似生命週期管理做架構級重構，應先回掃此表，確認有沒有當初因「macOS 專屬、不適用」跳過、但新架構下可能變得適用的項目。**
+**每次審視後決定「不採用」，除了推進 `last_reviewed`，都必須在這裡補一列**，供日後查「這條上游分支曾有哪些被跳過的變更」。日後若對熱鍵監聽（`hotkey/listener.py`）、程式退出流程等生命週期管理做架構級重構，應先回掃此表，確認有沒有當初因「macOS 專屬」跳過、但新架構下可能變得適用的項目。
 
 | 上游分支 | Commit | 標題 | 審視日期 | 未採用理由 |
 |---|---|---|---|---|
-| `main`（Mac 線） | [`0ed0c47`](https://github.com/jfamily4tw/voicetype4tw-mac/commit/0ed0c47) | fix: clean up runtime on native macOS quit | 2026-07-20 | macOS 專屬（AppKit 應用程式退出清理流程），本 fork 是 Windows-only 樹、無 AppKit 相依，不適用。 |
-| `main`（Mac 線） | [`10b2fc8`](https://github.com/jfamily4tw/voicetype4tw-mac/commit/10b2fc8) | fix: keep hotkey watchdog recovering | 2026-07-20 | macOS 專屬（CGEventTap watchdog 復原機制），本 fork 熱鍵走 `hotkey/listener.py` 的 Win32 `GetAsyncKeyState` 輪詢架構，兩者監聽機制完全不同，不適用。 |
-| `main`（Mac 線） | [`805b007`](https://github.com/jfamily4tw/voicetype4tw-mac/commit/805b007) | release: v2.9.18 mac apple local correction | 2026-07-22 | Apple Foundation Models 整套（`helpers/apple_local_llm.swift`＋編譯後二進位、`llm/apple_local.py`、`llm/__init__.py` 註冊、UI 選單/設定開關、`main.py` 接線）是 macOS 26 裝置端 LLM 校正功能，Windows 無對應物，不適用；Mac 打包鏈（`build_all.sh`／`pack_dmg.sh`／`setup.py`／`paths.py` Mac 路徑）與 Mac 專屬 UI 改動（`ui/about_window.py`／`ui/menu_bar.py`／`ui/settings_window.py` 的 Apple Local 開關）、Mac 截圖、`VERSIONS.md`／`README.md` 的 Mac 版本敘述同樣不適用；`COMMON_ALIAS_CORRECTIONS = {"Talescale": "Tailscale"}` 是原作者個人常用詞別名，對本 fork 無普遍價值；「句尾標點保護」屬 Apple Local helper 內部行為，我們無對應元件。其中 3 項平台無關修正已另行吸收，見 CHANGELOG v3.3.0：vocab 模糊比對短 ASCII 縮寫守衛（`vocab/manager.py`）、OpenCC 簡轉繁後處理概念（獨立實作為 `utils/zh_convert.py`，非直接搬移 Mac 專屬的 `llm/apple_local.py`）、`load_all_learned_words()` 排序穩定化。 |
+| `main`（Mac 線） | [`0ed0c47`](https://github.com/jfamily4tw/voicetype4tw-mac/commit/0ed0c47) | fix: clean up runtime on native macOS quit | 2026-07-20 | macOS 專屬（AppKit 應用程式退出清理），本 fork 無 AppKit 相依，不適用。 |
+| `main`（Mac 線） | [`10b2fc8`](https://github.com/jfamily4tw/voicetype4tw-mac/commit/10b2fc8) | fix: keep hotkey watchdog recovering | 2026-07-20 | macOS 專屬（CGEventTap watchdog），本 fork 熱鍵走 Win32 `GetAsyncKeyState` 輪詢架構，不適用。 |
+| `main`（Mac 線） | [`805b007`](https://github.com/jfamily4tw/voicetype4tw-mac/commit/805b007) | release: v2.9.18 mac apple local correction | 2026-07-22 | Apple Foundation Models 整套、Mac 打包鏈與 Mac 專屬 UI 改動是 macOS 26 專屬，Windows 無對應物；`COMMON_ALIAS_CORRECTIONS` 是原作者個人別名，無普遍價值。其中 3 項平台無關修正已另行吸收，見 CHANGELOG v3.3.0：vocab 短 ASCII 縮寫守衛、OpenCC 簡轉繁後處理概念（獨立實作為 `utils/zh_convert.py`）、學習詞排序穩定化。 |
 
 ## Upstream remote
 
@@ -93,7 +91,7 @@ GITHUB_TOKEN=ghp_xxx python tools/check_upstream_updates.py --output upstream-ch
 
 1. 先讀 commit 內容，判斷是否適用於 Windows 樹（Mac 專屬修復通常不適用）。
 2. **採用**：走一般 merge/cherry-pick 流程處理衝突，完成後回來更新本檔「同步狀態標記區塊」（與下方「同步狀態表」同步）的 `last_merged` 與 `last_reviewed`。
-3. **不採用**：只推進「同步狀態標記區塊」的 `last_reviewed`（不動 `last_merged`），**同時**在上方「Skipped（審視後未採用）」表補一列（分支／commit／標題／審視日期／未採用理由），並在 [`docs/DECISIONS.md`](DECISIONS.md) 記一句理由。`last_reviewed` 負責「不再重複騷擾」，Skipped 表負責「不失憶」——兩者缺一不可，否則日後想回頭查「當初為什麼跳過」會查無所獲。
+3. **不採用**：只推進「同步狀態標記區塊」的 `last_reviewed`（不動 `last_merged`），**同時**在上方「Skipped」表補一列，並在 [`docs/DECISIONS.md`](DECISIONS.md) 記一句理由。
 4. 不論哪種結果，更新同步狀態是慣例，不是選項——這是讓下一次檢查不再重複報告同一批 commit 的唯一機制。
 
 舊版「用 `git log A..upstream/B` 手動比對」流程仍然有效（尤其想看完整 diff 時），但日常的「有沒有新東西要看」判斷已由上述自動機制取代，不需要每次手動下指令。
