@@ -94,7 +94,7 @@ pip install pytest   # 或 pip install -e ".[dev]"（pyproject.toml 的 dev extr
 python -m pytest tests/ -v
 ```
 
-- `tests/test_smoke.py`：對全 repo 每個 `.py` 檔跑 `py_compile`（擋語法/明顯匯入錯誤）；另外對不依賴 PyQt6/sounddevice/faster-whisper/各 LLM SDK 的「純邏輯模組」（`config`、`paths`、`stt.base`、`llm.base`、`vocab.manager`、`memory.manager`、`stats.tracker`、`utils.resources`）做匯入驗證；對需要選用第三方套件的模組（`stt.groq_whisper`、`llm.claude`、`llm.openai_llm`、`audio.recorder`、`ui.positions` 等）用「匯入失敗就跳過」策略，不強迫開發環境安裝全部 SDK 才能跑測試。
+- `tests/test_smoke.py`：對全 repo 每個 `.py` 檔跑 `py_compile`（擋語法/明顯匯入錯誤）；另外對不依賴 PyQt6/sounddevice/faster-whisper/各 LLM SDK 的「純邏輯模組」（`config`、`paths`、`stt.base`、`llm.base`、`vocab.manager`、`memory.manager`、`stats.tracker`、`utils.resources`、`utils.zh_convert`）做匯入驗證；對需要選用第三方套件的模組（`stt.groq_whisper`、`llm.claude`、`llm.openai_llm`、`audio.recorder`、`ui.positions` 等）用「匯入失敗就跳過」策略，不強迫開發環境安裝全部 SDK 才能跑測試。
 - `tests/test_config.py`：`config.py` 的 `load_config()`/`save_config()` 讀寫回圈與 `LOCAL_KEYS` 拆分邏輯，用 `monkeypatch` 把 `APP_DATA_DIR`/`LOCAL_CONFIG_PATH`/`GLOBAL_CONFIG_PATH` 導向 `tmp_path`，不會碰到開發者真正的 `%APPDATA%\VoxProse\`。
 - `tests/test_stt_engine_dispatch.py`：從 `ui/settings_window.py` 原始碼靜態解析 `STT_ENGINES` 清單（不 import PyQt6），驗證清單裡每個引擎值在 `stt/__init__.py:get_stt()` 都有對應的專屬分派分支（而非靜默落到平台預設分支）。重現並鎖死 REVIEW.md 記錄的「Gemini 選項選了但沒對應分支」問題。
 - `tests/test_gemini_stt.py`：`stt/gemini_stt.py:GeminiSTT.transcribe()` 的行為測試（`httpx.post` 全部 monkeypatch，不打真網路）。涵蓋修復前的隱性 bug：舊版用 `soundfile.write(buf, audio_bytes, sample_rate, format="WAV")` 把呼叫端傳入的完整 WAV bytes 當作裸樣本陣列重新編碼，必定拋 `IndexError` 並被吞掉，導致這個引擎其實從未成功轉錄過。

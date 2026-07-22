@@ -24,5 +24,8 @@ soundfile>=0.12.1,<1
 anthropic>=0.25.0,<1
 openai>=1.30.0,<3
 groq>=0.9.0,<2
+# STT 後簡體→繁體轉換（utils/zh_convert.py），純 Python 實作、無外部
+# 系統相依，可安全放進一般安裝流程；未安裝時 zh_convert.py 優雅降級。
+opencc-python-reimplemented>=0.1.7,<1
 # NVIDIA CUDA wheels moved to requirements-cuda-win.txt —
 # installed by setup_win.bat only when an NVIDIA GPU is detected.

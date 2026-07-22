@@ -68,6 +68,7 @@ PURE_LOGIC_MODULES = [
     "memory.manager",
     "stats.tracker",
     "utils.resources",
+    "utils.zh_convert",
     "audio.mutex",
     "audio.gain",
 ]

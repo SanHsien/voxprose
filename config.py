@@ -32,6 +32,12 @@ DEFAULT_CONFIG = {
     "deepseek_model": "deepseek-chat",
     # 記憶
     "memory_enabled": True,
+    # v3.3.0：STT 後簡體→繁體轉換（見 utils/zh_convert.py）。預設開啟——
+    # 本產品定位是繁體中文工具，Whisper 偶爾誤判輸出簡體字對使用者而言
+    # 就是辨識錯誤，理應預設修正。不列入 LOCAL_KEYS：這是文字處理行為
+    # 偏好（跟 memory_enabled/llm_enabled 同類），不是機器特定設定
+    # （不像 hotkey/mic_device 那樣換一台機器就該重設），值得跨裝置同步。
+    "zh_convert_enabled": True,
     # v2.5 靈魂系統
     "active_scenario": "default",
     "active_format": "natural",

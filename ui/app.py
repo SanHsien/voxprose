@@ -343,6 +343,20 @@ class VoiceTypeApp(QObject):
             except Exception as e:
                 log.error(f"[process] Hallucination filter error: {e}")
 
+            # --- 0.45. 簡體→繁體後處理（無論是否啟用 LLM 都執行）---
+            # 放在幻覺過濾之後、詞彙修正之前：Whisper 偶爾會把中文誤判成簡體
+            # 輸出，本產品定位是繁體中文工具，此步驟先把文字統一成繁體，讓
+            # 下面 apply_vocab_correction() 的 edit-distance 比對是在一致的
+            # 繁體文字上進行（使用者 custom_vocab.json 內的詞彙一律是繁體），
+            # 避免殘留簡體字讓詞庫修正比對不到。概念吸收自上游
+            # jfamily4tw/voicetype4tw-mac main 分支 805b007，詳見
+            # utils/zh_convert.py 與 docs/DECISIONS.md 2026-07-22 條目。
+            try:
+                from utils.zh_convert import convert_if_enabled
+                text = convert_if_enabled(text, self.config)
+            except Exception as e:
+                log.error(f"[process] zh_convert error: {e}")
+
             # --- 0.5. 私人詞庫修正（無論是否啟用 LLM 都執行）---
             try:
                 from vocab.manager import apply_vocab_correction
