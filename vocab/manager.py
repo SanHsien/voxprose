@@ -140,8 +140,11 @@ def learn_from_text_with_llm(llm_client, text: str):
 def load_all_learned_words() -> list:
     """回傳所有學到的詞彙，包含未達門檻的。"""
     memory = load_auto_memory()
-    # 依出現次數排序
-    return [w for w, c in sorted(memory.items(), key=lambda x: -x[1])]
+    # 依出現次數排序；次數相同時再依詞彙本身排序，確保排序結果具確定性
+    # （dict 在 Python 3.7+ 保留插入順序，若只用 -c 排序，相同次數的詞彙
+    # 順序會隨學習先後不同而變動，UI 清單每次顯示的次序就會不穩定）。
+    # 移植自上游 jfamily4tw/voicetype4tw-mac main 分支 805b007。
+    return [w for w, c in sorted(memory.items(), key=lambda x: (-x[1], x[0].casefold(), x[0]))]
 
 
 def promote_learned_word(word: str):
@@ -211,6 +214,11 @@ def apply_vocab_correction(text: str) -> str:
     # 只處理 3 字以上的詞，避免過度替換短詞
     targets = sorted([w for w in custom if len(w) >= 3], key=len, reverse=True)
     for vocab_word in targets:
+        # 短 ASCII 縮寫（如 STT/PTT/API）不做模糊比對：edit distance 1 對這類
+        # 4 字以下的縮寫太激進，容易把使用者詞庫裡另一個真實縮寫改成當前
+        # 目標詞（例：詞庫同時有 PTT 與 STT，講 STT 卻被誤改成 PTT）。
+        # 移植自上游 jfamily4tw/voicetype4tw-mac main 分支 805b007。
+        fuzzy_enabled = not (len(vocab_word) <= 4 and vocab_word.isascii() and vocab_word.isalnum())
         wlen = len(vocab_word)
         i = 0
         result = []
@@ -219,7 +227,7 @@ def apply_vocab_correction(text: str) -> str:
             if substr == vocab_word:
                 result.append(vocab_word)
                 i += wlen
-            elif _edit_distance_1(substr, vocab_word):
+            elif fuzzy_enabled and _edit_distance_1(substr, vocab_word):
                 result.append(vocab_word)
                 i += wlen
                 print(f"[vocab] 修正: 「{substr}」→「{vocab_word}」")
