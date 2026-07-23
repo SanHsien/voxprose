@@ -81,8 +81,8 @@ class AutoTriggerController:
             try:
                 self._stream.stop()
                 self._stream.close()
-            except Exception:
-                pass
+            except Exception as e:
+                log.debug(f"[auto] Error closing stream on stop(): {e}")
             self._stream = None
         self._reset_segment_state()
         log.info("[auto] Trigger disarmed.")

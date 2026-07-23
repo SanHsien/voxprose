@@ -83,7 +83,12 @@ class VoiceTypeApp(QObject):
             apply_branding(app)
         
         self.indicator._signals.show_settings.connect(self._show_settings)
-        
+
+        # 2026-07-23（broad/dead code 清查）：ensure_all_permissions() 過去只被
+        # import 卻從未被呼叫，等於整個 utils/permissions.py 是死碼。實際呼叫
+        # 一次，讓麥克風權限被拒的情況至少留一筆 log（見 utils/permissions.py）。
+        ensure_all_permissions()
+
         # Mac 主線 7-1/7-2/7-3：麥克風裝置選擇 + 增益 + AGC（見 config.py mic_device/mic_gain/mic_gain_auto）
         self.recorder = AudioRecorder(
             level_callback=self._on_audio_level,
@@ -520,7 +525,10 @@ class VoiceTypeApp(QObject):
                 with open(scenario_path, "r", encoding="utf-8") as f:
                     scenario_content = f.read()
                 parts.append(f"當前靈魂情境匯入:\n{scenario_content}")
-            except: pass
+            except Exception as e:
+                # 2026-07-23（broad except 清查）：情境檔讀取失敗時原本完全靜默，
+                # LLM prompt「無聲少了一段」卻查不到原因。
+                log.warning(f"[process] Scenario file read failed ({scenario_path}): {e}")
 
         # 私人詞庫強制修正提示
         try:
@@ -533,8 +541,8 @@ class VoiceTypeApp(QObject):
                     f"以下詞彙為使用者定義的正確用字，請優先使用這些詞彙輸出，不得改用同音異字：\n"
                     f"{vocab_str}"
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning(f"[process] Custom vocab injection failed: {e}")
 
         # 長期記憶注入
         if self.config.get("memory_enabled", False) and not is_assistant:
@@ -546,8 +554,8 @@ class VoiceTypeApp(QObject):
                         f"【使用者記憶背景】\n{mem_ctx}\n"
                         f"（以上為歷史語境，僅供參考用詞和風格，勿直接複製輸出。）"
                     )
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning(f"[process] Memory context injection failed: {e}")
 
         return "\n\n".join(parts)
 
@@ -556,7 +564,10 @@ class VoiceTypeApp(QObject):
             if self.auto_trigger: self.auto_trigger.stop()
             if self.tray: self.tray.stop_ticker()
             if self.hotkey_listener: self.hotkey_listener.stop()
-        except: pass
+        except Exception:
+            # 關閉流程中的清理失敗不影響結果（process 即將整個結束）；
+            # 這裡只是把 bare except 收窄，避免誤吞 KeyboardInterrupt/SystemExit。
+            pass
         os._exit(0)
 
     def _on_toggle_llm(self, enabled=None):

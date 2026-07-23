@@ -16,8 +16,11 @@ ctranslate2 實際載入模型時能不能用得到——真正需要的 cuBLAS/
 路徑探索），讓 Dashboard 與 worker 永遠回報同一個結論。見
 docs/DECISIONS.md「CUDA Dashboard 文案誠實化」。
 """
+import logging
 import os
 import platform
+
+log = logging.getLogger("voicetype.stt")
 
 
 def probe_cuda() -> dict:
@@ -72,8 +75,10 @@ def probe_cuda() -> dict:
         venv_bin = Path(sys.executable).parent
         if (venv_bin / "cublas64_12.dll").exists():
             os.add_dll_directory(str(venv_bin))
-    except Exception:
-        pass
+    except Exception as e:
+        # 這段失敗不改變最終結論（下面的硬載入測試會自己得出對錯結論），
+        # 但補一筆 debug log 方便診斷「為什麼找不到 DLL 路徑」。
+        log.debug(f"[cuda_check] DLL directory discovery failed: {e}")
 
     try:
         test_load = ctypes.WinDLL("cublas64_12.dll")

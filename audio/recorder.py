@@ -1,3 +1,4 @@
+import logging
 import threading
 import numpy as np
 import sounddevice as sd
@@ -7,6 +8,8 @@ from typing import Callable, Optional
 
 from audio.gain import apply_gain, rms_of, update_agc_factor, AGC_WINDOW
 from audio.gain import is_silent as _compute_is_silent
+
+log = logging.getLogger("voicetype.audio")
 
 
 class AudioRecorder:
@@ -139,7 +142,12 @@ class AudioRecorder:
                     self.level_callback(min(rms * 10, 1.0))
 
             except Exception as e:
-                # 當串流被外界中止或關閉，將引發例外中斷讀取
+                # 當串流被外界中止或關閉，將引發例外中斷讀取。
+                # 2026-07-23（broad except 清查）：這裡假設任何例外都等於「串流
+                # 被關閉」，但實際上 RMS 計算／callback 邏輯本身的 bug 也會落
+                # 進這個分支，過去完全靜默、無法區分兩者。補一筆 debug log，
+                # 不改變「跳出迴圈」這個既有行為。
+                log.debug(f"[recorder] Poll loop stopped (stream closed or error): {e}")
                 break
 
     def stop(self) -> bytes:
@@ -154,8 +162,8 @@ class AudioRecorder:
                 # Stop the callback gracefully first
                 self._stream.stop()
                 self._stream.close()
-            except Exception:
-                pass
+            except Exception as e:
+                log.debug(f"[recorder] Error closing stream on stop(): {e}")
             self._stream = None
 
         # 7-4：整段錄音的峰值 RMS 低於門檻就標記為靜音，讓呼叫端可以跳過 STT

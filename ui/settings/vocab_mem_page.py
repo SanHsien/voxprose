@@ -3,11 +3,15 @@
 Verbatim relocation of `_create_vocab_mem_page` and the vocab/learned-word/
 long-term-memory refresh & mutation methods it depends on. No logic changes.
 """
+import logging
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QListWidget, QTreeWidget, QTreeWidgetItem, QSplitter, QCheckBox, QMessageBox,
 )
 from PyQt6.QtCore import Qt
+
+log = logging.getLogger("voicetype.ui")
 
 
 class VocabMemPageMixin:
@@ -90,7 +94,10 @@ class VocabMemPageMixin:
             from vocab.manager import load_custom_vocab
             for word in load_custom_vocab():
                 self.vocab_list.addItem(word)
-        except: pass
+        except Exception as e:
+            # 2026-07-23（broad except 清查）：詞庫清單原本靜默失敗，畫面「無聲
+            # 空白」卻查不到原因——這正是本專案過去「引擎自始壞掉」的同類風險。
+            log.warning(f"[settings] Failed to refresh vocab list: {e}")
 
     def _refresh_learned_vocab(self):
         self.learned_list.clear()
@@ -105,7 +112,8 @@ class VocabMemPageMixin:
             # Dashboard only show top 5
             for word in words[:5]:
                 self.dashboard_vocab.addItem(word)
-        except: pass
+        except Exception as e:
+            log.warning(f"[settings] Failed to refresh learned vocab list: {e}")
 
     def _promote_vocab(self):
         item = self.learned_list.currentItem()
@@ -146,7 +154,8 @@ class VocabMemPageMixin:
                 item = QTreeWidgetItem([ts[:16], text + "..."])
                 item.setData(0, Qt.ItemDataRole.UserRole, ts)  # 完整 ts 作為刪除 key
                 self.mem_tree.addTopLevelItem(item)
-        except: pass
+        except Exception as e:
+            log.warning(f"[settings] Failed to refresh memory list: {e}")
 
     def _delete_memory_entry(self):
         item = self.mem_tree.currentItem()

@@ -90,9 +90,11 @@ def load_config() -> dict:
             # 立即觸發拆分儲存，這樣會產生 config_local.json 與 config_global.json
             save_config(config) 
             # 成功遷移後刪除舊檔
-            os.remove(old_config_path)  
-        except Exception:
-            pass
+            os.remove(old_config_path)
+        except Exception as e:
+            # 2026-07-23（broad except 清查）：舊版單一 config.json 遷移失敗
+            # 原本完全靜默，使用者設定莫名其妙沒被搬過來時完全無跡可查。
+            print(f"[config] Legacy config.json migration failed: {e}")
 
     # 1. 載入全域設定 (Global) - 優先權低
     global_data = None
@@ -102,7 +104,10 @@ def load_config() -> dict:
                 global_data = json.load(f)
             # 過濾掉不該出現在全域的本地 key
             config.update({k: v for k, v in global_data.items() if k not in LOCAL_KEYS})
-        except Exception:
+        except Exception as e:
+            # 2026-07-23（broad except 清查）：全域設定檔（同步目錄）損毀時原本
+            # 靜默退回 None，使用者會發現「設定全部消失」卻查不到原因。
+            print(f"[config] Failed to load global config ({GLOBAL_CONFIG_PATH}): {e}")
             global_data = None
 
     # 1b. 一次性遷移：舊版曾把 API Key 等現已列入 LOCAL_KEYS 的欄位存進全域
@@ -120,8 +125,8 @@ def load_config() -> dict:
                 GLOBAL_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
                 with open(GLOBAL_CONFIG_PATH, "w", encoding="utf-8") as f:
                     json.dump(remaining_global, f, ensure_ascii=False, indent=2)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[config] Failed to rewrite global config after key migration: {e}")
 
             # 同步寫回本機設定檔，讓遷移的值立刻落地（不用等下一次
             # save_config() 才產生 config_local.json）。
@@ -133,8 +138,8 @@ def load_config() -> dict:
                 existing_local.update(leaked_to_local)
                 with open(LOCAL_CONFIG_PATH, "w", encoding="utf-8") as f:
                     json.dump(existing_local, f, ensure_ascii=False, indent=2)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[config] Failed to write migrated keys to local config: {e}")
 
     # 2. 載入本機設定 (Local) - 優先權高
     if os.path.exists(LOCAL_CONFIG_PATH):
@@ -142,8 +147,10 @@ def load_config() -> dict:
             with open(LOCAL_CONFIG_PATH, "r", encoding="utf-8") as f:
                 local_data = json.load(f)
             config.update(local_data)
-        except Exception:
-            pass
+        except Exception as e:
+            # 2026-07-23（broad except 清查）：本機設定檔損毀時原本靜默退回
+            # default，熱鍵/麥克風裝置等機器專屬設定會無聲重置，難以回報排查。
+            print(f"[config] Failed to load local config ({LOCAL_CONFIG_PATH}): {e}")
 
     return config
 

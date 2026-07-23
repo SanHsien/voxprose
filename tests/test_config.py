@@ -151,3 +151,35 @@ def test_global_config_is_not_polluted_by_local_keys(isolated_config_paths):
     global_data = json.loads(global_path.read_text(encoding="utf-8"))
     leaked = config_module.LOCAL_KEYS & global_data.keys()
     assert not leaked, f"LOCAL_KEYS leaked into the global config file: {leaked}"
+
+
+# --- 2026-07-23（broad except 清查）：load_config() 過去的 except 區塊完全
+# 靜默，設定檔損毀時使用者會發現「設定莫名重置」卻在任何 log 都查不到原因。
+# 這裡驗證損毀時至少會印出一則可追蹤的訊息，而不是改變 fallback 行為本身
+# （仍然照舊 fallback 回 defaults／略過該檔）。
+
+
+def test_corrupted_local_config_logs_and_falls_back_to_defaults(isolated_config_paths, capsys):
+    local_path, _ = isolated_config_paths
+    local_path.write_text("{not valid json", encoding="utf-8")
+
+    cfg = config_module.load_config()
+
+    # Fallback 行為不變：拿不到本機設定就用 default。
+    assert cfg["hotkey_ptt"] == config_module.DEFAULT_CONFIG["hotkey_ptt"]
+    # 但現在必須留下痕跡，而不是完全靜默。
+    captured = capsys.readouterr()
+    assert "[config]" in captured.out
+    assert str(local_path) in captured.out
+
+
+def test_corrupted_global_config_logs_and_falls_back_to_defaults(isolated_config_paths, capsys):
+    _, global_path = isolated_config_paths
+    global_path.write_text("{not valid json", encoding="utf-8")
+
+    cfg = config_module.load_config()
+
+    assert cfg["llm_prompt"] == config_module.DEFAULT_CONFIG["llm_prompt"]
+    captured = capsys.readouterr()
+    assert "[config]" in captured.out
+    assert str(global_path) in captured.out

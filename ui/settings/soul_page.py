@@ -5,6 +5,7 @@ Verbatim relocation of `_create_soul_page` and `_create_file_list_tab`
 ui/settings/common.py's module docstring and docs/DECISIONS.md for the
 split's mapping table.
 """
+import logging
 import os
 import platform
 from pathlib import Path
@@ -15,6 +16,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
+
+log = logging.getLogger("voicetype.ui")
 
 from paths import SOUL_SCENARIO_DIR
 
@@ -126,7 +129,11 @@ class SoulPageMixin:
                     try:
                         data = json.loads(text)
                         text = json.dumps(data, indent=2, ensure_ascii=False)
-                    except: pass
+                    except (json.JSONDecodeError, TypeError, ValueError) as e:
+                        # 2026-07-23（broad except 清查）：這裡只可能是 JSON
+                        # 解析相關錯誤，bare except 過寬——收窄型別，並補一筆
+                        # debug log（純美化失敗不影響編輯，仍以原文顯示）。
+                        log.debug(f"[soul_page] JSON pretty-print skipped ({fpath}): {e}")
                 editor.setPlainText(text)
                 btn_save.show()
 

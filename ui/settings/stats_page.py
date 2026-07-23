@@ -3,7 +3,11 @@
 Verbatim relocation of `_create_stats_page` and `_refresh_stats`. No logic
 changes.
 """
+import logging
+
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem, QPushButton
+
+log = logging.getLogger("voicetype.ui")
 
 
 class StatsPageMixin:
@@ -55,4 +59,5 @@ class StatsPageMixin:
             self.stats_tree.addTopLevelItem(QTreeWidgetItem([
                 "累積", str(s["total"]["sessions"]), f"{s['total']['duration']}s", str(s["total"]["chars"]), format_saved(s["total"]["chars"])
             ]))
-        except: pass
+        except Exception as e:
+            log.warning(f"[settings] Failed to refresh stats display: {e}")

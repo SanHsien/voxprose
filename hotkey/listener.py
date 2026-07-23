@@ -40,8 +40,8 @@ class HotkeyListener:
             self._win_listener.stop()
             try:
                 self._win_listener.join()
-            except Exception:
-                pass
+            except Exception as e:
+                self.log.debug(f"[hotkey] Listener thread join failed on stop(): {e}")
         self._loop_thread = None
 
     def _start_windows(self):
@@ -127,7 +127,10 @@ class HotkeyListener:
                 user32 = ctypes.windll.user32
                 user32.keybd_event(0x87, 0, 0, 0)  # F24 Down
                 user32.keybd_event(0x87, 0, 2, 0)  # F24 Up
-            except: pass
+            except Exception as e:
+                # 這是每次放開熱鍵都會跑的路徑（cosmetic workaround），故用
+                # debug 而非 warning，避免高頻噪音；narrow 掉 bare except。
+                self.log.debug(f"[hotkey] F24 focus-prevention workaround failed: {e}")
 
     def reset_state(self):
         """External call to sync state when recording is manipulated via UI."""

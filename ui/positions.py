@@ -33,7 +33,8 @@ def _load_all() -> dict:
         with open(POSITIONS_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
         return data if isinstance(data, dict) else {}
-    except Exception:
+    except Exception as e:
+        log.debug(f"[positions] Failed to load {POSITIONS_PATH}: {e}")
         return {}
 
 

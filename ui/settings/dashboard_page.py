@@ -291,8 +291,8 @@ class DashboardPageMixin:
                     self.download_progress.setValue(value)
                 else:
                     self.download_progress.setRange(0, 0) # Indeterminate
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug(f"[ui] Failed to update download progress card: {e}")
 
     def _check_all_permissions(self):
         import logging
@@ -333,5 +333,6 @@ class DashboardPageMixin:
                         if snap.exists() and any(snap.iterdir()):
                             return True
             return False
-        except Exception:
+        except Exception as e:
+            log.debug(f"[ui] Failed to check local model presence ({size}): {e}")
             return False

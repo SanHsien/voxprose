@@ -1,9 +1,12 @@
+import logging
 import sys
 import platform
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint
 from PyQt6.QtGui import QPainter, QColor, QPixmap, QGuiApplication
 from utils.resources import get_resource_path
+
+log = logging.getLogger("voicetype.ui")
 
 class FloatingButton(QWidget):
     clicked = pyqtSignal()
@@ -48,7 +51,8 @@ class FloatingButton(QWidget):
                 avail = screen.availableGeometry()
                 # 放在右下角，預留一些邊距
                 self.move(avail.x() + avail.width() - 90, avail.y() + avail.height() - 120)
-        except: pass
+        except Exception as e:
+            log.debug(f"[floating_button] Failed to restore position: {e}")
 
     def _save_position(self):
         try:
@@ -61,7 +65,8 @@ class FloatingButton(QWidget):
             avail = screen.availableGeometry()
             save_position("floating_button", screen.name(),
                           self.x() - avail.x(), self.y() - avail.y())
-        except: pass
+        except Exception as e:
+            log.debug(f"[floating_button] Failed to save position: {e}")
             
     def paintEvent(self, event):
         painter = QPainter(self)

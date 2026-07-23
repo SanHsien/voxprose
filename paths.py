@@ -95,8 +95,10 @@ def _initialize_data():
         if OLD_SOUL_PATH.exists() and not SOUL_BASE_PATH.exists():
             try:
                 shutil.move(str(OLD_SOUL_PATH), str(SOUL_BASE_PATH))
-            except Exception:
-                pass
+            except Exception as e:
+                # 2026-07-23（broad except 清查）：舊版 soul.md 遷移失敗時原本
+                # 靜默跳過，使用者的舊靈魂設定可能「無聲消失」卻查不到原因。
+                print(f"[paths] Failed to migrate legacy soul.md to {SOUL_BASE_PATH}: {e}")
 
         # 2. 複製內建模板 (情境與格式)
         def sync_defaults(sub_path, dest_dir):
@@ -111,8 +113,8 @@ def _initialize_data():
                     if not dest_file.exists():
                         try:
                             shutil.copy2(f, dest_file)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            print(f"[paths] Failed to copy default template {f} -> {dest_file}: {e}")
 
         sync_defaults("soul/scenario", SOUL_SCENARIO_DIR)
         sync_defaults("soul/format", SOUL_FORMAT_DIR)
@@ -161,8 +163,8 @@ def initialize_paths():
         # Ensure sync dir exists
         try:
             get_sync_base_dir().mkdir(parents=True, exist_ok=True)
-        except:
-            pass
+        except Exception as e:
+            print(f"[paths] Failed to create sync base dir: {e}")
 
         _install_bundled_models()
         _initialize_data()

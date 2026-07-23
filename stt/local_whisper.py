@@ -39,7 +39,10 @@ class LocalWhisperSTT(BaseSTT):
         try:
             from vocab.manager import build_vocab_prompt
             prompt = build_vocab_prompt()
-        except Exception:
+        except Exception as e:
+            # 2026-07-23（broad except 清查）：同 stt/subprocess_whisper.py 的
+            # 同一類風險（見該檔案對應註解）——補 log 而非繼續沉默。
+            log.warning(f"[stt] build_vocab_prompt failed, using default prompt: {e}")
             prompt = "以下是繁體中文的語音內容："
 
         audio_io = io.BytesIO(audio_bytes)

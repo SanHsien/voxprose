@@ -3,6 +3,7 @@ Floating mic level indicator window.
 Shows at the bottom-center of the screen (just above Dock).
 Displays an animated waveform bar and current state text.
 """
+import logging
 import sys
 import os
 import threading
@@ -11,6 +12,8 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QUrl
 from PyQt6.QtGui import QPainter, QColor, QPen, QFont, QFontMetrics, QCursor, QGuiApplication
 from PyQt6.QtMultimedia import QSoundEffect
 from utils.resources import get_resource_path
+
+log = logging.getLogger("voicetype.ui")
 
 
 class _Signals(QObject):
@@ -176,14 +179,14 @@ class MicIndicatorWindow(QWidget):
             import subprocess
             try:
                 subprocess.Popen(["afplay", "/System/Library/Sounds/Glass.aiff"])
-            except:
-                pass
+            except Exception as e:
+                log.debug(f"[mic_indicator] afplay beep failed: {e}")
         elif platform.system() == "Windows":
             try:
                 import winsound
                 winsound.Beep(1000, 100)
-            except:
-                pass
+            except Exception as e:
+                log.debug(f"[mic_indicator] winsound beep failed: {e}")
 
     def _stop_flash(self):
         self._flash_active = False

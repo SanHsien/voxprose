@@ -230,7 +230,8 @@ class HotkeyRecorderButton(QPushButton):
             try:
                 native_mods = event.nativeModifiers()
                 is_fn = bool(native_mods & 0x800000) # kCGEventFlagMaskSecondaryFn
-            except:
+            except Exception as e:
+                log.debug(f"[recorder] Failed to read native modifiers (Fn key detection): {e}")
                 is_fn = False
 
             # v2.8.17: Modifier-only hotkeys (e.g., single Right Ctrl, Right Cmd)

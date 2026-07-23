@@ -3,6 +3,7 @@
 Verbatim relocation of `_create_sync_page` and the sync-directory set/clear/
 migrate logic it depends on. No logic changes.
 """
+import logging
 from pathlib import Path
 
 import shutil
@@ -13,6 +14,8 @@ from PyQt6.QtWidgets import (
 )
 
 from ui.settings.common import GlassCard
+
+log = logging.getLogger("voicetype.ui")
 
 
 class SyncPageMixin:
@@ -71,7 +74,8 @@ class SyncPageMixin:
                 if path_str:
                     self.sync_status_lbl.setText(f"✅ 已連結同步：{path_str}")
                     self.sync_status_lbl.setStyleSheet("color: #00e676; font-weight: bold; font-size: 16px;")
-            except: pass
+            except Exception as e:
+                log.debug(f"[settings] Failed to read sync pointer for status display: {e}")
 
         layout.addWidget(sync_panel)
 

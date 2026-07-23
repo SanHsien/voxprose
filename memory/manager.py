@@ -5,12 +5,15 @@
 歸檔路徑：~/voicetype_data/memory_archive/memory_YYYY-WNN.json
 """
 import json
+import logging
 import os
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional
 
 from paths import get_data_dir
+
+log = logging.getLogger("voicetype.memory")
 
 DATA_DIR = get_data_dir("memory")
 MEMORY_PATH = DATA_DIR / "memory.json"
@@ -33,8 +36,10 @@ def load_memory() -> dict:
         try:
             with open(MEMORY_PATH, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            # 2026-07-23（broad except 清查）：memory.json 損毀時原本靜默重置為
+            # 空記憶，使用者的長期記憶「無聲消失」卻查不到原因。
+            log.warning(f"[memory] Failed to load {MEMORY_PATH}, resetting to empty: {e}")
     return {"entries": [], "summary": "", "last_archive": ""}
 
 
@@ -96,8 +101,8 @@ def maybe_archive(memory: Optional[dict] = None):
             last_dt = datetime.fromisoformat(last)
             if (datetime.now() - last_dt).days < ARCHIVE_DAYS:
                 return
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug(f"[memory] Failed to parse last_archive timestamp ({last!r}): {e}")
 
     entries = memory.get("entries", [])
     if len(entries) < 10:

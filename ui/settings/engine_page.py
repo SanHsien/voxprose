@@ -147,7 +147,9 @@ class EnginePageMixin:
             import sounddevice as sd
             devices = sd.query_devices()
             names = [d["name"] for d in devices if d.get("max_input_channels", 0) > 0]
-        except Exception:
+        except Exception as e:
+            # 這裡是 2 秒輪詢的插拔偵測，用 debug 而非 warning 避免持續噪音。
+            log.debug(f"[settings] Mic device poll failed: {e}")
             names = []
         if names != self._last_mic_device_names:
             self._populate_mic_devices()

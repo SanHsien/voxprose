@@ -4,10 +4,13 @@
 資料存放：~/voicetype_data/stats.json
 """
 import json
+import logging
 from pathlib import Path
 from datetime import datetime, timedelta
 
 from paths import get_data_dir
+
+log = logging.getLogger("voicetype.stats")
 
 DATA_DIR = get_data_dir("stats")
 STATS_PATH = DATA_DIR / "stats.json"
@@ -23,8 +26,10 @@ def load_stats() -> dict:
         try:
             with open(STATS_PATH, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            # 2026-07-23（broad except 清查）：stats.json 損毀時原本靜默重置，
+            # 使用統計「無聲歸零」卻查不到原因。
+            log.warning(f"[stats] Failed to load {STATS_PATH}, resetting to empty: {e}")
     return {"sessions": []}
 
 
@@ -69,7 +74,8 @@ def get_summary() -> dict:
     for s in sessions:
         try:
             ts = datetime.fromisoformat(s["ts"])
-        except Exception:
+        except Exception as e:
+            log.debug(f"[stats] Skipping malformed session entry ({s!r}): {e}")
             continue
         dur = s.get("duration", 0)
         chars = s.get("chars", 0)
