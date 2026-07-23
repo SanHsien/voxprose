@@ -54,7 +54,7 @@ output/injector.py  ui/ (PyQt6)   actions/ 分派   vocab/ + memory/ + stats/
 | `audio/` | `recorder.py`（`AudioRecorder`，`sounddevice` 錄音）、`auto_trigger.py`（`AutoTriggerController`，VAD 全時自動觸發，免按鍵） |
 | `output/` | `injector.py`（`TextInjector`：貼回目前焦點視窗並存入剪貼簿） |
 | `stats/` | `tracker.py`：語音輸入時長、字數等使用統計 |
-| `utils/` | `branding.py`（`init_windows_id()`/`apply_branding()`，Windows AppUserModelID 與品牌套用）、`permissions.py`（權限檢查，內容仍偏 macOS 導向，Windows 上多為 no-op）、`resources.py`（`get_resource_path()`，處理 PyInstaller 打包後的資源路徑） |
+| `utils/` | `branding.py`（`init_windows_id()`/`apply_branding()`，Windows AppUserModelID 與品牌套用）、`permissions.py`（權限檢查；已是純 Windows 實作，`check_microphone()` 讀取隱私權登錄檔判斷麥克風存取是否被拒，`ensure_all_permissions()` 於 `ui/app.py` 啟動時呼叫，2026-07-23 前該檔案 import 了卻從未被呼叫，見 docs/DECISIONS.md）、`resources.py`（`get_resource_path()`，處理 PyInstaller 打包後的資源路徑）、`log_rotation.py`（`make_rotating_file_handler()`，debug.log/worker_debug.log 共用的輪替設定，2026-07-23 新增） |
 | `tools/` | `doctor.py`（`setup_win.bat` 呼叫的環境診斷）、`download_models.py`（Whisper 模型下載）、`get_portable_python.ps1`（下載嵌入式 Python）、`launcher.cs`（C# 原生 launcher exe 原始碼，`setup_win.bat` 用內建 `csc.exe` 現場編譯） |
 | `tests/` | 自動化 pytest 測試（本次鷹架新增，見下方「測試」）；`tests/manual/` 放需要可顯示視窗環境的手動腳本 |
 | `self_check.py` / `diagnose_mic.py` | 手動診斷腳本（前者驗證 STT 子行程實際可辨識、非 pytest 案例；後者已重寫為 Windows 麥克風診斷：列出輸入裝置與預設裝置、實測 0.5 秒音量並提示隱私權排查方向） |
