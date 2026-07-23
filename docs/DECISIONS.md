@@ -11,7 +11,7 @@
 - **修法**：改用 .NET `ZipArchive` 並指定 `Encoding.UTF8`；保留頂層 release 目錄，ZIP64 由 .NET 自動處理。以 65,536 entries 實包確認 ZIP64 EOCD／locator 存在，Windows PowerShell 5.1 路徑亦實建成功。
 - **防回歸**：新增 `tools/verify_release_zip.py`，在 hash／artifact upload／Release 發佈前檢查 CRC、重複 entry、literal `?`／replacement character、非 ASCII UTF-8 flag，以及 7 個必要中文資源。完整操作方式與 `PASS`／`FAIL`／`BLOCKED` 判定見 `docs/RELEASE_VERIFICATION.md`。
 - **實證**：原 GitHub Lite 資產（236,740,232 bytes，SHA-256 `84b7adf693d2234a7be7fa3482404d4567eca13a7ddc951a35d617544d6101b5`）validator 必然失敗；修正版 Lite（240,477,115 bytes）共 16,279 entries、全檔 CRC 通過、7 個中文資源皆有 UTF-8 flag，Windows `Expand-Archive` 完整成功且 7 檔 hash 與 staging 相同。
-- **發佈判定**：workflow 綠燈不再等同 release 可用。既有 v3.4.0 資產仍是壞包；在修正版正式發佈前，不得把 v3.4.0 標記為完整收官。
+- **發佈判定與收尾**：workflow 綠燈不再等同 release 可用。既有 v3.4.0 資產仍是壞包並保留事故紀錄；替代版 v3.4.1 已於 2026-07-23 發佈。正式 Lite（SHA-256 `5ed67c8cc915efddfc217800d90ea5a70e4c29c7b939f1ce2773e562235aeade`）與 NoModel（`f9d3705862822cfa0d7dbd1f7cd649f01cfc6363c6db069daaa24823720bb94a`）重下載後均通過 sidecar/digest、CRC、UTF-8 必要資源檢查；Lite 另通過 Windows `Expand-Archive` 與 runtime imports。
 
 ## 2026-07-23 — 前景視窗感知的情境模板自動切換（`docs/REFERENCES.md` 調研項目落地）
 
