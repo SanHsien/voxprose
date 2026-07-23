@@ -4,6 +4,17 @@
 
 ---
 
+## [V3.4.2] - 2026-07-23（STT worker readiness 修復）
+
+- 修正 Windows subprocess `warmup()` 只送出 IPC 就返回，導致 UI 在模型尚未載入完成前誤報 ready。
+- `warmup_done` 現帶成功／錯誤狀態；worker error、程序死亡、pipe 關閉與 reader failure 均撤銷 ready 並中止等待。
+- 首次大型模型下載預設不設絕對 timeout，避免慢網路超時後 UI 永久停在「模型載入中」。
+- 新增 8 項回歸測試與 `tests/manual/manual_stt_warmup_check.py`；Windows 真 worker tiny CPU int8 驗證只在 ready＋warmup complete 後返回。
+- `docs/RELEASE_VERIFICATION.md` 新增驗證暫存目錄的安全清理方式。
+- 版本推進：`paths.py` → `V3.4.2`／`BUILD-3420-STABLE`、`pyproject.toml` 與 Inno Setup metadata → `3.4.2`。
+
+---
+
 ## [V3.4.1] - 2026-07-23（Release ZIP 中文檔名修復）
 
 - 修正 v3.4.0 正式 ZIP 在英文 GitHub runner 上以 `tar.exe -a` 打包時，7 個中文檔名被永久替換為 literal `?`，導致 Windows `Expand-Archive` 失敗。

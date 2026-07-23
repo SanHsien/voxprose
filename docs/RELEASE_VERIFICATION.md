@@ -143,16 +143,28 @@ Get-ChildItem -LiteralPath $Extract -Recurse |
 尚未解析的環境變數執行遞迴刪除。先確認完整路徑仍位於系統暫存目錄：
 
 ```powershell
-$TempBase = [System.IO.Path]::GetFullPath(
-  [System.IO.Path]::GetTempPath()
-)
-$CleanupTarget = [System.IO.Path]::GetFullPath($VerifyRoot)
+if ([System.String]::IsNullOrWhiteSpace($VerifyRoot)) {
+  throw "拒絕刪除空白路徑"
+}
 
-if (-not $CleanupTarget.StartsWith(
-  $TempBase,
-  [System.StringComparison]::OrdinalIgnoreCase
-)) {
-  throw "拒絕刪除非暫存路徑：$CleanupTarget"
+$TrimSeparators = [char[]]@('\', '/')
+$TempBase = ([System.IO.Path]::GetFullPath(
+  [System.IO.Path]::GetTempPath()
+)).TrimEnd($TrimSeparators)
+$CleanupTarget = ([System.IO.Path]::GetFullPath($VerifyRoot)).TrimEnd($TrimSeparators)
+$TempChildPrefix = $TempBase + [System.IO.Path]::DirectorySeparatorChar
+
+if (
+  $CleanupTarget.Equals(
+    $TempBase,
+    [System.StringComparison]::OrdinalIgnoreCase
+  ) -or
+  -not $CleanupTarget.StartsWith(
+    $TempChildPrefix,
+    [System.StringComparison]::OrdinalIgnoreCase
+  )
+) {
+  throw "拒絕刪除非暫存子目錄：$CleanupTarget"
 }
 
 if (Test-Path -LiteralPath $CleanupTarget) {

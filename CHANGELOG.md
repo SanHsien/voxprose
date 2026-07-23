@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [3.4.2] - 2026-07-23
+
 ### Added
 
 - **驗證暫存清理手冊**：`docs/RELEASE_VERIFICATION.md` 新增安全清理方式，刪除前必須確認完整路徑位於 `%TEMP%`；另記錄受控自動化環境攔截 `Remove-Item -Recurse` 時的 .NET fallback。
@@ -153,7 +155,8 @@
 - STT 語言 hint 被翻譯目標語言污染：移植 `stt/language.py:get_transcription_language()`。
 - `ui/settings_window.py:_run_mic_test`：移除誤植的「非 macOS 拒絕」假擋板。
 
-[Unreleased]: https://github.com/SanHsien/voxprose/compare/v3.4.1...HEAD
+[Unreleased]: https://github.com/SanHsien/voxprose/compare/v3.4.2...HEAD
+[3.4.2]: https://github.com/SanHsien/voxprose/compare/v3.4.1...v3.4.2
 [3.4.1]: https://github.com/SanHsien/voxprose/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/SanHsien/voxprose/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/SanHsien/voxprose/compare/v3.2.0...v3.3.0
