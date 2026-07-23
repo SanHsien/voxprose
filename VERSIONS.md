@@ -4,6 +4,16 @@
 
 ---
 
+## [V3.4.1] - 2026-07-23（Release ZIP 中文檔名修復）
+
+- 修正 v3.4.0 正式 ZIP 在英文 GitHub runner 上以 `tar.exe -a` 打包時，7 個中文檔名被永久替換為 literal `?`，導致 Windows `Expand-Archive` 失敗。
+- 改用 .NET `ZipArchive` 明確寫入 UTF-8 entry name，並在 artifact／Release 上傳前執行 CRC、重複 entry、UTF-8 flag 與必要中文資源驗證。
+- 可攜包名稱改採完整 semver：`ShengChengWen-Windows-Lite-v3.4.1.zip`／`ShengChengWen-Windows-NoModel-v3.4.1.zip`。
+- 新增 `docs/RELEASE_VERIFICATION.md`，統一記錄自動化、Windows 解壓、真人語音、Silero/RMS 與前景情境的 PASS／FAIL／BLOCKED 判定。
+- 版本推進：`paths.py` → `V3.4.1`／`BUILD-3410-STABLE`、`pyproject.toml` 與 Inno Setup metadata → `3.4.1`。
+
+---
+
 ## [V3.2.0 補充二] - 2026-07-22 (品牌殘留全面清掃＋原作者個人網址移除)
 > 維護者實機驗證時發現：品牌雖已改名「聲成文 VoxProse」，程式 UI 仍多處顯示舊名「嘴炮輸入法」，`REVIEW.md` 也混入簡體字（「個人」一詞誤植為簡體）。任務進行中追加規格：移除程式 UI 裡所有指向原作者個人社群/贊助頁的連結（保留署名文字）。純文字/資產清掃，版本號／`BUILD_ID` 不變。詳細判斷理由見 `docs/DECISIONS.md` 2026-07-22 條目。
 

@@ -8,6 +8,13 @@
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-07-23
+
+### Fixed
+
+- **Windows Release ZIP 中文檔名損毀**：v3.4.0 的 release workflow 使用 Windows `tar.exe -a` 建 ZIP；英文 runner 的 ANSI code page 無法表示中文，導致 7 個檔名在壓縮當下被替換成 literal `?`，Windows `Expand-Archive` 因非法檔名直接失敗。改用 .NET `ZipArchive` 明確寫 UTF-8 entry name，新增 `tools/verify_release_zip.py` 與 CI 上傳前 gate，檢查 CRC、重複／損壞檔名、UTF-8 flag 及 7 個必要中文資源。驗證方法見 `docs/RELEASE_VERIFICATION.md`。
+- **Patch 版產物名稱**：可攜包檔名改採完整 semver，v3.4.1 產物不再沿用容易與 v3.4.0 混淆的 `v3.4` 名稱。
+
 ## [3.4.0] - 2026-07-23
 
 兩個新功能（Silero VAD、前景視窗自動情境切換，皆預設不改變現行行為、待實機驗證）＋隱私與加固審查（log 輪替、broad except 清查、權限檢查實質化）＋正式支援 Python 3.13/3.14＋keystrike 死碼清除。
@@ -138,7 +145,8 @@
 - STT 語言 hint 被翻譯目標語言污染：移植 `stt/language.py:get_transcription_language()`。
 - `ui/settings_window.py:_run_mic_test`：移除誤植的「非 macOS 拒絕」假擋板。
 
-[Unreleased]: https://github.com/SanHsien/voxprose/compare/v3.4.0...HEAD
+[Unreleased]: https://github.com/SanHsien/voxprose/compare/v3.4.1...HEAD
+[3.4.1]: https://github.com/SanHsien/voxprose/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/SanHsien/voxprose/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/SanHsien/voxprose/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/SanHsien/voxprose/compare/v3.1.0...v3.2.0
