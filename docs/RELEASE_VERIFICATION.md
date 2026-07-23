@@ -151,6 +151,32 @@ Silero 的觸發情境數嚴格少於 RMS。它提供公平數值對照，但不
 
 ## 六、前景視窗自動情境
 
+先驗證設定頁實際使用的三秒 callback 不會把自己搶回前景。下列命令啟動後，
+看到 `[READY]` 時在三秒內切到目標程式；只有最終列出同一個 `.exe` 才算
+這一層 PASS：
+
+```powershell
+$env:VOXPROSE_SOURCE_ROOT = $Extract
+$env:VOXPROSE_EXPECT_FOREGROUND = "LINE.exe"
+& "$Extract\.runtime\python.exe" `
+  ".\tests\manual\manual_foreground_countdown_check.py"
+$ForegroundExitCode = $LASTEXITCODE
+Remove-Item Env:\VOXPROSE_SOURCE_ROOT
+Remove-Item Env:\VOXPROSE_EXPECT_FOREGROUND
+if ($ForegroundExitCode -ne 0) {
+  throw "前景視窗倒數 callback 未取得預期程式"
+}
+```
+
+可把 `LINE.exe` 換成實際目標。腳本會走
+`SoulPageMixin._detect_foreground_app_for_rule()` 本身、反查 `soul_page.py`
+與 `foreground.py` 確實來自 `$Extract`，並把原本會阻塞的結果訊息盒轉成
+stdout。CI／桌面自動化若需要先準備再觸發，可另設
+`VOXPROSE_FOREGROUND_ARM_FILE`；腳本會等該檔案出現後才開始三秒倒數，
+外層必須設 timeout，避免協調檔未建立時無限等待。
+
+這個 PASS 只證明 Win32 偵測與設定頁 callback；仍不包含 LLM 請求。接著完成：
+
 1. 先啟用一個可用的 LLM provider，並手動選定 fallback 情境。
 2. 設定 → 靈魂設定，啟用「前景視窗自動情境切換」。
 3. 按「偵測目前前景程式」，倒數期間切到目標程式；成功訊息必須顯示目標
