@@ -133,7 +133,10 @@ if __name__ == "__main__":
                 print(msg)
                 with open("crash_emergency.log", "a", encoding="utf-8") as f:
                     f.write(msg + "\n")
-            except: pass
+            except Exception:
+                # 緊急 crash log 本身也可能因權限或磁碟問題失敗；此時只能
+                # 保留原始退出行為，但不要吞掉 KeyboardInterrupt/SystemExit。
+                pass
             os._exit(1)
     else:
         # Child processes are handled by multiprocessing/freeze_support
