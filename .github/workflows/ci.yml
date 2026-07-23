@@ -17,12 +17,20 @@ on:
 jobs:
   smoke-test:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      # 2026-07-23：pyproject.toml 宣告支援 >=3.10,<3.13，但這裡過去只測
+      # 3.12，等於 3.10/3.11 從未被 CI 驗證過。改成矩陣涵蓋宣告的三個版本
+      # （比照 yt_fetch 的做法）。faster-whisper/ctranslate2/PyQt6 在這三個
+      # 版本上都有預編譯 wheel，不需要退回輕量子集。
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install runtime dependencies (no CUDA, no bundled models)
         run: |
@@ -30,7 +38,7 @@ jobs:
           pip install -r requirements-win.txt
 
       - name: Install test dependencies
-        run: pip install pytest
+        run: pip install pytest pyyaml
 
       - name: Compile-check the entire repo (py_compile)
         shell: bash

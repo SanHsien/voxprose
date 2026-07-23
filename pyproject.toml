@@ -16,7 +16,11 @@ license = { text = "MIT" }
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0"]
+# pyyaml: 目前只被 tests/test_ci_workflow.py（驗證 .github/workflows/*.yml）
+# 用到直接 import；requirements-win.txt 透過 faster-whisper -> ctranslate2/
+# huggingface_hub transitively 也會裝到，但測試相依不該靠轉手依賴僥倖存在，
+# 這裡明確列出（2026-07-23）。
+dev = ["pytest>=7.0", "pyyaml>=6.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
