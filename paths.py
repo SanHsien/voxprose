@@ -64,8 +64,8 @@ SOUL_SNIPPET_DIR = SOUL_DIR / "snippets"
 # 變更，不在清理範圍內；決策記錄見 docs/DECISIONS.md。
 
 APP_CONFIG_DIR = APP_DATA_DIR
-VERSION_NAME = "V3.4.2 Windows Edition (BUILD-3420-STABLE)"
-BUILD_ID = "BUILD-3420-STABLE"
+VERSION_NAME = "V3.4.3 Windows Edition (BUILD-3430-STABLE)"
+BUILD_ID = "BUILD-3430-STABLE"
 
 # 舊版路徑 (用於遷移)
 OLD_SOUL_PATH = APP_DATA_DIR / "soul.md"

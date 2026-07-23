@@ -23,6 +23,7 @@ class VoiceTypeMenuBar:
         self.tray = None # Set by main.py
         self.floating_btn = None # Set by main.py
         self.on_set_template = None # Callbacks for template injection
+        self.about_dialog = None
 
     def get_menu_items(self) -> List[Dict]:
         """Builds the full nested list structure (used by Floating Button)."""
@@ -33,7 +34,7 @@ class VoiceTypeMenuBar:
         scenarios = [f.stem for f in SOUL_SCENARIO_DIR.glob("*.md")] if SOUL_SCENARIO_DIR.exists() else []
 
         items = [
-            {'label': "聲成文 VoxProse", 'callback': None},
+            {'label': "聲成文 VoxProse", 'callback': lambda _: self._open_settings()},
             {'label': "關於", 'callback': lambda _: self._show_about()},
             {'label': "---", 'callback': None},
             {'label': f"辨識引擎: {engine}", 'callback': None},
@@ -60,7 +61,7 @@ class VoiceTypeMenuBar:
     def get_tray_menu_items(self) -> List[Dict]:
         """Builds the simplified menu structure for the System Tray."""
         return [
-            {'label': "聲成文 VoxProse", 'callback': None},
+            {'label': "聲成文 VoxProse", 'callback': lambda _: self._open_settings()},
             {'label': "關於", 'callback': lambda _: self._show_about()},
             {'label': "---", 'callback': None},
             {'label': "⚙️  偏好設定...", 'callback': lambda _: self._open_settings()},
@@ -142,8 +143,24 @@ class VoiceTypeMenuBar:
 
     def _show_about(self):
         from ui.about_window import AboutDialog
-        dialog = AboutDialog(is_dark=self.config.get("dark_mode", True))
-        dialog.exec()
+        from PyQt6.QtCore import QTimer
+
+        if self.about_dialog is None:
+            self.about_dialog = AboutDialog(
+                is_dark=self.config.get("dark_mode", True)
+            )
+        self.about_dialog.show()
+        QTimer.singleShot(0, self._activate_about_dialog)
+
+    def _activate_about_dialog(self):
+        if self.about_dialog is None:
+            return
+        if self.about_dialog.isMinimized():
+            self.about_dialog.showNormal()
+        else:
+            self.about_dialog.show()
+        self.about_dialog.raise_()
+        self.about_dialog.activateWindow()
 
     def _quit(self):
         self.on_quit()

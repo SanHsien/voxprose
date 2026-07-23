@@ -162,6 +162,10 @@ class VoiceTypeApp(QObject):
         # v2.9.8: 全時自動觸發模式 (若已啟用)
         self._apply_auto_trigger()
 
+        # 先建立 QSystemTrayIcon 再啟動熱鍵監聽，避免 hotkey callback 在 tray
+        # 尚未存在時更新狀態。2026-07-23 實機覆核發現 9f95aa1 將原本會
+        # 隱含呼叫 start() 的 self.tray.run() 換成 app_inst.exec() 時漏接此步。
+        self.tray.start()
         self.hotkey_listener.start()
         if self.config.get("floating_button_enabled", True):
             self.floating_btn.show()
@@ -665,8 +669,19 @@ class VoiceTypeApp(QObject):
             self.settings_window.test_start.connect(lambda: self._on_start("toggle"))
             self.settings_window.test_stop.connect(self._on_stop)
             self.settings_window.test_toggle.connect(self._on_toggle_test)
-        
+
+        # 先讓視窗進入 visible 狀態，再等 tray / floating-button menu 關閉後
+        # 重新取回前景。Windows 在 QAction callback 尚未返回時直接 activateWindow()
+        # 可能被 shell 拒絕，表面上就像「點了沒反應」。
         self.settings_window.show()
+        QTimer.singleShot(0, self._activate_settings_window)
+
+    def _activate_settings_window(self):
+        if not self.settings_window:
+            return
+        if self.settings_window.isMinimized():
+            self.settings_window.showNormal()
+        else:
+            self.settings_window.show()
         self.settings_window.raise_()
         self.settings_window.activateWindow()
-

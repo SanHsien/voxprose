@@ -1,108 +1,170 @@
-"""
-About 聲成文 VoxProse dialog (formerly VoiceType4TW-Mac).
-"""
+"""About dialog for 聲成文 VoxProse."""
+
+import platform
 import sys
 from pathlib import Path
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
+
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap, QFont
+from PyQt6.QtGui import QFont, QPixmap
+from PyQt6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
+
 
 class AboutDialog(QDialog):
     def __init__(self, is_dark=False):
         super().__init__()
         self.setWindowTitle("關於 聲成文 VoxProse")
-        self.setFixedSize(320, 430)
+        self.setMinimumSize(620, 620)
+        self.resize(680, 720)
         self._is_dark = is_dark
         self._setup_ui()
 
     def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(15)
+        bg_color = "#17191f" if self._is_dark else "#f7f8fb"
+        panel_color = "#20232b" if self._is_dark else "#ffffff"
+        text_color = "#f4f6fb" if self._is_dark else "#20232b"
+        muted_color = "#aeb4c2" if self._is_dark else "#5f6673"
+        border_color = "#343946" if self._is_dark else "#dfe3ea"
+        font_family = (
+            "PingFang TC" if platform.system() == "Darwin" else "Microsoft JhengHei"
+        )
 
-        # Theme colors
-        bg_color = "#1e1e1e" if self._is_dark else "#ffffff"
-        text_color = "#e0e0e0" if self._is_dark else "#333333"
-        self.setStyleSheet(f"background-color: {bg_color};")
+        self.setStyleSheet(
+            f"""
+            QDialog {{
+                background-color: {bg_color};
+                font-family: "{font_family}";
+            }}
+            QScrollArea, QWidget#aboutContent {{
+                background-color: {bg_color};
+                border: none;
+            }}
+            QFrame#creditsCard {{
+                background-color: {panel_color};
+                border: 1px solid {border_color};
+                border-radius: 14px;
+            }}
+            QPushButton {{
+                min-width: 120px;
+                min-height: 40px;
+                padding: 0 22px;
+                border-radius: 8px;
+                background: #6d4aff;
+                color: white;
+                font-size: 14px;
+                font-weight: 700;
+                border: none;
+            }}
+            QPushButton:hover {{ background: #7d61ff; }}
+            QPushButton:pressed {{ background: #5938df; }}
+            """
+        )
 
-        # Icon
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 18)
+        root_layout.setSpacing(8)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        content.setObjectName("aboutContent")
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(48, 34, 48, 28)
+        layout.setSpacing(14)
+
         icon_label = QLabel()
         icon_path = Path(__file__).parent.parent / "assets" / "icon.png"
         if icon_path.exists():
             pixmap = QPixmap(str(icon_path))
-            icon_label.setPixmap(pixmap.scaled(100, 100, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            icon_label.setPixmap(
+                pixmap.scaled(
+                    128,
+                    128,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(icon_label)
 
-        # App Name
-        import platform
-        font_family = "PingFang TC" if platform.system() == "Darwin" else "Microsoft JhengHei"
         name_label = QLabel("聲成文 VoxProse")
-        name_label.setFont(QFont(font_family, 18, QFont.Weight.Bold))
+        name_label.setFont(QFont(font_family, 24, QFont.Weight.Bold))
         name_label.setStyleSheet(f"color: {text_color};")
         name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(name_label)
 
-        # Tagline
-        tagline_label = QLabel("A local-first AI voice typing tool for Windows.\nSpeak naturally. Write clearly.")
-        tagline_label.setStyleSheet(f"color: {text_color}; font-size: 12px;")
+        tagline_label = QLabel(
+            "在 Windows 上，把自然語音變成清楚文字。\n"
+            "Local-first AI voice typing for Windows."
+        )
+        tagline_label.setWordWrap(True)
+        tagline_label.setStyleSheet(
+            f"color: {muted_color}; font-size: 14px; line-height: 1.5;"
+        )
         tagline_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(tagline_label)
 
-        # Version
         from paths import VERSION_NAME
-        version_label = QLabel(f"Version {VERSION_NAME}")
-        version_label.setStyleSheet("color: #888; font-size: 12px;")
+
+        version_label = QLabel(VERSION_NAME)
+        version_label.setWordWrap(True)
+        version_label.setStyleSheet(
+            f"color: {muted_color}; font-size: 12px; padding: 6px 10px;"
+        )
         version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(version_label)
 
-        # Credits
-        credit_box = QVBoxLayout()
-        credit_box.setSpacing(5)
+        credits_card = QFrame()
+        credits_card.setObjectName("creditsCard")
+        credits_layout = QVBoxLayout(credits_card)
+        credits_layout.setContentsMargins(24, 20, 24, 20)
+        credits_layout.setSpacing(10)
 
-        derived_label = QLabel("Derived from VoiceType4TW.\nWindows fork maintained by SanHsien.")
-        derived_label.setStyleSheet(f"color: {text_color}; font-size: 12px;")
-        derived_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        credits_title = QLabel("開源與維護")
+        credits_title.setFont(QFont(font_family, 15, QFont.Weight.Bold))
+        credits_title.setStyleSheet(f"color: {text_color};")
+        credits_layout.addWidget(credits_title)
 
-        zh_label = QLabel(
-            "聲成文是由 SanHsien 維護的 Windows 語音輸入工具，\n"
-            "衍生自 VoiceType4TW。原作者：吉米丘、CC58TW；\n"
-            "上游 Windows 專用版維護：go-mask。"
+        credits = QLabel(
+            "本專案衍生自 VoiceType4TW，專注 Windows 10/11。\n\n"
+            "原創作者：吉米丘（Jimmy Chiu）、CC58TW\n"
+            "上游 Windows 專用版維護：go-mask\n"
+            "聲成文 VoxProse 維護：SanHsien\n"
+            "AI 開發協作：Claude Code、OpenAI Codex\n\n"
+            "授權：MIT（完整聲明見 LICENSE 與 NOTICE.md）"
         )
-        zh_label.setStyleSheet(f"color: {text_color}; font-size: 12px;")
-        zh_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        assist_label = QLabel("協助開發者：Claude Code")
-        assist_label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
-        assist_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        credit_box.addWidget(derived_label)
-        credit_box.addWidget(zh_label)
-        credit_box.addWidget(assist_label)
-        layout.addLayout(credit_box)
-
+        credits.setWordWrap(True)
+        credits.setTextFormat(Qt.TextFormat.PlainText)
+        credits.setStyleSheet(
+            f"color: {muted_color}; font-size: 13px; line-height: 1.55;"
+        )
+        credits_layout.addWidget(credits)
+        layout.addWidget(credits_card)
         layout.addStretch()
 
-        # Close button
+        scroll.setWidget(content)
+        root_layout.addWidget(scroll, 1)
+
         btn_close = QPushButton("關閉")
-        btn_close.setFixedWidth(80)
-        btn_close.setStyleSheet("""
-            QPushButton { 
-                padding: 6px; border-radius: 4px; background: #007aff; color: white; 
-                font-weight: bold; border: none;
-            }
-            QPushButton:hover { background: #0066cc; }
-        """)
         btn_close.clicked.connect(self.accept)
-        
-        h_box = QHBoxLayout()
-        h_box.addStretch()
-        h_box.addWidget(btn_close)
-        h_box.addStretch()
-        layout.addLayout(h_box)
+        footer = QHBoxLayout()
+        footer.addStretch()
+        footer.addWidget(btn_close)
+        footer.addStretch()
+        root_layout.addLayout(footer)
+
 
 if __name__ == "__main__":
-    from PyQt6.QtWidgets import QApplication
     app = QApplication(sys.argv)
     dialog = AboutDialog(is_dark=True)
     dialog.show()

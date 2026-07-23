@@ -8,6 +8,15 @@
 
 ## [Unreleased]
 
+## [3.4.3] - 2026-07-23
+
+### Fixed
+
+- **Windows 系統匣實際啟動**：修正 `VoiceTypeApp.run()` 只進入 Qt event loop、卻從未呼叫 `TrayManager.start()`，導致系統匣圖示與「聲成文」選單不會建立；現在先啟動 tray，再啟動全域熱鍵監聽。
+- **主選單與設定視窗喚回**：品牌列「聲成文 VoxProse」現在會開啟設定；設定／About 從 tray callback 顯示時延後到 menu 關閉後再取回前景，About 改為非 modal，避免互相阻塞。
+- **About 視窗版面**：由固定 320×430 改為可縮放 680×720＋捲動內容，移除重複文案並把完整上游／fork／協作署名整理成卡片，不再裁字或互相覆蓋。
+- **VoxProse 品牌圖示**：換成透明背景的語音泡泡＋麥克風＋波形標誌，同步更新主 PNG、tray PNG 與 Windows 多尺寸 ICO。
+
 ## [3.4.2] - 2026-07-23
 
 ### Added
@@ -155,7 +164,8 @@
 - STT 語言 hint 被翻譯目標語言污染：移植 `stt/language.py:get_transcription_language()`。
 - `ui/settings_window.py:_run_mic_test`：移除誤植的「非 macOS 拒絕」假擋板。
 
-[Unreleased]: https://github.com/SanHsien/voxprose/compare/v3.4.2...HEAD
+[Unreleased]: https://github.com/SanHsien/voxprose/compare/v3.4.3...HEAD
+[3.4.3]: https://github.com/SanHsien/voxprose/compare/v3.4.2...v3.4.3
 [3.4.2]: https://github.com/SanHsien/voxprose/compare/v3.4.1...v3.4.2
 [3.4.1]: https://github.com/SanHsien/voxprose/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/SanHsien/voxprose/compare/v3.3.0...v3.4.0

@@ -73,7 +73,9 @@ class FloatingButton(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
         # v2.8.27_V15: R-angle background. Using 8px radius for a 36px box.
-        painter.setBrush(QColor(124, 77, 255, 230))
+        # 新 VoxProse 圖示本身以靛紫／青色為主；深墨色底能保留外框對比，
+        # 避免舊紫底把圖示右側與語音泡泡輪廓吃掉。
+        painter.setBrush(QColor(20, 23, 32, 242))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(0, 0, self.width(), self.height(), 8, 8)
         

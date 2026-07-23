@@ -2,7 +2,7 @@
 
 - **日期**：2026-07-23
 - **Review 對象**：`main` 分支、STT readiness 修補 commit `7778e13`、正式發佈 `v3.4.2`（tag commit `119836a`）
-- **方法**：重新 fetch 並核對基線、全樹差異覆核、Python 3.14.6 執行 `python -m pytest tests/ -q`（**413 passed, 10 skipped**）、GitHub Python 3.10–3.14 五版本 CI、Release workflow、兩個正式資產重新下載與 SHA-256、ZIP 中央目錄 filename/UTF-8 flag、全檔 CRC、Windows `Expand-Archive` round-trip、正式 Lite runtime imports、麥克風診斷，以及由正式解壓目錄載入的 Windows STT worker warmup。真人有效音量、真 API key 與前景情境 LLM 端到端仍依 `docs/RELEASE_VERIFICATION.md` 標為 `BLOCKED`／待驗證，未用自動化結果代替。
+- **方法**：重新 fetch 並核對基線、全樹差異覆核、Python 3.14.6 執行 `python -m pytest tests/ -q`（**423 passed, 10 skipped**）、GitHub Python 3.10–3.14 五版本 CI、Release workflow、兩個正式資產重新下載與 SHA-256、ZIP 中央目錄 filename/UTF-8 flag、全檔 CRC、Windows `Expand-Archive` round-trip、正式 Lite runtime imports、麥克風診斷，以及由正式解壓目錄載入的 Windows STT worker warmup。真人有效音量、真 API key 與前景情境 LLM 端到端仍依 `docs/RELEASE_VERIFICATION.md` 標為 `BLOCKED`／待驗證，未用自動化結果代替。
 
 ---
 
@@ -26,7 +26,7 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 | 2 | STT 引擎選單「Gemini」無對應分派分支 | 中高 | ✅ 已修（`71f0cbe`） | `stt/__init__.py` 已有分支，測試通過 |
 | 3 | 無 Whisper 幻覺過濾機制 | 中高 | ✅ 已修（`7bf8592`） | `stt/hallucination_filter.py` 接線；實機驗證「嗯」被過濾、完整句不被過濾 |
 | 4 | API Key 明碼且會同步到雲端資料夾 | 高 | ✅ 已修（`cc1e2d1`） | `LOCAL_KEYS` 已收錄 `*_api_key` |
-| 5 | 無 `test_*.py`，核心 pipeline 零測試覆蓋 | 中高 | ✅ 已修（`f8633de` 起） | `tests/` 現有 33 個 `test_*.py`，413 passed, 10 skipped（Python 3.14.6，2026-07-23 本輪） |
+| 5 | 無 `test_*.py`，核心 pipeline 零測試覆蓋 | 中高 | ✅ 已修（`f8633de` 起） | `tests/` 現有 36 個 `test_*.py`，423 passed, 10 skipped（Python 3.14.6，2026-07-23 本輪） |
 | 6 | `paths.py` 雲端同步路徑常數是死碼 | 中 | ✅ 已修 | 四個常數已移除 |
 | 7 | `ui/settings_window.py` god file | 中 | ✅ 已修（`1252a68`） | 拆為 7 分頁 mixin；實機驗證（含真 sounddevice）全數通過 |
 | 8 | `requirements-win.txt` 無版本上限 | 中低 | ✅ 已修（`266280d`） | 實機驗證乾淨 venv 89 秒安裝成功、零衝突 |
@@ -64,8 +64,11 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 | 28-3 | Computer Use/UIA 操作封裝 UI 時，app 兩度以 Windows fatal exception `0x8001010d` 消失 | 中（需重現歸因） | 🔍 真人環境重驗 | `main_crash.log` 兩次都停在 `ui/app.py:173 app_inst.exec()`，無正常 shutdown；可能是 UIA/COM 輸入同步互動誘發，現有證據不足以歸咎一般使用者操作或 STT warmup。需不用 UI 自動化的真人點擊重驗。 |
 | 28-4 | `manual_stt_warmup_check.py` 的來源 override 指錯時仍可能從 cwd 匯入 repo，讓「正式包 PASS」測到原始碼 | 高（驗證可產生假陽性） | ✅ 已修（`119836a`，2026-07-23） | override 先驗 `stt/subprocess_whisper.py` 存在，import 後再要求模組 `__file__` 位於指定 root。不存在路徑實測 exit 1；正式 v3.4.2 解壓目錄實測列出正確 module path 並 PASS。 |
 | 28-5 | 暫存清理範例只用 `StartsWith($TempBase)`，會把 `%TEMP%` 本身也判為可遞迴刪除 | 高（可能誤刪整個暫存根目錄） | ✅ 已修（`119836a`，2026-07-23） | `docs/RELEASE_VERIFICATION.md` 現拒絕空白、明確拒絕 target 等於 temp root，並要求 canonical target 以 temp child prefix 開頭；.NET fallback 沿用同一 guard。負向／合法子目錄案例均實測通過。 |
+| 28-6 | `9f95aa1` 把 `self.tray.run()` 換成 `app_inst.exec()` 時漏掉隱含的 `tray.start()`，Windows 系統匣從未建立 | 中高（基本 UI 功能缺失） | ✅ 已修（2026-07-23） | `run()` 現在模型／全時模式準備後先啟動 tray，再啟動 hotkey。新增 AST 順序回歸測試；Windows 內嵌 runtime log 為 `QSystemTrayIcon shown successfully`，Qt live object 回讀 `visible=True`、`tooltip=聲成文`、icon 非空。v3.4.2 資產不含修復，改以 v3.4.3 重發。 |
+| 28-7 | tray 品牌列沒有 callback；Settings／About 在 QAction callback 內搶前景，且 modal About 會阻塞其他 app 視窗 | 中（使用者點擊像沒反應） | ✅ 已修（2026-07-23） | 品牌列與偏好設定均開 Settings；視窗顯示後延遲到 menu 關閉再 activate，About 改保留單一 modeless instance。真 Qt callback 驗證 Settings 1200×840 與 About 680×720 同時 visible、非 minimized；widget 原生截圖確認 About 無裁切／重疊。 |
+| 28-8 | 舊龍圖含不可讀文字，About 固定 320×430 導致版本與完整署名裁切／重疊 | 中低（品牌與可讀性） | ✅ 已修（2026-07-23） | 新增透明語音泡泡＋麥克風＋波形標誌，更新 PNG／tray PNG／多尺寸 ICO；About 改可縮放、可捲動的 680×720 版面並保留完整署名鏈。 |
 
-**統計**：已修/已驗證 39 項、待修 0 項、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
+**統計**：已修/已驗證 42 項、待修 0 項、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
 
 ---
 
@@ -73,7 +76,7 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 
 - **真人語音音量**：麥克風裝置列舉/開串流/讀樣本機制層已驗證無例外，但 agent 無法對著實體麥克風真的發聲，未證明「收到有意義音量的真人語音」這一步。
 - **真 API key 雲端引擎**：Groq／Gemini／OpenRouter／Claude／OpenAI／Qwen／DeepSeek 七個 provider 仍只有 mock 測試覆蓋，未用真實 API key 打過一次真實請求。
-- **系統匣圖示的像素級辨識**：`TrayManager` 建構無例外，但受限測試機工作列圖示過多，未能用截圖肉眼百分之百指認對應圖示。
+- **系統匣圖示的像素級辨識**：修復後已實證 `QSystemTrayIcon` 顯示成功，Qt live object 為 visible、tooltip「聲成文」、icon 非空；但受限測試機工作列圖示過多，仍未用截圖肉眼百分之百指認對應像素。
 - **v3.4.0 正式資產**：Lite／NoModel ZIP 仍是失敗產物，請改用已驗證的 v3.4.2；舊 tag 不覆寫。
 - **UIA crash 歸因**：自動化操作可重現兩次 `0x8001010d`，但需真人、不掛 UI Automation 的環境確認是否為一般產品路徑。
 
@@ -82,7 +85,7 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 ## 下一步建議
 
 1. 在有真實 API key 與真人麥克風、且不掛 UI Automation 的環境完成 crash、Silero/RMS、基本貼字與前景情境端到端驗證。
-2. 系統匣圖示做一次人工目視確認（低優先，機制層已驗證正確）。
+2. 系統匣圖示做一次人工目視確認（低優先，啟動、visible、tooltip 與 icon 物件已實證正確）。
 
 ---
 
@@ -94,4 +97,4 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 
 ---
 
-*本 review 為對 release ZIP 修補 `a9ac6de`、STT readiness 修補 `7778e13` 與正式 v3.4.2 發佈的覆核；`python -m pytest tests/ -q` 已實跑（413 passed, 10 skipped），五版本 CI、正式資產重下載、Windows 解壓與正式包 worker warmup 驗證通過。既有 GitHub v3.4.0 資產仍不得視為通過。*
+*本 review 為對 release ZIP 修補 `a9ac6de`、STT readiness 修補 `7778e13`、正式 v3.4.2 發佈與 v3.4.3 UI 修補的覆核；`python -m pytest tests/ -q` 已實跑（423 passed, 10 skipped），五版本 CI、正式資產重下載、Windows 解壓、正式包 worker warmup、修正版 tray 與視窗 callback 驗證通過。既有 GitHub v3.4.0 資產仍不得視為通過。*

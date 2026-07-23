@@ -4,6 +4,16 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-23 — Windows 系統匣必須在 Qt event loop 前明確啟動
+
+- **問題**：v3.4.2 實機啟動後，主行程、STT worker、設定頁與熱鍵都正常，但工作列找不到新增的系統匣圖示，`debug.log` 也完全沒有 `voicetype.tray` 的啟動紀錄。
+- **根因**：2026-03-14 的 `9f95aa1` 為統一 Qt event loop，把原本最後呼叫的 `self.tray.run()` 改成 `app_inst.exec()`；前者會隱含呼叫 `self.start()`，後者不會。改動漏補 `self.tray.start()`，因此 `TrayManager` 自 3 月起只有建構、從未啟動。先前覆核只驗建構無例外而稱「機制層通過」，屬錯誤判斷，本輪已撤回。
+- **修法與順序**：`VoiceTypeApp.run()` 在模型 warmup 與 `_apply_auto_trigger()` 完成後，先呼叫 `self.tray.start()`，再啟動 `hotkey_listener`；如此熱鍵 callback 不會早於 tray 建立，同時不更動 Windows 的 subprocess Whisper／PyQt6-CUDA 隔離。
+- **防回歸與實證**：新增 `tests/test_app_startup.py`，以 AST 鎖定 `tray.start < hotkey_listener.start < app_inst.exec`，不引入麥克風硬體依賴。完整測試 423 passed、10 skipped；Windows 內嵌 runtime 跑修正版 source 時，log 明列 `QSystemTrayIcon shown successfully`，Qt live object 回讀 `visible=True`、`tooltip=聲成文`、icon 非空。
+- **UI 喚回與 About 後續實機修正**：tray 第一列品牌名稱原本 callback 為 `None`，現與「偏好設定」都接到 `_open_settings()`；設定與 About 顯示後用 `QTimer.singleShot(0, ...)` 等 menu 關閉再 `raise_()/activateWindow()`。About 不再使用阻塞其他 app 視窗的 modal `exec()`，改保留單一 modeless instance；版面由固定 320×430 改為可縮放 680×720、內容可捲動，署名鏈保留但移除重複文案。`tests/manual/manual_ui_windows_check.py` 以真 callback 驗證 Settings `(1200×840)` 與 About `(680×720)` 同時 visible、非 minimized，並由 widget 自身 `grab()` 輸出無裁切截圖。
+- **品牌圖示決定**：舊龍圖帶不可讀字樣，且與本機優先語音輸入定位無直接關聯；改為透明背景的「語音泡泡＋麥克風＋波形／文字線」標誌，靛紫主色搭配青色。同步更新主 PNG、tray PNG 與包含 16/24/32/48/64/128/256px 的 Windows ICO；浮動按鈕底色改深墨色，避免紫色圖示外框被舊紫底吃掉。
+- **發佈處置**：v3.4.2 正式資產不含此修復，保留 tag／資產作事故證據；修正版推進為 v3.4.3，不覆寫既有 release。
+
 ## 2026-07-23 — v3.4.2 正式發佈與驗證流程 fail-closed
 
 - **發佈決定**：STT readiness 修補不能只停在 `main`、讓 v3.4.1 資產仍帶舊行為，因此以 commit `119836a` 發佈 v3.4.2。Python 3.10–3.14 五版本 CI 與 Windows Release workflow 均成功。

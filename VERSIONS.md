@@ -4,6 +4,18 @@
 
 ---
 
+## [V3.4.3] - 2026-07-23（Windows 系統匣啟動修復）
+
+- 修正 `VoiceTypeApp.run()` 進入 `QApplication.exec()` 前未呼叫 `TrayManager.start()`，導致 Windows 系統匣圖示與「聲成文」選單從未建立。
+- 啟動順序固定為：模型 warmup → 全時模式套用 → tray → hotkey → 浮動按鈕／設定頁 → Qt event loop，避免熱鍵 callback 早於 tray。
+- 新增 `tests/test_app_startup.py` 鎖定 tray、hotkey 與 event loop 的必要呼叫與順序；另新增品牌資產與選單 callback 測試，完整測試 423 passed、10 skipped。
+- Windows 內嵌 runtime 實測 log 出現 `QSystemTrayIcon shown successfully`；Qt live object 回讀 `visible=True`、`tooltip=聲成文`、icon 非空。
+- 品牌列與偏好設定都能喚回 Settings；About 改成非 modal、680×720 可縮放捲動版面。`tests/manual/manual_ui_windows_check.py` 真 Qt callback 驗證兩個視窗 visible／非 minimized，並可輸出 widget 原生截圖。
+- 新品牌圖示採透明背景的語音泡泡＋麥克風＋波形，已同步 `icon.png`、tray PNG 與 7 種尺寸的 Windows ICO。
+- 版本推進：`paths.py` → `V3.4.3`／`BUILD-3430-STABLE`、`pyproject.toml` 與 Inno Setup metadata → `3.4.3`。
+
+---
+
 ## [V3.4.2] - 2026-07-23（STT worker readiness 修復）
 
 - 修正 Windows subprocess `warmup()` 只送出 IPC 就返回，導致 UI 在模型尚未載入完成前誤報 ready。

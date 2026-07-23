@@ -81,6 +81,23 @@ Get-ChildItem -LiteralPath $Extract -Recurse |
 
 ## 四、基本語音輸入
 
+先從 repo checkout 用解壓後版本的內嵌 Python 跑 UI 視窗 smoke check；腳本會
+強制驗證實際匯入模組位於指定的 release root，並確認 Settings／About 可見、
+未最小化：
+
+```powershell
+$env:VOXPROSE_SOURCE_ROOT = $Extract
+$env:VOXPROSE_UI_CHECK_OUTPUT = Join-Path $VerifyRoot "ui-screenshots"
+& "$Extract\.runtime\python.exe" `
+  ".\tests\manual\manual_ui_windows_check.py"
+Remove-Item Env:\VOXPROSE_SOURCE_ROOT
+Remove-Item Env:\VOXPROSE_UI_CHECK_OUTPUT
+```
+
+若 ZIP 內另有一層版本目錄，`$Extract` 必須改指向實際含 `ui\app.py` 與
+`.runtime\python.exe` 的 package root。輸出的 `about-window.png` 不得裁字／重疊，
+`settings-window.png` 應顯示完整設定頁。此腳本不代替下列真人語音操作。
+
 1. 雙擊 `VoxProse.exe`。
 2. 在記事本或其他純文字輸入框放置游標。
 3. 依目前 PTT／Toggle 設定錄音，真人說「今天天氣真好」。
