@@ -4,12 +4,10 @@
 **後端選擇（onnxruntime 而非 torch）**：torch 完整安裝約 2GB，塞不進可攜
 打包版；onnxruntime CPU 版只有數十 MB，模型本身（ONNX 版）約 2.2MB。
 
-**依賴狀態**：onnxruntime 是選用依賴，*不*在 `requirements-win.txt` 裡
-（見該檔開頭註解與 docs/DECISIONS.md 的 wheel 查證：onnxruntime 近期版本
-已不再提供 Python 3.10 的 win_amd64 wheel，與本專案 CI 矩陣 3.10–3.14 沒有
-單一版本區間能同時涵蓋，因此改列「進階選用功能」，需要的使用者自行
-`pip install onnxruntime`）。未安裝時 `audio/vad/__init__.py:get_vad_engine()`
-會捕捉 `ImportError` 並優雅降級回 RMS。
+**依賴狀態**：`requirements-win.txt` 直接宣告 `onnxruntime>=1.14,<2`；
+這是版本範圍而非單版 pin，pip 會依 Python 3.10–3.14 各自挑選有相容 wheel
+的版本。自行裁切依賴的精簡環境若缺少它，
+`audio/vad/__init__.py:get_vad_engine()` 會捕捉 `ImportError` 並優雅降級回 RMS。
 
 **模型取得**：首次使用時下載到 `%APPDATA%\\VoxProse\\models\\silero_vad.onnx`
 （比照 `tools/download_models.py` 的 Whisper 模型下載模式），來源釘住

@@ -4,6 +4,15 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-23 — v3.4.0 Release ZIP 中文檔名損毀與發佈 gate
+
+- **事故**：GitHub v3.4.0 的 Lite／NoModel workflow 顯示成功，但 Lite 資產實際無法由 Windows `Expand-Archive` 解壓。中央目錄有 7 個中文檔名被寫成 literal `?`：3 個根目錄說明／啟動檔與 4 個 `soul/scenario` 情境模板。
+- **根因**：`release_win.ps1` 用 Windows `tar.exe -a` 建 ZIP。bsdtar 的 Windows ZIP 路徑經系統 ANSI code page，且未設定 ZIP UTF-8 filename flag；繁中 CP950 主機會留下未標示編碼的 raw bytes，英文 GitHub runner 則在壓縮當下把無法表示的中文字逐字替換成 ASCII `0x3F`。workflow 的 `PYTHONUTF8`／`PYTHONIOENCODING` 只影響 Python，對 native `tar.exe` 無效。
+- **修法**：改用 .NET `ZipArchive` 並指定 `Encoding.UTF8`；保留頂層 release 目錄，ZIP64 由 .NET 自動處理。以 65,536 entries 實包確認 ZIP64 EOCD／locator 存在，Windows PowerShell 5.1 路徑亦實建成功。
+- **防回歸**：新增 `tools/verify_release_zip.py`，在 hash／artifact upload／Release 發佈前檢查 CRC、重複 entry、literal `?`／replacement character、非 ASCII UTF-8 flag，以及 7 個必要中文資源。完整操作方式與 `PASS`／`FAIL`／`BLOCKED` 判定見 `docs/RELEASE_VERIFICATION.md`。
+- **實證**：原 GitHub Lite 資產（236,740,232 bytes，SHA-256 `84b7adf693d2234a7be7fa3482404d4567eca13a7ddc951a35d617544d6101b5`）validator 必然失敗；修正版 Lite（240,477,115 bytes）共 16,279 entries、全檔 CRC 通過、7 個中文資源皆有 UTF-8 flag，Windows `Expand-Archive` 完整成功且 7 檔 hash 與 staging 相同。
+- **發佈判定**：workflow 綠燈不再等同 release 可用。既有 v3.4.0 資產仍是壞包；在修正版正式發佈前，不得把 v3.4.0 標記為完整收官。
+
 ## 2026-07-23 — 前景視窗感知的情境模板自動切換（`docs/REFERENCES.md` 調研項目落地）
 
 維護者核准實作 `docs/REFERENCES.md` 調研的第二個大型功能（概念來自 Wispr Flow）：依「當下正在打字的應用程式」自動套用對應的三層靈魂系統情境模板，取代目前完全手動的系統匣切換。本功能發佈時標記「🔍 待實機驗證」（見 `REVIEW.md` 27-2），由維護者之後統一驗證真實使用情境（在不同應用程式間切換錄音）。
@@ -23,7 +32,7 @@
 
 - **架構（介面抽象，RMS 行為位元級不變）**：新增 `audio/vad/` 套件——`base.py`（`BaseVAD` 抽象介面，只定義 `compute_level(indata) -> float` 一個方法＋`reset()`）、`rms_vad.py`（把 `auto_trigger.py` 原本內嵌的 RMS 公式逐行搬移包裝，無任何數值調整）、`silero_vad.py`（onnxruntime 版）、`__init__.py`（`get_vad_engine(engine)` 工廠函式＋`describe_silero_availability()`）。`auto_trigger.py` 的 hysteresis/`min_speech_sec`/`max_segment_sec` 狀態機完全不動，只把原本內嵌的 RMS 算式換成呼叫 `self._vad.compute_level(indata)`——因為 RMS 與 Silero 的輸出天然都落在 0~1 尺度，`auto_trigger_sensitivity`/`auto_trigger_silence_sec` 的門檻語義不必因引擎切換而改變，使用者既有設定不需重學。
 - **決定（後端用 onnxruntime，不用 torch）**：torch 完整安裝約 2GB，塞不進可攜打包版；onnxruntime CPU 版只有數十 MB，模型本身（ONNX 版）約 2.3MB。
-- **決定（onnxruntime 改列選用依賴，不進 `requirements-win.txt`）**：PyPI JSON API 實查（2026-07-23）onnxruntime 近 8 個版本（1.20.0-1.27.0）的 win_amd64 wheel 矩陣：`1.20.0`-`1.23.2` 涵蓋 cp310-cp313（無 cp314）；`1.24.1`起改成涵蓋 cp311-cp314（**完全不提供 cp310**）。也就是說 onnxruntime 近期版本切換支援窗口時直接跳過 3.10，**沒有任何單一版本能同時涵蓋本專案 CI 矩陣 3.10-3.14**——不管鎖哪個版本區間，都會讓 CI 五版矩陣其中一端變紅。因此 `vad_engine="silero"` 定位為「進階選用功能」：`requirements-win.txt` 不列出 onnxruntime（只加註解說明查證結果與理由），需要的使用者自行 `pip install onnxruntime`；`get_vad_engine()` 捕捉 `ImportError` 優雅降級回 RMS，不影響預設安裝流程與 CI。
+- **依賴決策校正（同日實包覆核）**：原判斷只看「能否在 `requirements-win.txt` 直列同一個 onnxruntime 版本區間」，漏看 `faster-whisper` 本身已宣告 `onnxruntime>=1.14,<2`。pip 會依 Python 3.10-3.14 各自解析有相容 wheel 的版本，不需要五個 Python 共用同一 wheel。實際 Python 3.14 開發環境取得 onnxruntime 1.26.0，修正版 Python 3.12 Lite runtime 取得 1.27.0。不過 `audio/vad/silero_vad.py` 會直接 import 此套件，依「直接 import 就直接宣告」原則，現已在 `requirements-win.txt` 明列 `onnxruntime>=1.14,<2`；這是相容範圍而非單一版本 pin。缺席時 fallback RMS 的防禦行為維持不變。
 - **決定（模型來源：首次使用時下載，釘住穩定 tag 而非 vendor 進 repo）**：模型來源查證用 `gh api repos/snakers4/silero-vad/...`，確認 `src/silero_vad/data/silero_vad.onnx`（2,327,524 bytes，MIT）在 `v6.2.1`（最新 release tag，2026-02-24）存在且可下載；下載 URL 釘住這個 tag（而非 `master` 分支），避免上游更新造成不可預期的行為變化。下載到 `%APPDATA%\VoxProse\models\silero_vad.onnx`，比照 `tools/download_models.py` 的 Whisper 模型下載模式（首次使用觸發，不進版控）。權衡：vendor 進 repo 可省一次網路請求，但要多一份 2.3MB 二進位檔案入 git 歷史；選擇下載模式與既有 Whisper 模型的使用者心智模型一致（設定頁已經有「模型未下載」的三態文案先例），故不 vendor。
 - **真模型實測（scratchpad `venv_real`，Python 3.11.15 + onnxruntime 1.27.0，非 mock）**：
   - 下載驗證：`ensure_model_downloaded()` 對真實 `%APPDATA%\VoxProse\models\` 執行，實際下載 2,327,524 bytes（與 GitHub API 回報的 blob size 一致），首次下載 1.135s。

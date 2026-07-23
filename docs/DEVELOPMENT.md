@@ -59,8 +59,8 @@ venv\Scripts\activate
 pip install -r requirements-win.txt
 rem 有 NVIDIA GPU 才需要下一行
 pip install -r requirements-cuda-win.txt
-rem 想試全時模式的 Silero VAD 引擎（vad_engine="silero"）才需要下一行——
-rem 選用依賴，未裝時全時模式優雅降級回 RMS，見 audio/vad/silero_vad.py
+rem requirements-win.txt 已直接宣告 onnxruntime；
+rem 只有自行裁切依賴的精簡環境缺少它時才需要手動補裝：
 pip install onnxruntime
 
 python main.py
@@ -120,6 +120,12 @@ python -m pytest tests/ -v
 | `test_path.py` | **跳過，未移植** | 內容僅 `print(sys.path)`，無斷言、無測試價值，已被 `tests/test_smoke.py` 的匯入驗證取代 |
 
 改動 STT/LLM 邏輯、設定儲存或熱鍵對應時，至少跑 `python -m pytest tests/ -v`；面向整體行為的改動（熱鍵→錄音→辨識→貼字）仍建議在 Windows 實機跑 `python main.py` 手動驗證，另有 `self_check.py`（STT 子行程實際辨識煙霧測試）可用。
+
+Windows 可攜版發佈前另須遵循
+[`RELEASE_VERIFICATION.md`](RELEASE_VERIFICATION.md)：除了 pytest／workflow，
+必須驗 SHA-256、ZIP CRC 與 UTF-8 中文檔名、Windows `Expand-Archive`、
+runtime imports，再把真人語音、Silero/RMS 對照與前景情境分別記為
+`PASS`／`FAIL`／`BLOCKED`。
 
 ## 目錄結構
 

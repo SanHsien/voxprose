@@ -37,7 +37,7 @@ Speak naturally and turn your voice into polished text.
 
 - **一鍵安裝**：`setup_win.bat` 自動下載可攜式 Python、偵測 NVIDIA GPU 條件安裝 CUDA。
 - **全域快捷鍵**：按住說話（PTT）或切換開關（Toggle）。
-- **全時模式**：VAD 偵測語音自動切句辨識，免按鍵；偵測引擎可選 RMS 能量門檻（預設）或 Silero VAD 神經網路（精準度較高，需另裝 `onnxruntime`）。
+- **全時模式**：VAD 偵測語音自動切句辨識，免按鍵；偵測引擎可選 RMS 能量門檻（預設）或 Silero VAD 神經網路（精準度較高；一般安裝會直接安裝相容版本的 `onnxruntime`）。
 - **本地辨識**：Faster-Whisper，支援 CUDA 加速；亦可選 Groq / Gemini / OpenRouter 雲端引擎。
 - **麥克風裝置選擇＋增益＋AGC**：多台麥克風（耳機/USB/內建）可在設定頁切換，支援插拔自動偵測；手動增益（50~300%）與自動增益（AGC）可獨立開關。
 - **三層式靈魂系統**：基底靈魂＋情境模板＋輸出格式，經 LLM 潤飾語氣風格。
@@ -154,9 +154,10 @@ python main.py
 .\release_win.ps1            # Full：含 CUDA + medium 模型（約 4GB）
 .\release_win.ps1 -Lite      # Lite：無 CUDA 無模型，首次啟動線上下載（約 300MB）
 .\release_win.ps1 -NoModel   # NoModel：含 CUDA、無模型，首次啟動線上下載（約 1-1.5GB）
+python tools\verify_release_zip.py dist\ShengChengWen-Windows-Lite-vX.Y.Z.zip
 ```
 
-推送 `v*` tag 會觸發 `.github/workflows/release.yml` 自動建置 Lite + NoModel 兩版並發佈到 GitHub Releases（`workflow_dispatch` 手動觸發僅產生 artifact，不發佈）；`.github/workflows/dependency-freshness.yml` 每月檢查 `requirements-win.txt`/`requirements-cuda-win.txt` 是否落後 PyPI 最新版。
+推送 `v*` tag 會觸發 `.github/workflows/release.yml` 自動建置 Lite + NoModel 兩版，通過 ZIP CRC／UTF-8 中文檔名／必要資源 gate 後才發佈到 GitHub Releases（`workflow_dispatch` 手動觸發僅產生 artifact，不發佈）。完整實機驗證流程見 [`docs/RELEASE_VERIFICATION.md`](docs/RELEASE_VERIFICATION.md)；`.github/workflows/dependency-freshness.yml` 每月檢查 `requirements-win.txt`/`requirements-cuda-win.txt` 是否落後 PyPI 最新版。
 
 ## 設定
 
@@ -167,7 +168,7 @@ python main.py
 | `hotkey_ptt` | 按住說話快捷鍵（alt_r / ctrl_r / shift_r / f13-f15 / code:VK） | `alt_r` |
 | `hotkey_toggle` | 切換開關快捷鍵 | `f13` |
 | `auto_trigger_enabled` | 全時模式（免按鍵自動觸發） | `false` |
-| `vad_engine` | 全時模式偵測引擎（`rms`／`silero`，`silero` 需另裝 `onnxruntime`，機器特定不雲端同步） | `rms` |
+| `vad_engine` | 全時模式偵測引擎（`rms`／`silero`；一般安裝直接包含相容版本的 `onnxruntime`，機器特定不雲端同步） | `rms` |
 | `stt_engine` | 語音引擎（local_whisper / groq / gemini / openrouter） | `local_whisper` |
 | `whisper_model` | Whisper 模型大小（tiny/base/small/medium/large） | `medium` |
 | `mic_device` | 麥克風輸入裝置（sounddevice 裝置索引，`null`=系統預設，機器特定不雲端同步） | `null` |
