@@ -456,15 +456,32 @@ class SettingsWindow(
         self.config["auto_scenario_enabled"] = self.auto_scenario_enabled_cb.isChecked()
         self.config["auto_scenario_rules"] = self._collect_auto_scenario_rules()
 
-        try:
-            SOUL_BASE_PATH.write_text(self.soul_prompt.toPlainText().strip(), encoding="utf-8")
-        except: pass
+        if not self._save_soul_prompt():
+            return
 
         save_config(self.config)
         # v2.7.32: Windows 穩定性優先，提示手動重啟而非自動連鎖反應
         QMessageBox.information(self, "聲成文", "設定已儲存！\n\n為了確保「啟動防護」與「載入模組」完整生效，請務必手動『結束並重啟』本程式。")
         if self.on_save: self.on_save(self.config)
         self.close()
+
+    def _save_soul_prompt(self) -> bool:
+        """寫入基底靈魂失敗時中止整次儲存，避免顯示假成功訊息。"""
+        try:
+            SOUL_BASE_PATH.write_text(
+                self.soul_prompt.toPlainText().strip(),
+                encoding="utf-8",
+            )
+            return True
+        except OSError as e:
+            log.error(f"[save] Failed to write soul prompt ({SOUL_BASE_PATH}): {e}")
+            QMessageBox.critical(
+                self,
+                "設定儲存失敗",
+                "無法寫入基底靈魂設定，其他設定尚未儲存。\n\n"
+                f"檔案：{SOUL_BASE_PATH}\n錯誤：{e}",
+            )
+            return False
 
     def run(self):
         self.show()
