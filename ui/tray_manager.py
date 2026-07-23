@@ -24,7 +24,10 @@ class TrayManager:
 
     def stop(self):
         if self._tray:
-            self._tray.stop()
+            self._tray.hide()
+            self._tray.deleteLater()
+            self._tray = None
+            self._qt_menu = None
 
     def stop_ticker(self):
         """No-op on Windows (Qt handles its own event loop)."""
@@ -108,11 +111,11 @@ class TrayManager:
                 action.setChecked(bool(checked))
 
             if callback:
-                def make_handler(cb, lbl=label):
+                def make_handler(cb, act=action, lbl=label):
                     def safe_handler():
                         try:
                             logging.getLogger("voicetype.tray").debug(f"[tray] QAction clicked: {lbl}")
-                            cb(action)
+                            cb(act)
                         except Exception as e:
                             import traceback
                             msg = f"[tray] Error in Qt callback for '{lbl}': {e}\n{traceback.format_exc()}"
