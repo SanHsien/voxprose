@@ -7,6 +7,6 @@ class BaseSTT(ABC):
         """Transcribe WAV audio bytes to text."""
         ...
 
-    def warmup(self):
+    def warmup(self, timeout: float | None = None):
         """Pre-load models or initialize hardware (optional)."""
-        pass
+        return True

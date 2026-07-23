@@ -290,10 +290,14 @@ def _stt_worker(pipe_conn: multiprocessing.connection.Connection, config: dict):
                         dummy_audio = np.zeros(1600, dtype=np.float32)
                         list(model.transcribe(dummy_audio, language="en"))
                         log.info("[stt-worker] Warmup done.")
-                        pipe_conn.send({"type": "warmup_done"})
+                        pipe_conn.send({"type": "warmup_done", "success": True})
                     except Exception as e:
                         log.error(f"[stt-worker] Warmup failed: {e}")
-                        pipe_conn.send({"type": "warmup_done"})
+                        pipe_conn.send({
+                            "type": "warmup_done",
+                            "success": False,
+                            "error": str(e),
+                        })
                         
         except EOFError:
             log.info("[stt-worker] Pipe closed by parent. Exiting.")
@@ -331,6 +335,8 @@ class SubprocessWhisperSTT(BaseSTT):
         import queue
         self._ready_status = False
         self._error_message = None
+        self._warmup_done = threading.Event()
+        self._warmup_error = None
         self._result_queue = queue.Queue() 
         
         # 啟動背景讀取執行緒
@@ -353,6 +359,9 @@ class SubprocessWhisperSTT(BaseSTT):
                         print("[stt-mgr] STT Worker reported ready (Async).")
                     elif m_type == "error":
                         self._error_message = msg.get("message")
+                        self._ready_status = False
+                        self._warmup_error = self._error_message or "STT worker error"
+                        self._warmup_done.set()
                         # 也放入結果隊列以便 transcribe 知道出錯
                         self._result_queue.put(msg)
                     elif m_type == "result":
@@ -361,11 +370,26 @@ class SubprocessWhisperSTT(BaseSTT):
                         if hasattr(self, "on_progress") and self.on_progress:
                             self.on_progress(msg.get("value", 0), msg.get("detail", ""))
                     elif m_type == "warmup_done":
-                        print("[stt-mgr] Warmup complete.")
+                        if msg.get("success", True):
+                            self._warmup_error = None
+                            print("[stt-mgr] Warmup complete.")
+                        else:
+                            self._ready_status = False
+                            self._warmup_error = msg.get("error") or "STT warmup failed"
+                            print(f"[stt-mgr] Warmup failed: {self._warmup_error}")
+                        self._warmup_done.set()
             except (EOFError, ConnectionResetError):
+                self._ready_status = False
+                if not self._warmup_done.is_set():
+                    self._warmup_error = "STT worker connection closed"
+                    self._warmup_done.set()
                 break
             except Exception as e:
                 print(f"[stt-mgr] Pipe reader error: {e}")
+                self._ready_status = False
+                if not self._warmup_done.is_set():
+                    self._warmup_error = f"STT pipe reader failed: {e}"
+                    self._warmup_done.set()
                 break
 
     @property
@@ -444,14 +468,40 @@ class SubprocessWhisperSTT(BaseSTT):
             print(f"[stt-mgr] IPC Error during transcribe: {e}")
             raise RuntimeError(f"STT Transcription failed: {e}")
 
-    def warmup(self):
+    def warmup(self, timeout: float | None = None):
+        """等待 worker 完成模型載入與實際推論 warmup。
+
+        UI 啟動流程依賴這個方法的同步契約；若只送出 IPC 就返回，呼叫端會在
+        worker 尚未 ready 時誤報「模型已就緒」。預設不設絕對 timeout，因為
+        Lite／NoModel 首次啟動可能需要下載大型模型；worker error、pipe 關閉或
+        程序提前退出仍會立即拋錯。測試／診斷可明確傳入 timeout。
+        """
         print("[stt-mgr] Sending warmup signal...")
+        self._warmup_done.clear()
+        self._warmup_error = None
         try:
             with self._lock:
                 self._parent_conn.send({"type": "warmup"})
-            # 這裡不阻塞等待，免得卡住主執行緒
         except Exception as e:
             print(f"[stt-mgr] Failed to send warmup: {e}")
+            raise RuntimeError(f"Failed to send STT warmup request: {e}") from e
+
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while not self._warmup_done.wait(0.1):
+            if not self.worker_process.is_alive():
+                self._ready_status = False
+                raise RuntimeError("STT worker exited before warmup completed")
+            if deadline is not None and time.monotonic() >= deadline:
+                self._ready_status = False
+                raise TimeoutError(
+                    f"STT warmup timed out after {timeout:g} seconds"
+                )
+
+        if self._warmup_error:
+            raise RuntimeError(f"STT warmup failed: {self._warmup_error}")
+        if not self._ready_status:
+            raise RuntimeError("STT warmup completed before worker reported ready")
+        return True
 
     def __del__(self):
         try:
