@@ -38,6 +38,12 @@ jobs:
         shell: pwsh
         run: .\release_win.ps1 -NoModel
 
+      - name: 驗證 ZIP 中文檔名與必要資源
+        shell: pwsh
+        run: |
+          $zips = Get-ChildItem -Path dist -Filter "*.zip"
+          python .\tools\verify_release_zip.py @($zips.FullName)
+
       - name: 產生 SHA256 校驗檔
         shell: pwsh
         run: |

@@ -17,27 +17,27 @@ $ProjectRoot = $PSScriptRoot
 Set-Location $ProjectRoot
 
 # 0. 從 paths.py 取得 BUILD_ID（內部識別）與 pyproject.toml 取得 semver 版本號
-#    （命名跟著版本走，不寫死；ZIP 命名採主.次版號，如 v3.2）
+#    （命名跟著完整 semver 走，不寫死；patch release 不與舊產物同名）
 $buildMatch = Select-String -Path "paths.py" -Pattern 'BUILD_ID = "BUILD-(\w+)-STABLE"'
 $Build = if ($buildMatch) { $buildMatch.Matches[0].Groups[1].Value } else { "UNKNOWN" }
 
-$verMatch = Select-String -Path "pyproject.toml" -Pattern 'version = "(\d+)\.(\d+)\.\d+"'
-$VerShort = if ($verMatch) { "{0}.{1}" -f $verMatch.Matches[0].Groups[1].Value, $verMatch.Matches[0].Groups[2].Value } else { "UNKNOWN" }
+$verMatch = Select-String -Path "pyproject.toml" -Pattern 'version = "(\d+\.\d+\.\d+)"'
+$Version = if ($verMatch) { $verMatch.Matches[0].Groups[1].Value } else { "UNKNOWN" }
 
 if ($Lite) {
-    $ReleaseFolder = "dist\ShengChengWen-Windows-Lite-v$VerShort"
+    $ReleaseFolder = "dist\ShengChengWen-Windows-Lite-v$Version"
     $Edition = "Lite (no CUDA, no model)"
 } elseif ($NoModel) {
-    $ReleaseFolder = "dist\ShengChengWen-Windows-NoModel-v$VerShort"
+    $ReleaseFolder = "dist\ShengChengWen-Windows-NoModel-v$Version"
     $Edition = "NoModel (CUDA, no model)"
 } else {
-    $ReleaseFolder = "dist\ShengChengWen-Windows-v$VerShort"
+    $ReleaseFolder = "dist\ShengChengWen-Windows-v$Version"
     $Edition = "Full (CUDA + medium model)"
 }
 $ZipFile = "$ReleaseFolder.zip"
 
 Write-Host "========================================================" -ForegroundColor Cyan
-Write-Host "   聲成文 VoxProse Portable Packager v$VerShort (BUILD-$Build) — $Edition" -ForegroundColor Cyan
+Write-Host "   聲成文 VoxProse Portable Packager v$Version (BUILD-$Build) — $Edition" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
 
 # 1. Cleanup
@@ -131,7 +131,7 @@ if (Test-Path "$ProjectRoot\VoxProse.exe") {
 
 # 7. Portable readme
 $Notes = @"
-聲成文 VoxProse — Windows 真可攜版 (v$VerShort)
+聲成文 VoxProse — Windows 真可攜版 (v$Version)
 =====================================================
 
 【使用方式】
@@ -163,18 +163,49 @@ Get-ChildItem -Path $Release -Directory -Recurse -Filter "__pycache__" |
     Where-Object { $_.FullName -notlike "*\.runtime\*" } |
     Remove-Item -Recurse -Force
 
-# 9. ZIP (tar.exe = bsdtar, built into Win10+, ZIP64-safe and fast)
+# 9. ZIP
+#
+# 不使用 Windows 內建 tar.exe 的 ZIP backend：它在 Windows 會經過系統 ANSI
+# code page，且不一定替 entry name 設 UTF-8 flag。英文 GitHub runner 因此會
+# 把中文檔名直接替換成 literal "?"，產出連 Expand-Archive 都無法解開的 ZIP。
+# .NET ZipArchive 會為非 ASCII entry name 寫入 UTF-8 flag，並自動支援 ZIP64。
 if ($SkipZip) {
     Write-Host "[INFO] -SkipZip: folder ready at $Release"
 } else {
     Write-Host "[INFO] Compressing into $ZipFile (this may take a few minutes)..."
     $ZipFull = Join-Path $ProjectRoot $ZipFile
-    Push-Location (Split-Path $Release)
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $ArchiveStream = [System.IO.File]::Open(
+        $ZipFull,
+        [System.IO.FileMode]::Create,
+        [System.IO.FileAccess]::Write,
+        [System.IO.FileShare]::None
+    )
+    $Archive = $null
     try {
-        & tar.exe -a -c -f $ZipFull (Split-Path $Release -Leaf)
-        if ($LASTEXITCODE -ne 0) { throw "tar compression failed." }
+        $Archive = [System.IO.Compression.ZipArchive]::new(
+            $ArchiveStream,
+            [System.IO.Compression.ZipArchiveMode]::Create,
+            $false,
+            [System.Text.Encoding]::UTF8
+        )
+        $ReleaseParent = Split-Path $Release
+        Get-ChildItem -LiteralPath $Release -File -Recurse | ForEach-Object {
+            $RelativeName = $_.FullName.Substring($ReleaseParent.Length + 1).Replace("\", "/")
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $Archive,
+                $_.FullName,
+                $RelativeName,
+                [System.IO.Compression.CompressionLevel]::Optimal
+            ) | Out-Null
+        }
     } finally {
-        Pop-Location
+        if ($null -ne $Archive) {
+            $Archive.Dispose()
+        } else {
+            $ArchiveStream.Dispose()
+        }
     }
     $SizeGB = [math]::Round((Get-Item $ZipFull).Length / 1GB, 2)
     Write-Host "========================================================" -ForegroundColor Green
