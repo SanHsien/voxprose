@@ -87,6 +87,39 @@ def test_release_zip_rejects_duplicate_required_resource(tmp_path):
     assert any("應恰好出現一次，實際 2 次" in error for error in errors)
 
 
+@pytest.mark.parametrize(
+    ("filename", "payload"),
+    [
+        ("not-a-zip.zip", b"this is not a zip archive"),
+        ("truncated.zip", b"PK\x03\x04incomplete"),
+    ],
+)
+def test_release_zip_rejects_unreadable_archives(tmp_path, filename, payload):
+    archive_path = tmp_path / filename
+    archive_path.write_bytes(payload)
+
+    errors = validate_release_zip(archive_path)
+
+    assert len(errors) == 1
+    assert errors[0].startswith("無法讀取 ZIP：")
+
+
+def test_release_zip_rejects_missing_path_and_cli_returns_failure(
+    tmp_path, capsys
+):
+    missing = tmp_path / "missing.zip"
+
+    errors = validate_release_zip(missing)
+    exit_code = main([str(missing)])
+    captured = capsys.readouterr()
+
+    assert len(errors) == 1
+    assert errors[0].startswith("無法讀取 ZIP：")
+    assert exit_code == 1
+    assert f"[FAIL] {missing}" in captured.out
+    assert "無法讀取 ZIP：" in captured.out
+
+
 def test_release_zip_cli_escapes_legacy_encoded_names(tmp_path, monkeypatch):
     """未設 UTF-8 flag 的舊編碼檔名，不得讓 cp950 主控台輸出再崩潰。"""
     archive_path = tmp_path / "legacy-name.zip"
