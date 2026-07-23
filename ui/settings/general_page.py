@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QLabel, QPushButton,
     QCheckBox, QMessageBox, QApplication,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 
 from ui.settings.common import HotkeyRecorderButton
 
@@ -240,8 +240,6 @@ class GeneralPageMixin:
         # 擋板本身才是不一致的地方。詳見 docs/DECISIONS.md 2026-07-20 條目。
         from PyQt6.QtWidgets import QMessageBox, QProgressDialog
         import sounddevice as sd
-        import numpy as np
-        import time
 
         reply = QMessageBox.question(self, "麥克風測試",
                                    "即將開始 3 秒鐘的錄音測試，請對著麥克風說話。\n\n準備好了嗎？",
@@ -250,39 +248,92 @@ class GeneralPageMixin:
         if reply == QMessageBox.StandardButton.No:
             return
 
-        # Create a non-modal (but blocking) progress dialog
+        active_timer = getattr(self, "_mic_test_timer", None)
+        if active_timer is not None and active_timer.isActive():
+            return
+
         progress = QProgressDialog("正在錄音中，請說話...", None, 0, 3, self)
         progress.setWindowTitle("麥克風測試")
         progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setAutoClose(False)
+        progress.setValue(0)
         progress.show()
 
         fs = 16000
         duration = 3.0
 
         try:
-            recording = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='float32')
-
-            for i in range(3):
-                progress.setValue(i)
-                QApplication.processEvents()
-                time.sleep(1)
-
-            sd.wait()
-            progress.setValue(3)
+            self._mic_test_recording = sd.rec(
+                int(duration * fs),
+                samplerate=fs,
+                channels=1,
+                dtype="float32",
+            )
+        except Exception as e:
             progress.close()
+            QMessageBox.critical(self, "錯誤", f"錄音測試失敗: {str(e)}")
+            return
 
-            energy = np.sqrt(np.mean(recording**2))
+        self._mic_test_progress = progress
+        self._mic_test_elapsed_seconds = 0
+        timer = QTimer(self)
+        timer.setInterval(1000)
+        timer.timeout.connect(self._advance_mic_test)
+        self._mic_test_timer = timer
+        timer.start()
+
+    def _advance_mic_test(self):
+        progress = getattr(self, "_mic_test_progress", None)
+        if progress is None:
+            return
+
+        self._mic_test_elapsed_seconds += 1
+        elapsed = self._mic_test_elapsed_seconds
+        progress.setValue(min(elapsed, 3))
+        if elapsed >= 3:
+            self._finish_mic_test()
+
+    def _finish_mic_test(self):
+        from PyQt6.QtWidgets import QMessageBox
+        import numpy as np
+        import sounddevice as sd
+
+        timer = getattr(self, "_mic_test_timer", None)
+        if timer is not None:
+            timer.stop()
+
+        progress = getattr(self, "_mic_test_progress", None)
+        try:
+            sd.wait()
+            recording = self._mic_test_recording
+            energy = float(np.sqrt(np.mean(recording ** 2)))
 
             if energy < 1e-7:
-                QMessageBox.critical(self, "測試失敗",
-                    "偵測到【完全靜音】(Silence)。\n\n請至 Windows 設定 → 隱私權 → 麥克風，確認已授權本程式存取麥克風。")
+                QMessageBox.critical(
+                    self,
+                    "測試失敗",
+                    "偵測到【完全靜音】(Silence)。\n\n"
+                    "請至 Windows 設定 → 隱私權 → 麥克風，確認已授權本程式存取麥克風。",
+                )
             elif energy < 1e-3:
-                QMessageBox.warning(self, "測試警告",
-                    f"音訊能源過低 ({energy:.6f})。\n\n請檢查系統輸入音量設定。")
+                QMessageBox.warning(
+                    self,
+                    "測試警告",
+                    f"音訊能源過低 ({energy:.6f})。\n\n請檢查系統輸入音量設定。",
+                )
             else:
-                QMessageBox.information(self, "測試成功",
-                    f"成功接收音訊資料！\n能源強度: {energy:.6f}\n您的麥克風運作正常。")
-
+                QMessageBox.information(
+                    self,
+                    "測試成功",
+                    f"成功接收音訊資料！\n能源強度: {energy:.6f}\n您的麥克風運作正常。",
+                )
         except Exception as e:
-            if 'progress' in locals(): progress.close()
             QMessageBox.critical(self, "錯誤", f"錄音測試失敗: {str(e)}")
+        finally:
+            if progress is not None:
+                progress.setValue(3)
+                progress.close()
+            self._mic_test_timer = None
+            self._mic_test_progress = None
+            self._mic_test_recording = None
