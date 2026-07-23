@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: 檢出程式碼
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 打包 Lite 版（無 CUDA、無模型）
         shell: pwsh
@@ -53,7 +53,7 @@ jobs:
           }
 
       - name: 上傳 artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: voicetype-windows-portable
           path: |
@@ -62,7 +62,7 @@ jobs:
 
       - name: 發佈到 Release（僅標籤觸發）
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/*.zip
