@@ -8,6 +8,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **驗證暫存清理手冊**：`docs/RELEASE_VERIFICATION.md` 新增安全清理方式，刪除前必須確認完整路徑位於 `%TEMP%`；另記錄受控自動化環境攔截 `Remove-Item -Recurse` 時的 .NET fallback。
+
+### Fixed
+
+- **STT 啟動 readiness 誤報**：Windows subprocess `warmup()` 過去只送出 IPC 就返回，UI 因而在模型尚未載入／warmup 前誤報 ready。現改為等待帶成功狀態的 `warmup_done`；worker error、程序死亡與 pipe 中斷均撤銷 ready。首次大型模型下載不設絕對 timeout，避免慢網路超時後永久卡住。
+
 ## [3.4.1] - 2026-07-23
 
 ### Fixed

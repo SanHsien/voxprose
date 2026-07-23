@@ -119,7 +119,7 @@ python -m pytest tests/ -v
 | `test_openrouter_fallback.py` | **跳過，未移植** | 舊版 `llm/openrouter.py` 有「模型無端點時自動 fallback 到 `gemini-2.5-flash`」邏輯；現在的 `llm/openrouter.py` 已簡化為單一模型呼叫失敗即回傳原文，沒有 fallback 邏輯可測，測試會對著不存在的行為斷言 |
 | `test_path.py` | **跳過，未移植** | 內容僅 `print(sys.path)`，無斷言、無測試價值，已被 `tests/test_smoke.py` 的匯入驗證取代 |
 
-改動 STT/LLM 邏輯、設定儲存或熱鍵對應時，至少跑 `python -m pytest tests/ -v`；面向整體行為的改動（熱鍵→錄音→辨識→貼字）仍建議在 Windows 實機跑 `python main.py` 手動驗證，另有 `self_check.py`（STT 子行程實際辨識煙霧測試）可用。
+改動 STT/LLM 邏輯、設定儲存或熱鍵對應時，至少跑 `python -m pytest tests/ -v`；面向整體行為的改動（熱鍵→錄音→辨識→貼字）仍建議在 Windows 實機跑 `python main.py` 手動驗證。另有 `self_check.py`（STT 子行程實際辨識煙霧測試）與 `tests/manual/manual_stt_warmup_check.py`（確認同步 warmup 只在 worker 真正完成後返回）可用。
 
 Windows 可攜版發佈前另須遵循
 [`RELEASE_VERIFICATION.md`](RELEASE_VERIFICATION.md)：除了 pytest／workflow，
@@ -138,7 +138,7 @@ runtime imports，再把真人語音、Silero/RMS 對照與前景情境分別記
 │                            # 功能模組（見上方「模組」表與 AGENTS.md）
 ├── tools/                   # doctor.py／download_models.py／get_portable_python.ps1／launcher.cs（setup_win.bat 用）
 ├── tests/                    # pytest 自動化測試（test_smoke.py／test_config.py）
-│   └── manual/                # 需視窗環境的手動腳本（manual_qkey_check.py），不被 pytest 收集
+│   └── manual/                # 實機手動腳本（QKey、STT warmup），不被 pytest 收集
 ├── assets/                    # 圖示、截圖、貼圖等 UI/文件素材
 ├── self_check.py / diagnose_mic.py   # 既有手動診斷腳本
 ├── docs/                      # 本開發文件、決策紀錄

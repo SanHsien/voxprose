@@ -2,13 +2,13 @@
 
 - **日期**：2026-07-23
 - **Review 對象**：`main` 分支、release ZIP 修補 commit `a9ac6de`、正式發佈 `v3.4.1`（tag commit `db1bea9`）
-- **方法**：重新 fetch 並核對基線、全樹差異覆核、Python 3.14.6 執行 `python -m pytest tests/ -q`（**403 passed, 10 skipped**）、GitHub 五版本 CI、Release workflow、正式資產 SHA-256、ZIP 中央目錄 filename/UTF-8 flag、兩包全檔 CRC、Windows `Expand-Archive` round-trip與正式 Lite runtime imports。真人語音、真 API key 與前景情境 LLM 端到端仍依 `docs/RELEASE_VERIFICATION.md` 標為 `BLOCKED`／待驗證，未用自動化結果代替。
+- **方法**：重新 fetch 並核對基線、全樹差異覆核、Python 3.14.6 執行 `python -m pytest tests/ -q`（**413 passed, 10 skipped**）、GitHub 五版本 CI、Release workflow、正式資產 SHA-256、ZIP 中央目錄 filename/UTF-8 flag、兩包全檔 CRC、Windows `Expand-Archive` round-trip、正式 Lite runtime imports，以及真實 Windows STT worker warmup。真人語音、真 API key 與前景情境 LLM 端到端仍依 `docs/RELEASE_VERIFICATION.md` 標為 `BLOCKED`／待驗證，未用自動化結果代替。
 
 ---
 
 ## 總評
 
-**健康分數：8.5 / 10（v3.4.0 事故覆核時為 8.2，修正版發佈後 +0.3）。**
+**健康分數：8.7 / 10（v3.4.0 事故覆核時為 8.2；修正版發佈與 readiness 修復後 +0.5）。**
 
 v3.4.0 的功能程式與測試基線整體穩定，但「Release workflow 成功」曾被過早等同「使用者可用」。正式 Lite 資產在 Windows `Expand-Archive` 直接失敗；中央目錄確認 7 個中文檔名已在英文 runner 壓縮時變成 literal `?`，包含 4 個情境模板。該資產仍保留為事故證據，不覆寫舊 tag。
 
@@ -26,7 +26,7 @@ v3.4.1 已改用 .NET `ZipArchive` UTF-8 entry names，並新增上傳前 valida
 | 2 | STT 引擎選單「Gemini」無對應分派分支 | 中高 | ✅ 已修（`71f0cbe`） | `stt/__init__.py` 已有分支，測試通過 |
 | 3 | 無 Whisper 幻覺過濾機制 | 中高 | ✅ 已修（`7bf8592`） | `stt/hallucination_filter.py` 接線；實機驗證「嗯」被過濾、完整句不被過濾 |
 | 4 | API Key 明碼且會同步到雲端資料夾 | 高 | ✅ 已修（`cc1e2d1`） | `LOCAL_KEYS` 已收錄 `*_api_key` |
-| 5 | 無 `test_*.py`，核心 pipeline 零測試覆蓋 | 中高 | ✅ 已修（`f8633de` 起） | `tests/` 現有 32 個 `test_*.py`，403 passed, 10 skipped（Python 3.14.6，2026-07-23 本輪） |
+| 5 | 無 `test_*.py`，核心 pipeline 零測試覆蓋 | 中高 | ✅ 已修（`f8633de` 起） | `tests/` 現有 33 個 `test_*.py`，413 passed, 10 skipped（Python 3.14.6，2026-07-23 本輪） |
 | 6 | `paths.py` 雲端同步路徑常數是死碼 | 中 | ✅ 已修 | 四個常數已移除 |
 | 7 | `ui/settings_window.py` god file | 中 | ✅ 已修（`1252a68`） | 拆為 7 分頁 mixin；實機驗證（含真 sounddevice）全數通過 |
 | 8 | `requirements-win.txt` 無版本上限 | 中低 | ✅ 已修（`266280d`） | 實機驗證乾淨 venv 89 秒安裝成功、零衝突 |
@@ -60,10 +60,10 @@ v3.4.1 已改用 .NET `ZipArchive` UTF-8 entry names，並新增上傳前 valida
 | 27-1 | 新增 Silero VAD 全時模式引擎（`audio/vad/`，`vad_engine="silero"`，見 `docs/REFERENCES.md` 調研條目） | — | 🔍 需實機驗證 | 介面抽象＋RMS 行為位元級不變＋真模型／合成音訊測試均通過；本輪修正版 Lite runtime 已確認內含 onnxruntime 1.27.0，UI 實際列出 RMS／Silero 且 Silero 顯示「✅ 可用」。麥克風 Logi C615 可開串流但取樣峰值 `0.000`；**未驗證**：真人說話、咳嗽／呼吸／雜音對照、真 STT 貼字。 |
 | 27-2 | 新增前景視窗感知的情境模板自動切換（`utils/foreground.py`＋`auto_scenario_enabled`/`auto_scenario_rules`，見 `docs/REFERENCES.md` Wispr Flow 調研條目） | — | 🔍 需實機驗證 | 純 ctypes 與規則測試通過；本輪負向操作在未切換視窗時如預期抓到設定頁 `pythonw.exe`。Computer Use 單次 click 阻塞完整倒數，無法在 3 秒內另送合規切窗 action，因此「切到記事本後是否抓對」仍是 `BLOCKED`，不能把負向結果誤列產品 FAIL；真 API/LLM 情境命中與 fallback 同樣未驗證。 |
 | 28-1 | v3.4.0 Windows Release ZIP 的 7 個中文檔名在英文 runner 被 `tar.exe` 轉成 literal `?`，導致 `Expand-Archive` 失敗且情境模板缺失 | 高（正式產物不可正常解壓） | ✅ 已修並以 v3.4.1 重發（`a9ac6de`，2026-07-23） | 改 .NET `ZipArchive` UTF-8；新增 `tools/verify_release_zip.py`、10 項回歸測試與 workflow 上傳前 gate。正式 v3.4.1 Lite／NoModel 的 SHA、CRC、UTF-8 資源均實證通過，Lite 完成 Windows 解壓與 runtime imports；既有 v3.4.0 資產保留為壞包事故紀錄。 |
-| 28-2 | `_sync_preload_models()` 把非同步 subprocess warmup 當成同步完成，worker 尚未 ready 就設 `_models_ready=True` 並顯示設定 UI | 中（啟動狀態與真實 readiness 不一致） | ⏳ 待修 | `ui/app.py:185-187` 呼叫後立即設 ready；`SubprocessWhisperSTT.warmup()` 明寫「不阻塞等待」。實機 log 20:46:59 已記 `All models ready`，worker 到 20:47:42 才 `Model loaded`／`Warmup done`，與 AGENTS/註解宣稱的阻塞式預載不符。 |
+| 28-2 | `_sync_preload_models()` 把非同步 subprocess warmup 當成同步完成，worker 尚未 ready 就設 `_models_ready=True` 並顯示設定 UI | 中（啟動狀態與真實 readiness 不一致） | ✅ 已修（`7778e13`，2026-07-23） | `warmup()` 現等待 worker 的 `ready`＋帶成功狀態的 `warmup_done`；error、程序死亡、pipe 關閉或 reader 失敗均撤銷 ready 並拋錯。首次模型下載不設絕對 timeout，避免慢網路超時後永久卡住。8 項回歸測試；Windows 真 worker tiny CPU int8 首次 11.12 秒、快取後 1.52 秒，皆只在 warmup 完成後 PASS。 |
 | 28-3 | Computer Use/UIA 操作封裝 UI 時，app 兩度以 Windows fatal exception `0x8001010d` 消失 | 中（需重現歸因） | 🔍 真人環境重驗 | `main_crash.log` 兩次都停在 `ui/app.py:173 app_inst.exec()`，無正常 shutdown；可能是 UIA/COM 輸入同步互動誘發，現有證據不足以歸咎一般使用者操作或 STT warmup。需不用 UI 自動化的真人點擊重驗。 |
 
-**統計**：已修/已驗證 36 項、待修 1 項（28-2）、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
+**統計**：已修/已驗證 37 項、待修 0 項、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
 
 ---
 
@@ -79,9 +79,8 @@ v3.4.1 已改用 .NET `ZipArchive` UTF-8 entry names，並新增上傳前 valida
 
 ## 下一步建議
 
-1. 修正或重新設計 subprocess worker readiness：只在 worker 回報 ready 且 warmup 完成後更新 `_models_ready`，並補啟動時序測試。
-2. 在有真實 API key 與真人麥克風、且不掛 UI Automation 的環境完成 crash、Silero/RMS、基本貼字與前景情境端到端驗證。
-3. 系統匣圖示做一次人工目視確認（低優先，機制層已驗證正確）。
+1. 在有真實 API key 與真人麥克風、且不掛 UI Automation 的環境完成 crash、Silero/RMS、基本貼字與前景情境端到端驗證。
+2. 系統匣圖示做一次人工目視確認（低優先，機制層已驗證正確）。
 
 ---
 
@@ -93,4 +92,4 @@ v3.4.1 已改用 .NET `ZipArchive` UTF-8 entry names，並新增上傳前 valida
 
 ---
 
-*本 review 為對 release ZIP 修補 `a9ac6de` 與正式 v3.4.1 發佈的覆核；`python -m pytest tests/ -q` 已實跑（403 passed, 10 skipped），五版本 CI 與正式資產重下載驗證通過。既有 GitHub v3.4.0 資產仍不得視為通過。*
+*本 review 為對 release ZIP 修補 `a9ac6de`、正式 v3.4.1 發佈與 STT readiness 修補 `7778e13` 的覆核；`python -m pytest tests/ -q` 已實跑（413 passed, 10 skipped），五版本 CI、正式資產重下載與真實 Windows worker warmup 驗證通過。既有 GitHub v3.4.0 資產仍不得視為通過。*

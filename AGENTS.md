@@ -65,7 +65,7 @@ output/injector.py  ui/ (PyQt6)   actions/ 分派   vocab/ + memory/ + stats/
 - **不動打包鏈**：`setup_win.bat`、`build_win.py`、`release_win.ps1`、`voicetype_installer.iss`、`tools/get_portable_python.ps1`、`tools/launcher.cs` 除非任務明確要求，不修改。
 - **依賴管理**：實際安裝以 `requirements-win.txt`（一般依賴）+ `requirements-cuda-win.txt`（NVIDIA GPU 才需要，`setup_win.bat` 偵測 `nvidia-smi` 後才裝）為準；本次新增的 `pyproject.toml` 只提供 metadata 與 `pytest` 設定，**不取代**這兩個 `requirements-*.txt`，也不要讓開發者改成 `pip install -e .` 當作唯一安裝方式。
 - **Windows 已知地雷**：見根目錄 `windows_cuda_qt_crash_postmortem.md`——PyQt6 DLL 若先於 CUDA/`faster-whisper` 載入會導致無訊息崩潰（Exit Code 1），因此 Windows 上 STT 一律走獨立子行程（`stt/subprocess_whisper.py`）而非與 UI 同行程；另有右 Alt 鍵可能被系統回報為 `alt_gr` 而非 `alt_r`、`ToolTip` 視窗類型在 Windows 需改用 `Tool | FramelessWindowHint | WindowStaysOnTopHint`、中文字型需強制指定（如 `Microsoft JhengHei`）等已記錄地雷。改動 `main.py` 開頭的環境變數設定或 STT 掛載順序時務必重讀此文件。
-- **驗證方式**：`tests/` 內為可自動執行的 pytest 案例（`python -m pytest tests/ -v`）；`self_check.py`、`diagnose_mic.py`、`tests/manual/manual_qkey_check.py` 是需要真實硬體/可顯示視窗環境的手動腳本，不會被 pytest 收集。面向整體行為（熱鍵→錄音→辨識→貼字）的改動，建議另外在 Windows 實機執行 `python main.py` 手動驗證。
+- **驗證方式**：`tests/` 內為可自動執行的 pytest 案例（`python -m pytest tests/ -v`）；`self_check.py`、`diagnose_mic.py`、`tests/manual/manual_qkey_check.py`、`tests/manual/manual_stt_warmup_check.py` 是需要真實硬體/可顯示視窗或真實子程序環境的手動腳本，不會被 pytest 收集。面向整體行為（熱鍵→錄音→辨識→貼字）的改動，建議另外在 Windows 實機執行 `python main.py` 手動驗證。
 - **設定變更**：新增 `config.py` 的 `DEFAULT_CONFIG` 欄位時，同時考慮是否要加進 `LOCAL_KEYS`（機器特定、不同步的設定）。
 - **語言與風格**：維護文件用繁體中文；程式碼/變數命名維持英文，既有中英混用註解沿用既有風格，不強制統一。
 - **修 bug 必回註 REVIEW.md（適用所有 AI agent：Claude、Codex、Gemini 等，維護者 2026-07-19 指示，常態慣例）**：每修復 `REVIEW.md` 列出的問題，必須回到 `REVIEW.md` 對應項目（風險表「修復狀態」欄或對應章節）標註修復 commit hash 與日期；修復過程中額外發現並修掉的 bug，也要補註進 REVIEW.md 的修復回註區。REVIEW.md 維持 latest-only，但修復狀態必須跟上現況——不得讓 review 持續陳列已解決的問題而不標註。
@@ -83,6 +83,8 @@ pip install -r requirements-cuda-win.txt
 python main.py                      # 實際啟動，手動測熱鍵/錄音/貼字
 python -m pytest tests/ -v          # 自動化測試（詳見 docs/DEVELOPMENT.md）
 python self_check.py                # 手動：STT 子行程實際辨識煙霧測試（需下載/已有模型）
+python tests/manual/manual_stt_warmup_check.py
+                                    # 手動：確認 worker ready + warmup_done 後才返回
 ```
 
 不接受「應該可以」——面向行為的改動需要跑 `pytest tests/` 或在 Windows 實機手動驗證，兩者缺一不可視改動範圍而定。

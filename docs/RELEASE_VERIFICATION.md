@@ -136,3 +136,38 @@ Get-ChildItem -LiteralPath $Extract -Recurse |
 
 驗證完成後，把結論與日期回註根目錄 `REVIEW.md`；修 bug 時依 `AGENTS.md`
 補上修復日期與 commit。
+
+## 八、驗證後清理暫存目錄
+
+只刪除本次自行建立的 `$VerifyRoot`，不要對整個 `$env:TEMP`、萬用字元或
+尚未解析的環境變數執行遞迴刪除。先確認完整路徑仍位於系統暫存目錄：
+
+```powershell
+$TempBase = [System.IO.Path]::GetFullPath(
+  [System.IO.Path]::GetTempPath()
+)
+$CleanupTarget = [System.IO.Path]::GetFullPath($VerifyRoot)
+
+if (-not $CleanupTarget.StartsWith(
+  $TempBase,
+  [System.StringComparison]::OrdinalIgnoreCase
+)) {
+  throw "拒絕刪除非暫存路徑：$CleanupTarget"
+}
+
+if (Test-Path -LiteralPath $CleanupTarget) {
+  Remove-Item -LiteralPath $CleanupTarget -Recurse -Force
+}
+```
+
+若受控自動化環境的安全政策即使在明確授權後仍攔截 `Remove-Item -Recurse`，
+可在完成相同路徑邊界檢查後，以同一個 PowerShell 行程呼叫 .NET：
+
+```powershell
+if ([System.IO.Directory]::Exists($CleanupTarget)) {
+  [System.IO.Directory]::Delete($CleanupTarget, $true)
+}
+```
+
+刪除後用 `Test-Path -LiteralPath $CleanupTarget` 確認回傳 `False`。若驗證資料
+需要留作事故證據，則不要清理，並在結果紀錄中寫明保留位置與用途。

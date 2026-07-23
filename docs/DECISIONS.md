@@ -4,6 +4,13 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-23 — STT worker readiness 必須以 `warmup_done` 為準
+
+- **問題**：`ui/app.py:_sync_preload_models()` 把 `SubprocessWhisperSTT.warmup()` 當成同步契約，呼叫返回後立即設 `_models_ready=True`；但舊實作只送出 `{"type": "warmup"}` 就返回。實機 log 曾相差 43 秒才真正完成模型載入與 warmup。
+- **根因**：主程式與 worker 對 `warmup()` 的契約不一致，而且 worker 不論推論 warmup 成功或失敗都送同樣的 `warmup_done`，父程序無法判斷結果。
+- **修法**：worker 的 `warmup_done` 加入 `success`／`error`；父程序以 `threading.Event` 等待完成，worker error、pipe 關閉或程序提前退出均立即拋出明確例外。預設不設絕對 timeout，因為 Lite／NoModel 首次啟動可能需下載約 1.5GB 模型；測試與診斷仍可明確傳入 timeout。只有 `ready=True` 且 warmup 成功才返回，讓 UI 之後才設定 `_models_ready=True`。
+- **驗證**：新增 `tests/test_subprocess_warmup.py` 八項（含成功後 pipe 才關閉仍須撤銷 ready）；另以 `tests/manual/manual_stt_warmup_check.py` 在 Windows 真實子程序、tiny Whisper CPU int8 上執行，首次 11.12 秒、快取後 1.55 秒，均依序收到 worker ready／warmup complete 才回報 PASS。
+
 ## 2026-07-23 — v3.4.0 Release ZIP 中文檔名損毀與發佈 gate
 
 - **事故**：GitHub v3.4.0 的 Lite／NoModel workflow 顯示成功，但 Lite 資產實際無法由 Windows `Expand-Archive` 解壓。中央目錄有 7 個中文檔名被寫成 literal `?`：3 個根目錄說明／啟動檔與 4 個 `soul/scenario` 情境模板。
