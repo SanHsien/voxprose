@@ -38,11 +38,12 @@ def qapp():
     return QApplication.instance() or QApplication([])
 
 
-def test_countdown_returns_immediately_and_detects_before_dialog_closes(
+def test_countdown_returns_immediately_and_detects_without_modal_dialog(
     qapp, monkeypatch
 ):
     host = _Host()
     messages = []
+    original_button_text = host.auto_scenario_detect_btn.text()
 
     monkeypatch.setattr(
         QMessageBox,
@@ -56,9 +57,8 @@ def test_countdown_returns_immediately_and_detects_before_dialog_closes(
     )
 
     def fake_foreground():
-        progress = host._foreground_detection_progress
-        assert progress is not None
-        assert progress.isVisible(), "must capture target before closing the dialog"
+        assert host._foreground_detection_timer is not None
+        assert not host.auto_scenario_detect_btn.isEnabled()
         return "notepad.exe"
 
     monkeypatch.setattr(foreground, "get_foreground_process_name", fake_foreground)
@@ -70,14 +70,17 @@ def test_countdown_returns_immediately_and_detects_before_dialog_closes(
     assert elapsed < 0.25
     assert host._foreground_detection_timer.isActive()
     assert not host.auto_scenario_detect_btn.isEnabled()
+    assert host.auto_scenario_detect_btn.text() == "請切到目標視窗（3）"
 
     host._advance_foreground_detection()
+    assert host.auto_scenario_detect_btn.text() == "請切到目標視窗（2）"
     host._advance_foreground_detection()
+    assert host.auto_scenario_detect_btn.text() == "請切到目標視窗（1）"
     host._advance_foreground_detection()
 
     assert host._foreground_detection_timer is None
-    assert host._foreground_detection_progress is None
     assert host.auto_scenario_detect_btn.isEnabled()
+    assert host.auto_scenario_detect_btn.text() == original_button_text
     assert host._collect_auto_scenario_rules() == {"notepad.exe": "default"}
     assert messages == [
         (
@@ -101,4 +104,3 @@ def test_second_click_during_countdown_does_not_start_another_timer(
 
     assert host._foreground_detection_timer is first_timer
     first_timer.stop()
-    host._foreground_detection_progress.close()
