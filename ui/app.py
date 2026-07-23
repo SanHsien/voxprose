@@ -65,6 +65,11 @@ class VoiceTypeApp(QObject):
         self.settings_window = None
         # 全時自動觸發 (VAD) 模式
         self.auto_trigger = None
+        # 2026-07-23：前景視窗感知的情境模板自動切換（見 config.py 的
+        # auto_scenario_enabled/auto_scenario_rules、docs/DECISIONS.md）。
+        # 只在錄音開始那一刻偵測一次，該次辨識沿用；不覆寫使用者手動選定的
+        # active_scenario，見 _detect_auto_scenario()/_get_effective_scenario()。
+        self._session_scenario_override = None
         self._segment_queue = None
         self._segment_worker = None
         # PTT 與 VAD 全時模式的最小互斥（PTT 優先，見 audio/mutex.py 與
@@ -215,6 +220,7 @@ class VoiceTypeApp(QObject):
             log.info("[mutex] PTT preempts an in-flight VAD segment; discarding it.")
             self.auto_trigger.abandon_current_segment()
 
+        self._detect_auto_scenario()
         self.indicator.show()
 
         # v2.8.27_V88: Sync indicator state with LLM/AI modes
@@ -237,6 +243,38 @@ class VoiceTypeApp(QObject):
 
     def _on_audio_level(self, level):
         self.indicator.set_level(level)
+
+    # ── 2026-07-23: 前景視窗感知的情境模板自動切換 ──
+    def _detect_auto_scenario(self):
+        """錄音開始那一刻（PTT 按下／toggle 開啟／VAD 段落開始）呼叫一次：
+        依目前前景程式套用 `auto_scenario_rules` 規則，決定「這一次」辨識要
+        用的情境模板覆蓋值。功能關閉、偵測失敗、或無規則命中，一律維持
+        `None`——之後 `_get_effective_scenario()` 會 fallback 回使用者手動
+        選定的 `active_scenario`，行為與功能關閉前完全一致（見 docs/DECISIONS.md）。
+
+        刻意每次都先重設為 None 再重新判斷，避免上一次錄音的覆蓋值意外沿用到
+        這一次（例如上一次命中規則、這一次功能被使用者中途關閉）。
+        """
+        self._session_scenario_override = None
+        if not self.config.get("auto_scenario_enabled", False):
+            return
+        try:
+            from utils.foreground import get_foreground_process_name, resolve_scenario_for_process
+            proc_name = get_foreground_process_name()
+            if not proc_name:
+                return
+            rules = self.config.get("auto_scenario_rules", {}) or {}
+            scenario = resolve_scenario_for_process(proc_name, rules)
+            if scenario:
+                self._session_scenario_override = scenario
+                log.info(f"[auto_scenario] Foreground process {proc_name!r} -> scenario {scenario!r}")
+        except Exception as e:
+            log.warning(f"[auto_scenario] Detection failed: {e}")
+
+    def _get_effective_scenario(self):
+        """本次辨識實際要用的情境模板名稱：自動切換命中規則時優先，否則沿用
+        使用者手動選定的 `active_scenario`。只影響「這一次」，不寫回 config。"""
+        return self._session_scenario_override or self.config.get("active_scenario", "default")
 
     # ── v2.9.8: 全時自動觸發 (VAD) 模式 ──
     def _apply_auto_trigger(self):
@@ -288,6 +326,7 @@ class VoiceTypeApp(QObject):
         if self._recording_mutex.on_vad_segment_start():
             log.info("[mutex] Ignoring VAD segment while PTT recording is active.")
             return
+        self._detect_auto_scenario()
         # UI 回饋（錄音本身由 AutoTriggerController 負責）
         self.indicator.show()
         if self.config.get("llm_enabled", False):
@@ -391,7 +430,7 @@ class VoiceTypeApp(QObject):
             is_demo = self.config.get("is_demo", False)
             showcase_mode = self.config.get("showcase_mode", False)
             mode_prefix_enabled = self.config.get("mode_prefix_enabled", False)
-            active_scenario = self.config.get("active_scenario", "default")
+            active_scenario = self._get_effective_scenario()
             llm_enabled = self.config.get("llm_enabled", False)
 
             output_content = text
@@ -500,7 +539,7 @@ class VoiceTypeApp(QObject):
         from utils.soul_rules import apply_basic_soul_rules
 
         contents = []
-        scenario_name = self.config.get("active_scenario", "default")
+        scenario_name = self._get_effective_scenario()
         scenario_path = SOUL_SCENARIO_DIR / f"{scenario_name}.md"
         for path in (SOUL_BASE_PATH, scenario_path):
             try:
@@ -518,7 +557,7 @@ class VoiceTypeApp(QObject):
     def _build_llm_prompt(self, text, is_assistant=False):
         from paths import SOUL_SCENARIO_DIR
         base_prompt = DEFAULT_ASSISTANT_PROMPT if is_assistant else DEFAULT_LLM_PROMPT
-        scenario_name = self.config.get("active_scenario", "default")
+        scenario_name = self._get_effective_scenario()
         scenario_path = SOUL_SCENARIO_DIR / f"{scenario_name}.md"
         parts = [base_prompt]
         if scenario_path.exists():

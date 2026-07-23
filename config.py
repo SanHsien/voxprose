@@ -42,6 +42,13 @@ DEFAULT_CONFIG = {
     "active_scenario": "default",
     "active_format": "natural",
     "action_mode": False,
+    # 2026-07-23：前景視窗感知的情境模板自動切換（來源：docs/REFERENCES.md
+    # Wispr Flow 調研條目）。偵測時機為熱鍵按下/VAD 段落開始那一刻
+    # （utils/foreground.py + ui/app.py._detect_auto_scenario()），只影響
+    # 「該次」辨識用的情境，不覆寫 active_scenario 本身——見 docs/DECISIONS.md。
+    # 預設關閉、規則預設空，行為與現行手動情境選擇位元級一致。
+    "auto_scenario_enabled": False,
+    "auto_scenario_rules": {},   # {"outlook.exe": "商務回應", ...}，鍵不分大小寫
     # 統計 / Debug
     "debug_mode": False,
     "is_demo": False,
