@@ -8,6 +8,23 @@
 
 ## [Unreleased]
 
+隱私與加固審查（實機驗證前的靜態修 bug 輪）。
+
+### Added
+
+- **`utils/log_rotation.py`**：`debug.log`／`worker_debug.log` 改用 `RotatingFileHandler`（5MB×2 備份），修正原本無上限附加寫入會無限增長的問題。新增 `tests/test_log_rotation.py`。
+- **`utils/permissions.py` 麥克風權限真實檢查**：`check_microphone()` 改讀 Windows 隱私權登錄檔，`ensure_all_permissions()` 補上啟動時的實際呼叫（過去 import 了卻從未被呼叫，是死碼）。新增 `tests/test_permissions.py`。
+- **CI Python 版本矩陣**：`.github/workflows/ci.yml` 改測 3.10/3.11/3.12（比照 `pyproject.toml` 宣告範圍），過去只測 3.12。新增 `tests/test_ci_workflow.py`。
+
+### Fixed
+
+- **broad except 靜默吞噬清查**：全 repo 掃描後修正 43 處會隱藏真實錯誤的 `except`（補 log 或收窄型別），涵蓋設定檔/記憶/統計損毀時完全靜默、LLM prompt 注入失敗無痕跡等與歷史「引擎自始壞掉」同類的風險點；不改變任何 fallback 行為語義。詳見 `docs/DECISIONS.md`。新增 `tests/test_broad_except_logging.py`。
+
+### Investigated (no change)
+
+- **keystrike.log 隱私審查**：確認 `hotkey/listener.py` 只監控使用者自訂的三個熱鍵 VK 碼、且目前無任何 handler 實際寫入 `keystrike.log`（檔案永遠是空的 touch 占位），診斷包因此不會打包到任何按鍵資料；`separate_keystrike_log` 設定開關本身也是死碼（見 `docs/DECISIONS.md`）。無隱私疑慮，未修改行為。
+- **`utils/permissions.py` Windows 化**：確認早於 `b4094b7`（v2.9.6）已移除全部 macOS 專屬邏輯；本輪只補強麥克風檢查的實質功能（見上方 Added），未發現需要移除的殘留。
+
 ## [3.3.0] - 2026-07-22
 
 上游 `jfamily4tw/voicetype4tw-mac` `main` 分支新 commit `805b007`（v2.9.18）審視完成：Apple Foundation Models 整套 macOS 專屬功能不適用（詳見 `docs/UPSTREAM.md` Skipped 表），吸收其中 3 項平台無關修正，詳見 `docs/DECISIONS.md` 2026-07-22 條目。**本輪新增驗證**：裝 `requirements-cuda-win.txt` 後 CUDA 加速確實生效（GPU 0.55s vs CPU 8.57s，約 15.6 倍），`release_win.ps1 -Lite` 端到端建置與啟動實測成功。

@@ -4,6 +4,45 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-23 — 隱私與加固審查（實機驗證前的靜態修 bug 輪）
+
+v3.3.0 已發佈、實機驗證前，主人指示做能做的修 bug／加固。五項依序處理，每項 atomic commit。
+
+### 一、keystrike.log 隱私審查——無需修改
+
+- **查證**：`hotkey/listener.py` 目前的 Windows 實作（`GetAsyncKeyState` 輪詢）只監控 `ui/app.py` 傳入的 `hotkey_configs`（使用者自訂的 ptt/toggle/llm 三個熱鍵 VK 碼），不是全域按鍵 hook，不可能記到一般按鍵。
+- **關鍵發現**：`paths.KEYSTRIKE_LOG_PATH` 只在 `initialize_paths()` 被 `touch()` 建立成空檔案，全 repo 沒有任何 `logging.Handler`／`open(..., "a")` 實際寫入這個檔案——`git log -p` 顯示舊版（macOS/pynput 時代）曾經真的有「log ALL raw key interactions」的實作（`_keystrike_queue`／`_keystrike_writer_loop`），但 Windows 化改寫成目前的 polling 版本時已經整段拿掉，只是常數／`touch()`／UI 檢視按鈕沒有跟著清乾淨。
+- **連帶發現（死碼）**：`config.py` 的 `separate_keystrike_log` 開關（UI 有勾選框、預設關）現在完全不影響任何行為——沒有任何程式碼讀取這個 key 去決定要不要寫 log。`utils/diagnostics.py` 打包 `keystrike.log` 尾段 500 行時，因為檔案永遠是空的，`_tail_file()` 回傳 `b""`、依現有邏輯根本不會被塞進 zip（`tests/test_diagnostics.py::test_skips_missing_logs_without_creating_empty_entries` 已覆蓋這個行為）。
+- **決定**：如實回報「無需修改」——目前無隱私疑慮。死碼（無作用的 `separate_keystrike_log` 開關與空占位檔）留給未來若真的要做「熱鍵事件獨立記錄」功能時一併處理，本次不擴大範圍去刪除或重新接線一個沒人要求的功能。
+
+### 二、log 無限增長加固
+
+- **問題**：`debug.log`（`main.py`）與 `worker_debug.log`（`stt/subprocess_whisper.py`）過去分別用 `logging.FileHandler`／`basicConfig(filename=...)` 附加寫入，沒有大小上限；長期執行（尤其常駐背景程式、每次 STT 子行程重啟都 append）會無限增長。
+- **決定**：新增共用的 `utils/log_rotation.py:make_rotating_file_handler()`，統一用 `RotatingFileHandler`，單檔 5MB、備份 2 個（共最多 15MB/log）——數字是工程判斷（足夠涵蓋單次除錯需求，不無限占用磁碟），非上游規格。`keystrike.log` 因為目前沒有任何 handler 實際寫入（見上一項），不適用輪替，等未來真的接線寫入功能時再一併套用同一個 helper。
+
+### 三、broad except 靜默吞噬清查
+
+- **背景**：本專案歷史上三個「引擎自始壞掉」bug（`stt/gemini_stt.py`／`stt/openrouter_stt.py` 的 soundfile 重編碼、`stt/subprocess_whisper.py` 的 vocab prompt IPC 欄位未讀取）都是被 `except Exception` 吞掉才長期未被發現。
+- **掃描結果**：全 repo（不含 tests/）165 處 `except`，扣掉 4 處在 tests 目錄，161 處production code。逐一讀 context 分類：**43 處**判定「該補 log 或該收窄型別」並修正；其餘 **118 處** 已有 log/print/使用者可見的錯誤訊息，或是刻意設計成靜默且有正當理由（如 `utils/diagnostics.py` 的診斷收集器本身就該「單一收集項失敗不影響整包匯出」、`__del__`／行程即將 `os._exit()` 前的清理、bare `except: pass` 純屬 cosmetic beep 失敗）。
+- **修正原則**：只加 log／收窄例外型別，不改變任何 fallback 行為語義（讀不到設定檔一樣退回 default，串流關閉一樣跳出迴圈）——這是主人明確要求的邊界，避免修 log 順便動到行為造成新回歸。
+- **高風險項目**（原本完全靜默、且屬於使用者會實際感知到「東西無聲壞掉」的路徑）：`config.py` load_config() 5 處設定檔損毀靜默重置、`memory/manager.py`／`stats/tracker.py` 資料檔損毀靜默清空、`ui/app.py` 的靈魂情境／私人詞庫／長期記憶三處 LLM prompt 注入失敗靜默跳過、`audio/recorder.py` 錄音輪詢迴圈例外靜默中斷、`stt/subprocess_whisper.py`／`stt/local_whisper.py` 的 `build_vocab_prompt()` 失敗靜默退回預設 prompt（與歷史 bug 同一條路徑）、多個 UI 設定頁（`vocab_mem_page.py`／`stats_page.py`／`sync_page.py`）清單刷新失敗畫面「無聲空白」。
+- **順手修正**：`main.py`／`stt/subprocess_whisper.py`／`hotkey/listener.py`／`ui/mic_indicator.py`／`ui/floating_button.py` 等處的 bare `except:` 收窄為 `except Exception:`，避免誤吞 `KeyboardInterrupt`/`SystemExit`；`ui/settings/soul_page.py:129` 從 bare except 收窄為 `(json.JSONDecodeError, TypeError, ValueError)`（那裡只可能是 JSON 解析錯誤）。
+
+### 四、`utils/permissions.py` Windows 化——確認早已完成，補強實質功能
+
+- **查證**：`git log` 顯示本檔在 `b4094b7`（v2.9.6 Windows Stable — Mac cleanup）就已經移除全部 macOS 專屬邏輯（AXIsProcessTrusted 等 TCC 檢查），`AGENTS.md` 模組表寫「內容仍偏 macOS 導向」是舊描述沒跟著更新，已一併修正。
+- **實際問題**：4 個函式裡只有 `ensure_all_permissions()` 被 `ui/app.py` import，但從未被呼叫——整個模組是死碼；`check_microphone()` 永遠回傳 `True`，即使使用者在 Windows 隱私設定裡真的關掉了麥克風權限也偵測不到。
+- **決定**：`check_microphone()` 改讀 `CapabilityAccessManager\ConsentStore\microphone` 登錄機碼判斷同意狀態（讀不到機碼/例外一律視為已授權，避免誤報——這只是「額外提示」不是麥克風能否運作的唯一依據，實際能不能用仍以 `general_page.py` 的錄音測試「完全靜音」偵測為準）；`ensure_all_permissions()` 於 `ui/app.py.__init__()` 實際呼叫，被拒時只記一筆 warning log、**不**自動彈出系統設定視窗（啟動流程不該有意外跳窗副作用）；`request_microphone_permission()` 保留供未來 UI 按鈕接線，本次不新增按鈕（避免範圍蔓延）。
+
+### 五、CI Python 版本矩陣
+
+- **問題**：`pyproject.toml` 宣告 `requires-python = ">=3.10,<3.13"`，但 `.github/workflows/ci.yml` 只測 3.12——3.10/3.11 從未被 CI 實際驗證過。
+- **決定**：改成 `strategy.matrix.python-version: ["3.10", "3.11", "3.12"]`、`fail-fast: false`（比照 yt_fetch）。`requirements-win.txt` 的重依賴（`faster-whisper`/`ctranslate2`/`PyQt6`）在這三個版本都有預編譯 wheel，不需要退回「只跑 py_compile＋輕量測試子集」的降級方案。順手把 `pyyaml` 明確列進 `pyproject.toml` 的 `dev` extras與 CI 的測試依賴安裝步驟（`tests/test_ci_workflow.py` 直接 import，不該靠 `requirements-win.txt` 透過 `ctranslate2`/`huggingface_hub` 轉手依賴僥倖存在）。
+
+### 意外發現
+
+- 執行 `python -m pytest` 時系統預設 Python 是 **3.14.6**（`C:\Python314\python.exe`），已超出 `pyproject.toml` 宣告的 `<3.13` 上限——本輪任務範圍只要求修 CI matrix，未動 `requires-python` 上限或這台機器的直譯器版本，留給日後若要正式支援/驗證 3.13+ 時再處理。
+
 ## 2026-07-22 — CUDA 加速與可攜包實測驗證
 
 在裝有 `requirements-cuda-win.txt` 的機器上驗證 `stt/cuda_check.py:probe_cuda()` 回報 `accel_available=True`，STT worker 實際載入模型於 CUDA（`Model loaded successfully on cuda.`），同段音訊 medium 模型 GPU 0.55s vs CPU 8.57s（約 15.6 倍）——此前只驗證過「有 GPU 缺函式庫時的正確降級」，未驗證過真加速。同時實測 `release_win.ps1 -Lite` 端到端建置（616MB，launcher 現場編譯）與打包產物實際啟動，確認 `opencc` 等依賴進 `.runtime`、無崩潰。兩項填補 `REVIEW.md` 先前列出的未驗證邊界，健康分數 8.3→8.7。
