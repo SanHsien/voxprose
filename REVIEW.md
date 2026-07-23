@@ -70,8 +70,10 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 | 28-9 | v3.4.3 CI／Release workflow 成功但 GitHub 標註所用 action 仍以已淘汰的 Node.js 20 為目標，目前由 runner 強制改用 Node.js 24 | 低（CI 維護性） | ✅ 已修（`02bd6b5`，2026-07-24） | 全部 workflow 升級至 `actions/checkout@v7`、`actions/setup-python@v7`、`actions/upload-artifact@v7`、`softprops/action-gh-release@v3`；逐一核對官方 `action.yml` 均使用 Node 24 且既有 inputs 相容，新增防降級測試。 |
 | 29-1 | tray menu callback 在迴圈中晚綁定 `action`，所有 callback 可能收到最後一個 QAction；`stop()` 呼叫不存在的 `QSystemTrayIcon.stop()` | 中（選單動作可能錯置、退出清理例外） | ✅ 已修（`81ce7a7`，2026-07-24） | handler 現將各 QAction 綁為預設參數；stop 改為 hide、deleteLater 並清除引用。新增真 PyQt menu trigger 與 tray lifecycle 回歸測試。 |
 | 29-2 | 基底靈魂檔寫入失敗被 `except: pass` 吞掉，UI 仍顯示「設定已儲存」 | 中（設定遺失且假成功） | ✅ 已修（`788fcc5`，2026-07-24） | 抽出 `_save_soul_prompt()`；OSError 現記錄路徑與錯誤、顯示失敗訊息並中止其他設定儲存。成功與缺目錄失敗路徑皆有回歸測試。 |
+| 29-3 | 設定頁麥克風測試在 GUI thread 以 `time.sleep()` 阻塞 3 秒，錄音期間整個視窗像當機 | 中（真人驗證 UX 與 UI Automation 穩定性） | ✅ 已修（`894a101`，2026-07-24） | `sd.rec` 保持非同步，倒數改由 `QTimer` 驅動；完成後才 `sd.wait()`／計算 RMS，成功、靜音、例外均清除 timer/progress/recording。真人只需回答準備提示並發聲；2 項回歸測試通過。 |
+| 29-4 | `main.py` 緊急 crash log 仍有最後一個 bare `except:`，可能連 `KeyboardInterrupt`／`SystemExit` 一併吞掉 | 低（錯誤處理一致性） | ✅ 已修（`e0b690d`，2026-07-24） | 收窄為 `except Exception`，新增 AST 全 repo guard；任何新 bare-except 都會讓 pytest 失敗。 |
 
-**統計**：已修/已驗證 45 項、待修 0 項、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
+**統計**：已修/已驗證 47 項、待修 0 項、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
 
 ---
 
