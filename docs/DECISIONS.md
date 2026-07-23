@@ -9,6 +9,7 @@
 - GitHub workflow action 全面升至 Node 24 世代，避免 runner 強制相容模式掩蓋未來失效風險；版本來源逐一以各 action 官方 release／`action.yml` 驗證。
 - 「偵測目前前景程式」原本在 GUI thread 連續 `sleep(1)` 三次，實際凍結 Qt，也讓使用者難以可靠切窗。改用一秒週期 `QTimer`，倒數期間 event loop 保持可用；完成時先讀前景 process，再關閉 modal progress，避免父 Settings 視窗搶回前景。
 - 同輪 QA 發現 tray QAction 的迴圈晚綁定與不存在的 `QSystemTrayIcon.stop()`、基底靈魂寫入失敗仍顯示成功，以及麥克風測試同樣用 `time.sleep()` 凍結 GUI。全部以最小行為修補並新增回歸測試；另以 AST guard 清掉並禁止新 bare-except。修復狀態回註 `REVIEW.md` 27-2、28-9、29-1～29-4。
+- 真人 VAD 驗證不能要求維護者反覆切換引擎、憑感覺抄結果。新增手動驗證器，把說話／咳嗽／呼吸／環境音各錄一次，同一 PCM 同時餵 RMS 與真 Silero；預設只留下指標報告，原始 WAV 必須顯式要求。驗證器沿用正式包 fail-closed 原則，會確認兩個 VAD module 實際來自 `VOXPROSE_SOURCE_ROOT`。此工具降低真人操作量，但不取代全時模式狀態機、STT 與貼字端到端測試，因此 `REVIEW.md` 27-1 在真人尚未執行前維持 🔍。
 
 ## 2026-07-23 — Windows 系統匣必須在 Qt event loop 前明確啟動
 

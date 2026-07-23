@@ -109,6 +109,36 @@ Remove-Item Env:\VOXPROSE_UI_CHECK_OUTPUT
 
 ## 五、Silero VAD 與 RMS 對照
 
+先用同一份真人音訊取得可比較的 VAD 數值證據。腳本會依序要求正常說話、
+咳嗽、呼吸、環境雜音各一次；每段只錄一次，再把同一份 PCM 以產品使用的
+800-sample block 同時餵給 RMS 與真 Silero。預設只保留 JSON／Markdown
+指標，不保存原始錄音：
+
+```powershell
+$env:VOXPROSE_SOURCE_ROOT = $Extract
+$VadReport = Join-Path $VerifyRoot "real-audio-vad.json"
+& "$Extract\.runtime\python.exe" `
+  ".\tests\manual\manual_audio_vad_check.py" `
+  --output $VadReport
+$VadExitCode = $LASTEXITCODE
+Remove-Item Env:\VOXPROSE_SOURCE_ROOT
+Get-Content -LiteralPath $VadReport -Raw
+if ($VadExitCode -ne 0) {
+  Write-Warning "真人 VAD 對照未通過；依報告判定 FAIL 或 BLOCKED"
+}
+```
+
+若 ZIP 內另有一層版本目錄，`$Extract` 同樣必須指向實際含 `audio\vad\`
+與 `.runtime\python.exe` 的 package root。腳本會反查 `rms_vad.py`、
+`silero_vad.py` 的實際匯入路徑；指定不完整或錯誤 root 時直接失敗，不會
+退回目前 checkout 產生假 PASS。只有加上 `--keep-wav` 才會在報告同名
+目錄保留四段 WAV；音訊含真人聲音，除錯結束後應依本文件第八節處置，
+不得 commit 或附在公開 issue。
+
+腳本的 `PASS` 只表示：正常說話時兩引擎皆達門檻，且三種非語音情境中
+Silero 的觸發情境數嚴格少於 RMS。它提供公平數值對照，但不會操作 app 的
+全時模式狀態機，也不會送 STT；因此仍要完成下列 UI／端到端操作：
+
 1. 設定 → 辨識 AI → 語音偵測引擎，先確認 Silero 顯示「可用」。
 2. 選 Silero、開啟全時模式並儲存；依提示重啟後再確認設定仍是 Silero。
 3. 分別測：正常說話、單次咳嗽、呼吸聲、鍵盤／環境雜音。
@@ -117,6 +147,7 @@ Remove-Item Env:\VOXPROSE_UI_CHECK_OUTPUT
 
 通過標準：兩個引擎都能辨識正常說話；RMS 行為與舊版一致；Silero 對非語音的
 誤觸發明顯較少。只有 ONNX 單元測試或合成音訊數值，不能把本項轉成 `PASS`。
+真人腳本若回 `BLOCKED`／`FAIL`，也不能只憑 UI 看似有反應改寫為 `PASS`。
 
 ## 六、前景視窗自動情境
 
