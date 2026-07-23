@@ -66,7 +66,6 @@ SOUL_SNIPPET_DIR = SOUL_DIR / "snippets"
 APP_CONFIG_DIR = APP_DATA_DIR
 VERSION_NAME = "V3.3.0 Windows Edition (BUILD-3300-STABLE)"
 BUILD_ID = "BUILD-3300-STABLE"
-KEYSTRIKE_LOG_PATH = APP_DATA_DIR / "keystrike.log"
 
 # 舊版路徑 (用於遷移)
 OLD_SOUL_PATH = APP_DATA_DIR / "soul.md"
@@ -158,7 +157,6 @@ def initialize_paths():
 
         # Ensure critical logs exist
         (APP_DATA_DIR / "debug.log").touch(exist_ok=True)
-        (APP_DATA_DIR / "keystrike.log").touch(exist_ok=True)
 
         # Ensure sync dir exists
         try:

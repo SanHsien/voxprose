@@ -65,7 +65,7 @@ LOCAL_KEYS = {
     "hotkey_ptt", "hotkey_toggle", "hotkey_llm", "hotkey",
     "trigger_mode", "show_floating_button", "completion_sound",
     "debug_mode", "is_demo", "output_prefix",
-    "separate_keystrike_log", "showcase_mode",
+    "showcase_mode",
     "stt_engine", "whisper_model",
     # 麥克風靈敏度與觸發習慣屬於機器特定設定，不做雲端同步
     "auto_trigger_enabled", "auto_trigger_sensitivity", "auto_trigger_silence_sec",

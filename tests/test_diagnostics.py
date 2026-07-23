@@ -124,9 +124,8 @@ class TestExportDiagnosticBundle:
         assert zip_path is not None
         with zipfile.ZipFile(zip_path) as zf:
             names = set(zf.namelist())
-            # 沒有任何 log 檔存在時，不應該生出空的 debug.log/keystrike.log 條目
+            # 沒有任何 log 檔存在時，不應該生出空的 debug.log/main_crash.log 條目
             assert "debug.log" not in names
-            assert "keystrike.log" not in names
             assert "main_crash.log" not in names
 
     def test_opens_explorer_to_highlight_zip_on_windows(self, tmp_path):

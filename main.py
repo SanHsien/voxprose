@@ -122,11 +122,7 @@ if __name__ == "__main__":
             log_header = f"\n{'='*50}\n[START] {banner_time} {VERSION_NAME}\n{'='*50}"
             logging.getLogger("voicetype").info(log_header)
             logging.getLogger("voicetype").info(f"=== VoxProse Starting === Log: {log_path} (Level: INFO)")
-            
-            # v2.8.27_V61: Record Keystrike location
-            from paths import KEYSTRIKE_LOG_PATH
-            logging.getLogger("voicetype").info(f"Keystrike logging routed to: {KEYSTRIKE_LOG_PATH}")
-            
+
             from ui.app import VoiceTypeApp
             app = VoiceTypeApp()
             app.run()

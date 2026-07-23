@@ -106,10 +106,6 @@ class GeneralPageMixin:
         self.debug_mode.setChecked(self.config.get("debug_mode", False))
         layout.addWidget(self.debug_mode)
 
-        self.separate_keystrike_log = QCheckBox("獨立記錄熱鍵事件 (Separate KeyStrike Log to keystrike.log)")
-        self.separate_keystrike_log.setChecked(self.config.get("separate_keystrike_log", False))
-        layout.addWidget(self.separate_keystrike_log)
-
         self.debug_demo_mode = QCheckBox("情境模擬 Demo 版 (需API KEY連結雲端LLM) (Debug Scenario Demo Mode)") #咖啡版功能
         self.debug_demo_mode.setChecked(self.config.get("is_demo", False)) #咖啡版功能
         layout.addWidget(self.debug_demo_mode) #咖啡版功能
@@ -160,12 +156,7 @@ class GeneralPageMixin:
         self.btn_view_logs = QPushButton("📄 檢視詳細日誌 (View Detail Logs)")
         self.btn_view_logs.setObjectName("secondary")
         self.btn_view_logs.clicked.connect(self._view_debug_log)
-        diag_grid.addWidget(self.btn_view_logs, 2, 0)
-
-        self.btn_view_keystrike = QPushButton("📄 檢視熱鍵紀錄 (View Keys Logs)")
-        self.btn_view_keystrike.setObjectName("secondary")
-        self.btn_view_keystrike.clicked.connect(self._view_keystrike_log)
-        diag_grid.addWidget(self.btn_view_keystrike, 2, 1)
+        diag_grid.addWidget(self.btn_view_logs, 2, 0, 1, 2)  # Span 2 columns
 
         self.btn_open_folder = QPushButton("📂 開啟數據與模型目錄 (Open Data/Models)")
         self.btn_open_folder.setObjectName("secondary")
@@ -195,7 +186,7 @@ class GeneralPageMixin:
 
     def _run_export_diagnostics(self):
         """Mac 主線 11-3（v2.9.11 崩潰診斷管道）移植＋Windows 化：一鍵匯出診斷包
-        （環境資訊＋音訊裝置清單＋debug.log/keystrike.log/main_crash.log 尾段＋
+        （環境資訊＋音訊裝置清單＋debug.log/main_crash.log 尾段＋
         脫敏設定摘要）到桌面 zip，方便回報問題。實際邏輯在 utils/diagnostics.py。"""
         from paths import APP_DATA_DIR
         from utils.diagnostics import export_diagnostic_bundle
@@ -229,18 +220,6 @@ class GeneralPageMixin:
                 subprocess.run(["open", str(log_path)])
         else:
             QMessageBox.information(self, "資訊", f"日誌檔案尚未建立：\n{log_path}")
-
-    def _view_keystrike_log(self):
-        from paths import KEYSTRIKE_LOG_PATH
-        if KEYSTRIKE_LOG_PATH.exists():
-            import os, platform
-            if platform.system() == "Windows":
-                os.startfile(str(KEYSTRIKE_LOG_PATH))
-            else:
-                import subprocess
-                subprocess.run(["open", str(KEYSTRIKE_LOG_PATH)])
-        else:
-            QMessageBox.information(self, "資訊", f"熱鍵日誌檔案尚未建立：\n{KEYSTRIKE_LOG_PATH}")
 
     def _open_data_folder(self):
         from paths import APP_DATA_DIR

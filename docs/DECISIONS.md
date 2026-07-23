@@ -4,6 +4,12 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-23 — keystrike 死碼清除（推翻 REVIEW 26-4「決定不做」）
+
+- **背景**：同日稍早的隱私與加固審查（見下一節）已查明 `keystrike.log` 從未被實際寫入、`separate_keystrike_log` 開關無程式碼讀取，並判定「無隱私疑慮、死碼留給未來需要時再處理」（REVIEW.md 26-4 🚫 決定不做）。
+- **決定**：主人本次明示改為指示清除，推翻原判定。已移除：`paths.py` 的 `KEYSTRIKE_LOG_PATH` 常數與 `initialize_paths()` 的 `touch()` 佔位、`config.py` 的 `separate_keystrike_log` 死開關、`main.py` 啟動時的 keystrike 路徑記錄、`ui/settings/general_page.py` 的勾選框與「檢視熱鍵紀錄」按鈕（連帶移除 `ui/settings_window.py` 兩處讀寫該勾選框的殘留代碼）、`utils/diagnostics.py` 的 `keystrike.log` 收集項。全 repo grep `keystrike`（不分大小寫）確認程式碼零殘留；`CHANGELOG.md`／`docs/DECISIONS.md`／`REVIEW.md` 的既有歷史紀錄段落原文保留，僅 REVIEW.md 26-4 狀態回註為 ✅ 已修。
+- **理由**：既然功能本來就沒人用、也沒有計劃要接線，留著死碼只會誤導後續接手者（同類判斷見 `paths.py` 頂部關於 `VOCAB_DIR` 等常數的死碼清理記錄）；主人的清除指示優先於先前「留給未來」的保守判斷。
+
 ## 2026-07-23 — 隱私與加固審查（實機驗證前的靜態修 bug 輪）
 
 v3.3.0 已發佈、實機驗證前，主人指示做能做的修 bug／加固。五項依序處理，每項 atomic commit。

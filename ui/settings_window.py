@@ -399,7 +399,6 @@ class SettingsWindow(
         self.debug_mode.setChecked(self.config.get("debug_mode", False))
         self.debug_demo_mode.setChecked(self.config.get("is_demo", False))
         self.output_prefix.setChecked(self.config.get("output_prefix", False))
-        self.separate_keystrike_log.setChecked(self.config.get("separate_keystrike_log", False))
         self.showcase_mode.setChecked(self.config.get("showcase_mode", False))
         self.memory_inject_cb.setChecked(self.config.get("memory_enabled", False))
 
@@ -444,7 +443,6 @@ class SettingsWindow(
         self.config["debug_mode"] = self.debug_mode.isChecked()
         self.config["is_demo"] = self.debug_demo_mode.isChecked() # Match key used in main.py
         self.config["output_prefix"] = self.output_prefix.isChecked()
-        self.config["separate_keystrike_log"] = self.separate_keystrike_log.isChecked()
         self.config["show_floating_button"] = self.show_floating_button.isChecked()
         self.config["showcase_mode"] = self.showcase_mode.isChecked()
         self.config["memory_enabled"] = self.memory_inject_cb.isChecked()

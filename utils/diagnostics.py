@@ -1,7 +1,7 @@
 """Mac 主線 v2.9.11（11-3，`51094bf:utils/diagnostics.py`，259 行）移植 + Windows 化改寫：
 診斷包匯出工具。
 
-一鍵打包 Windows 環境資訊／麥克風裝置清單／debug.log／keystrike.log／
+一鍵打包 Windows 環境資訊／麥克風裝置清單／debug.log／
 main_crash.log／設定摘要（脫敏）到桌面 zip，方便使用者回報問題。
 
 與 Mac 原版的差異（收集邏輯全部改寫成 Windows 對應版，概念相同）：
@@ -205,7 +205,7 @@ def export_diagnostic_bundle(
     """打包診斷 zip。預設放桌面，回傳 zip 路徑；失敗回傳 None。
 
     Args:
-        app_data_dir: `paths.APP_DATA_DIR`，debug.log/keystrike.log/main_crash.log
+        app_data_dir: `paths.APP_DATA_DIR`，debug.log/main_crash.log
             都在這個目錄下。
         config: 目前設定 dict（會先脫敏才寫入 zip）。
         desktop_dir: 輸出目錄，預設 `~/Desktop`；測試時可傳 tmp_path 覆蓋。
@@ -240,7 +240,6 @@ def export_diagnostic_bundle(
         # 3. 各類 log（存在才收，沒有就跳過，不製造空檔）
         for log_name, max_lines in (
             ("debug.log", 2000),
-            ("keystrike.log", 500),
             ("main_crash.log", 2000),
         ):
             try:
