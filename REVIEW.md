@@ -67,7 +67,7 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 | 28-6 | `9f95aa1` 把 `self.tray.run()` 換成 `app_inst.exec()` 時漏掉隱含的 `tray.start()`，Windows 系統匣從未建立 | 中高（基本 UI 功能缺失） | ✅ 已修（`d672a02`，2026-07-23） | `run()` 現在模型／全時模式準備後先啟動 tray，再啟動 hotkey。新增 AST 順序回歸測試；正式 v3.4.3 Lite 包內 Qt live object 回讀 `visible=True`、`tooltip=聲成文`、icon 非空。 |
 | 28-7 | tray 品牌列沒有 callback；Settings／About 在 QAction callback 內搶前景，且 modal About 會阻塞其他 app 視窗 | 中（使用者點擊像沒反應） | ✅ 已修（`d672a02`，2026-07-23） | 品牌列與偏好設定均開 Settings；視窗顯示後延遲到 menu 關閉再 activate，About 改保留單一 modeless instance。正式 v3.4.3 Lite 包內 Qt callback 驗證 Settings 1200×840 與 About 680×720 同時 visible、非 minimized；widget 原生截圖確認 About 無裁切／重疊。 |
 | 28-8 | 舊龍圖含不可讀文字，About 固定 320×430 導致版本與完整署名裁切／重疊 | 中低（品牌與可讀性） | ✅ 已修（`d672a02`，2026-07-23） | 新增透明語音泡泡＋麥克風＋波形標誌，更新 PNG／tray PNG／多尺寸 ICO；About 改可縮放、可捲動的 680×720 版面並保留完整署名鏈。正式 v3.4.3 Lite 截圖確認無鮮綠底、裁切或重疊。 |
-| 28-9 | v3.4.3 Release workflow 成功但 GitHub 標註所用 action 仍以已淘汰的 Node.js 20 為目標，目前由 runner 強制改用 Node.js 24 | 低（CI 維護性） | ⏳ 待修（不阻擋 v3.4.3） | 影響 `actions/checkout@v4`、`actions/upload-artifact@v4`、`softprops/action-gh-release@v2`；本次所有建置、驗證、上傳步驟均成功。應另開維護變更更新 action 並重跑 workflow，不在已驗證的 release tag 上就地改寫。 |
+| 28-9 | v3.4.3 CI／Release workflow 成功但 GitHub 標註所用 action 仍以已淘汰的 Node.js 20 為目標，目前由 runner 強制改用 Node.js 24 | 低（CI 維護性） | ⏳ 待修（不阻擋 v3.4.3） | 影響 `actions/checkout@v4`、`actions/setup-python@v5`、`actions/upload-artifact@v4`、`softprops/action-gh-release@v2`；本次所有測試、建置、驗證與上傳步驟均成功。應另開維護變更更新 action 並重跑 workflow，不在已驗證的 release tag 上就地改寫。 |
 
 **統計**：已修/已驗證 42 項、待修 1 項（28-9）、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
 
