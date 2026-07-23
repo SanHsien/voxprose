@@ -71,6 +71,7 @@ PURE_LOGIC_MODULES = [
     "utils.zh_convert",
     "audio.mutex",
     "audio.gain",
+    "utils.foreground",
 ]
 
 
