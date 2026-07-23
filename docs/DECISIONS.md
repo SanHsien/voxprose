@@ -4,6 +4,13 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-23 — v3.4.2 正式發佈與驗證流程 fail-closed
+
+- **發佈決定**：STT readiness 修補不能只停在 `main`、讓 v3.4.1 資產仍帶舊行為，因此以 commit `119836a` 發佈 v3.4.2。Python 3.10–3.14 五版本 CI 與 Windows Release workflow 均成功。
+- **正式資產證據**：重新下載 GitHub Release 資產後，Lite 為 240,351,527 bytes、SHA-256 `ceba412580239375c5f984b9dbd5759b5fb71b4ecc8cf01f7f0f97dec45267e4`；NoModel 為 1,610,744,017 bytes、SHA-256 `c00337d60b6ad82f3cdade47944fe98544092a1696e8e8f7dacfe6fe09c22bc5`。兩者均與 sidecar／GitHub digest 一致，並通過全檔 CRC、UTF-8 中文檔名與必要資源 gate。正式 Lite 另通過 Windows `Expand-Archive`、runtime imports；麥克風串流可開但取樣峰值 `0.000`，因此真人語音仍不得列為通過。
+- **正式包 readiness 證據**：以正式 Lite 內嵌 Python 執行 repo 的手動檢查，並強制 `VOXPROSE_SOURCE_ROOT` 指向正式解壓目錄；輸出確認載入該目錄的 `stt/subprocess_whisper.py`，2.14 秒後才回報 ready／warmup complete。
+- **驗證器本身也要 fail-closed**：覆核發現錯誤的 `VOXPROSE_SOURCE_ROOT` 可能退回 cwd 匯入，已改為先驗必要 module、匯入後再驗 `__file__` 位於指定 root；不存在路徑實測 exit 1。暫存清理 guard 也從單純 `StartsWith($TempBase)` 改成拒絕空白、拒絕 temp root 本身，且只接受 canonical temp 子目錄；一般刪除與 .NET fallback 共用同一個已驗證目標。
+
 ## 2026-07-23 — STT worker readiness 必須以 `warmup_done` 為準
 
 - **問題**：`ui/app.py:_sync_preload_models()` 把 `SubprocessWhisperSTT.warmup()` 當成同步契約，呼叫返回後立即設 `_models_ready=True`；但舊實作只送出 `{"type": "warmup"}` 就返回。實機 log 曾相差 43 秒才真正完成模型載入與 warmup。
