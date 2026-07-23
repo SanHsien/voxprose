@@ -8,6 +8,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **CI action runtime**：四個 workflow 升級至 Node 24 世代的 `checkout/setup-python/upload-artifact v7` 與 `action-gh-release v3`，移除 GitHub runner 的 Node 20 淘汰警告。
+- **前景程式倒數不再凍結 UI**：「偵測目前前景程式」改用 `QTimer` 非阻塞倒數，使用者可在 3 秒內正常切換視窗，並在關閉倒數視窗前先抓取 process。
+- **系統匣選單動作與清理**：修正 QAction 迴圈晚綁定造成 callback 收到錯誤動作，並改用正確的 `QSystemTrayIcon` hide/deleteLater 關閉流程。
+- **設定儲存假成功**：基底靈魂檔無法寫入時不再靜默忽略；現在會中止儲存並顯示實際錯誤。
+
 ## [3.4.3] - 2026-07-23
 
 ### Fixed

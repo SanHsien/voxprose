@@ -58,7 +58,7 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 | 26-4 | `keystrike.log`：`separate_keystrike_log` 設定開關是死碼（無程式碼讀取），檔案永遠是空 touch 占位 | 低 | ✅ 已修（2026-07-23） | 原判定 🚫 決定不做（隱私審查確認無疑慮，見 `docs/DECISIONS.md` 2026-07-23 一）；主人 2026-07-23 明示改為指示清除，已移除 `paths.KEYSTRIKE_LOG_PATH`／`touch()` 佔位、`config.py` 的 `separate_keystrike_log` 開關、UI 勾選框與「檢視熱鍵紀錄」按鈕、`utils/diagnostics.py` 收集項；全 repo grep `keystrike` 程式碼零殘留，僅留文件歷史紀錄 |
 | 26-5 | `.github/workflows/ci.yml` 只測 Python 3.12，未涵蓋 `pyproject.toml` 宣告的 3.10/3.11 | 低 | ✅ 已修（2026-07-23） | 改 `strategy.matrix` 涵蓋 3.10/3.11/3.12；新增 `tests/test_ci_workflow.py` |
 | 27-1 | 新增 Silero VAD 全時模式引擎（`audio/vad/`，`vad_engine="silero"`，見 `docs/REFERENCES.md` 調研條目） | — | 🔍 需實機驗證 | 介面抽象＋RMS 行為位元級不變＋真模型／合成音訊測試均通過；本輪修正版 Lite runtime 已確認內含 onnxruntime 1.27.0，UI 實際列出 RMS／Silero 且 Silero 顯示「✅ 可用」。麥克風 Logi C615 可開串流但取樣峰值 `0.000`；**未驗證**：真人說話、咳嗽／呼吸／雜音對照、真 STT 貼字。 |
-| 27-2 | 新增前景視窗感知的情境模板自動切換（`utils/foreground.py`＋`auto_scenario_enabled`/`auto_scenario_rules`，見 `docs/REFERENCES.md` Wispr Flow 調研條目） | — | 🔍 需實機驗證 | 純 ctypes 與規則測試通過；本輪負向操作在未切換視窗時如預期抓到設定頁 `pythonw.exe`。Computer Use 單次 click 阻塞完整倒數，無法在 3 秒內另送合規切窗 action，因此「切到記事本後是否抓對」仍是 `BLOCKED`，不能把負向結果誤列產品 FAIL；真 API/LLM 情境命中與 fallback 同樣未驗證。 |
+| 27-2 | 新增前景視窗感知的情境模板自動切換（`utils/foreground.py`＋`auto_scenario_enabled`/`auto_scenario_rules`，見 `docs/REFERENCES.md` Wispr Flow 調研條目） | — | 🔍 端到端待實機驗證；倒數阻塞已修（`c93b37f`，2026-07-24） | 原 3 秒倒數以 `time.sleep()` 卡住 Qt 主執行緒，使用者與 Computer Use 都無法在 callback 期間切窗；現改為非阻塞 `QTimer`、防重入，並在關閉 progress 前先抓 process，25 項相關測試通過。仍待正式套件跨 app callback、真 API/LLM 情境命中與 fallback 端到端驗證。 |
 | 28-1 | v3.4.0 Windows Release ZIP 的 7 個中文檔名在英文 runner 被 `tar.exe` 轉成 literal `?`，導致 `Expand-Archive` 失敗且情境模板缺失 | 高（正式產物不可正常解壓） | ✅ 已修並自 v3.4.1 重發（`a9ac6de`，2026-07-23） | 改 .NET `ZipArchive` UTF-8；新增 `tools/verify_release_zip.py`、10 項回歸測試與 workflow 上傳前 gate。正式 v3.4.2 Lite／NoModel 的 SHA、CRC、UTF-8 資源均再次實證通過，Lite 完成 Windows 解壓與 runtime imports；既有 v3.4.0 資產保留為壞包事故紀錄。 |
 | 28-2 | `_sync_preload_models()` 把非同步 subprocess warmup 當成同步完成，worker 尚未 ready 就設 `_models_ready=True` 並顯示設定 UI | 中（啟動狀態與真實 readiness 不一致） | ✅ 已修（`7778e13`，2026-07-23） | `warmup()` 現等待 worker 的 `ready`＋帶成功狀態的 `warmup_done`；error、程序死亡、pipe 關閉或 reader 失敗均撤銷 ready 並拋錯。首次模型下載不設絕對 timeout，避免慢網路超時後永久卡住。8 項回歸測試；Windows 真 worker tiny CPU int8 首次 11.12 秒、快取後 1.52 秒；正式 v3.4.2 Lite 解壓目錄 warmup 2.14 秒，皆只在完成後 PASS。 |
 | 28-3 | Computer Use/UIA 操作封裝 UI 時，app 兩度以 Windows fatal exception `0x8001010d` 消失 | 中（需重現歸因） | 🔍 真人環境重驗 | `main_crash.log` 兩次都停在 `ui/app.py:173 app_inst.exec()`，無正常 shutdown；可能是 UIA/COM 輸入同步互動誘發，現有證據不足以歸咎一般使用者操作或 STT warmup。需不用 UI 自動化的真人點擊重驗。 |
@@ -67,9 +67,11 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 | 28-6 | `9f95aa1` 把 `self.tray.run()` 換成 `app_inst.exec()` 時漏掉隱含的 `tray.start()`，Windows 系統匣從未建立 | 中高（基本 UI 功能缺失） | ✅ 已修（`d672a02`，2026-07-23） | `run()` 現在模型／全時模式準備後先啟動 tray，再啟動 hotkey。新增 AST 順序回歸測試；正式 v3.4.3 Lite 包內 Qt live object 回讀 `visible=True`、`tooltip=聲成文`、icon 非空。 |
 | 28-7 | tray 品牌列沒有 callback；Settings／About 在 QAction callback 內搶前景，且 modal About 會阻塞其他 app 視窗 | 中（使用者點擊像沒反應） | ✅ 已修（`d672a02`，2026-07-23） | 品牌列與偏好設定均開 Settings；視窗顯示後延遲到 menu 關閉再 activate，About 改保留單一 modeless instance。正式 v3.4.3 Lite 包內 Qt callback 驗證 Settings 1200×840 與 About 680×720 同時 visible、非 minimized；widget 原生截圖確認 About 無裁切／重疊。 |
 | 28-8 | 舊龍圖含不可讀文字，About 固定 320×430 導致版本與完整署名裁切／重疊 | 中低（品牌與可讀性） | ✅ 已修（`d672a02`，2026-07-23） | 新增透明語音泡泡＋麥克風＋波形標誌，更新 PNG／tray PNG／多尺寸 ICO；About 改可縮放、可捲動的 680×720 版面並保留完整署名鏈。正式 v3.4.3 Lite 截圖確認無鮮綠底、裁切或重疊。 |
-| 28-9 | v3.4.3 CI／Release workflow 成功但 GitHub 標註所用 action 仍以已淘汰的 Node.js 20 為目標，目前由 runner 強制改用 Node.js 24 | 低（CI 維護性） | ⏳ 待修（不阻擋 v3.4.3） | 影響 `actions/checkout@v4`、`actions/setup-python@v5`、`actions/upload-artifact@v4`、`softprops/action-gh-release@v2`；本次所有測試、建置、驗證與上傳步驟均成功。應另開維護變更更新 action 並重跑 workflow，不在已驗證的 release tag 上就地改寫。 |
+| 28-9 | v3.4.3 CI／Release workflow 成功但 GitHub 標註所用 action 仍以已淘汰的 Node.js 20 為目標，目前由 runner 強制改用 Node.js 24 | 低（CI 維護性） | ✅ 已修（`02bd6b5`，2026-07-24） | 全部 workflow 升級至 `actions/checkout@v7`、`actions/setup-python@v7`、`actions/upload-artifact@v7`、`softprops/action-gh-release@v3`；逐一核對官方 `action.yml` 均使用 Node 24 且既有 inputs 相容，新增防降級測試。 |
+| 29-1 | tray menu callback 在迴圈中晚綁定 `action`，所有 callback 可能收到最後一個 QAction；`stop()` 呼叫不存在的 `QSystemTrayIcon.stop()` | 中（選單動作可能錯置、退出清理例外） | ✅ 已修（`81ce7a7`，2026-07-24） | handler 現將各 QAction 綁為預設參數；stop 改為 hide、deleteLater 並清除引用。新增真 PyQt menu trigger 與 tray lifecycle 回歸測試。 |
+| 29-2 | 基底靈魂檔寫入失敗被 `except: pass` 吞掉，UI 仍顯示「設定已儲存」 | 中（設定遺失且假成功） | ✅ 已修（`788fcc5`，2026-07-24） | 抽出 `_save_soul_prompt()`；OSError 現記錄路徑與錯誤、顯示失敗訊息並中止其他設定儲存。成功與缺目錄失敗路徑皆有回歸測試。 |
 
-**統計**：已修/已驗證 42 項、待修 1 項（28-9）、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
+**統計**：已修/已驗證 45 項、待修 0 項、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
 
 ---
 
@@ -87,7 +89,7 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 
 1. 在有真實 API key 與真人麥克風、且不掛 UI Automation 的環境完成 crash、Silero/RMS、基本貼字與前景情境端到端驗證。
 2. 系統匣圖示做一次人工目視確認（低優先，啟動、visible、tooltip 與 icon 物件已實證正確）。
-3. 另開 CI 維護變更處理 GitHub Actions 的 Node.js 20 淘汰註記，更新後用非 release 分支先驗證。
+3. GitHub Actions 已升級至 Node 24 世代；確認下一輪 main CI 與 tag Release workflow 不再產生 Node 20 淘汰註記。
 
 ---
 
