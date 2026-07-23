@@ -13,6 +13,7 @@
 - 品牌列與偏好設定都能喚回 Settings；About 改成非 modal、680×720 可縮放捲動版面。`tests/manual/manual_ui_windows_check.py` 真 Qt callback 驗證兩個視窗 visible／非 minimized，並可輸出 widget 原生截圖。
 - 新品牌圖示採透明背景的語音泡泡＋麥克風＋波形，已同步 `icon.png`、tray PNG 與 7 種尺寸的 Windows ICO。
 - 版本推進：`paths.py` → `V3.4.3`／`BUILD-3430-STABLE`、`pyproject.toml` 與 Inno Setup metadata → `3.4.3`。
+- 正式 Release：[v3.4.3](https://github.com/SanHsien/voxprose/releases/tag/v3.4.3)。重新下載後 Lite（238,977,563 bytes）SHA-256 `d7b7616b4c5ff074bdc288410eed42272505e12e017e922ea7cd6289ee28d78c`；NoModel（1,609,366,776 bytes）SHA-256 `953bf9a81d647e16cad73317f4dc9944cd0c3870f43c34cc6dc2fdac3014f5de`。兩包 CRC／UTF-8 中文資源驗證通過；正式 Lite Windows 解壓與包內 Settings／About／tray live object 實測通過。
 
 ---
 
