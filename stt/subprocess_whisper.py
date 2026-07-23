@@ -54,18 +54,24 @@ def _stt_worker(pipe_conn: multiprocessing.connection.Connection, config: dict):
 
     worker_log_path = APP_DATA_DIR / "worker_debug.log"
     faulthandler_path = APP_DATA_DIR / "worker_crash.log"
-    
+
     # Open faulthandler log file to capture segfaults
     try:
         fh_file = open(str(faulthandler_path), "a")
         faulthandler.enable(file=fh_file)
-    except: pass
-    
+    except Exception as e:
+        # logging 尚未設定（下面才 basicConfig），只能用 print；
+        # narrow 掉 bare except，避免誤吞 KeyboardInterrupt/SystemExit。
+        print(f"[stt-worker] Failed to enable faulthandler crash log: {e}")
+
+    # 2026-07-23：worker_debug.log 原本用 basicConfig 的 filename 參數附加寫入，
+    # 沒有大小上限；每次 STT 子程序啟動都會再 append，長期執行下無限增長。
+    # 改用共用的 RotatingFileHandler（見 utils/log_rotation.py，5MB×2 備份）。
+    from utils.log_rotation import make_rotating_file_handler
     logging.basicConfig(
-        filename=str(worker_log_path),
         level=logging.INFO,
         format='%(asctime)s [%(levelname)s] %(message)s',
-        encoding='utf-8' # v2.8.27_V72: Fix Windows Mojibake
+        handlers=[make_rotating_file_handler(worker_log_path)],
     )
     log = logging.getLogger("voicetype-worker")
     log.info("--- Worker Startup ---")
@@ -373,9 +379,14 @@ class SubprocessWhisperSTT(BaseSTT):
         try:
             from vocab.manager import build_vocab_prompt
             prompt = build_vocab_prompt()
-        except Exception:
+        except Exception as e:
+            # 2026-07-23（broad except 清查）：build_vocab_prompt() 失敗時原本
+            # 靜默退回預設 prompt，等於「智慧詞彙學習無聲失效」卻查不到原因
+            # ——這與 2026-07-20 修過的同一條路徑（見上方 IPC prompt 欄位 bug）
+            # 是同一類風險，因此補一筆 log 而非繼續沉默。
+            print(f"[stt-mgr] build_vocab_prompt failed, using default prompt: {e}")
             prompt = "以下是繁體中文的語音內容："
-            
+
         if not self.worker_process.is_alive():
             print("[stt-mgr] Worker process is dead. Re-initializing...")
             self.__init__(self.config) # Attempt re-init

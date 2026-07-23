@@ -23,8 +23,12 @@ if sys.platform == "win32" and getattr(sys, 'frozen', False):
         null_fd = os.open(os.devnull, os.O_RDWR)
         os.dup2(null_fd, 1)
         os.dup2(null_fd, 2)
-    except:
-        pass
+    except OSError as e:
+        # 2026-07-23（broad except 清查）：這段本身是「防止 ctranslate2 Access
+        # Violation」的關鍵前置步驟（見上方 docstring）——若失敗又完全靜默，
+        # 之後真的撞見無訊息崩潰時會完全查不到源頭。這裡 fd 1/2 尚未被導向
+        # NUL，print 仍會到達原本的 stdout/stderr。
+        print(f"[main] WARNING: Failed to redirect fd 1/2 to NUL: {e}", file=sys.stderr)
 
 # v2.8.27_V70: THE ULTIMATE DEFENSE - threading.Thread.start Hook
 import threading
@@ -37,7 +41,8 @@ try:
             return
         return _orig_thread_start(self, *args, **kwargs)
     threading.Thread.start = _hooked_thread_start
-except Exception: pass
+except Exception as e:
+    print(f"[main] WARNING: tqdm thread-hook install failed: {e}", file=sys.stderr)
 
 # This MUST be set before any module loads libiomp5md.dll
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -78,7 +83,8 @@ if __name__ == "__main__":
     # v2.8.27_V53: Force use certifi for SSL robustness in bundled environment
     try:
         os.environ['SSL_CERT_FILE'] = certifi.where()
-    except: pass
+    except Exception as e:
+        print(f"[main] WARNING: Failed to set SSL_CERT_FILE via certifi: {e}", file=sys.stderr)
     
     if is_main_process:
         try:
@@ -97,12 +103,16 @@ if __name__ == "__main__":
                 faulthandler.enable(file=crash_log)
 
             # v2.8.27_V61: Fix logging not recording after V50
+            # 2026-07-23：debug.log 原本用 FileHandler 附加寫入，沒有大小上限，
+            # 長期執行會無限增長；改用共用的 RotatingFileHandler（見
+            # utils/log_rotation.py，5MB×2 備份）。
+            from utils.log_rotation import make_rotating_file_handler
             log_path = APP_DATA_DIR / "debug.log"
             logging.basicConfig(
                 level=logging.INFO,
                 format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
                 handlers=[
-                    logging.FileHandler(str(log_path), encoding='utf-8'),
+                    make_rotating_file_handler(log_path),
                     logging.StreamHandler()
                 ]
             )
