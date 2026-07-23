@@ -1,8 +1,8 @@
 # 聲成文 VoxProse（前身 VoiceType4TW／嘴炮輸入法）Review
 
-- **日期**：2026-07-23
-- **Review 對象**：`main` 分支、正式發佈 `v3.4.3`（tag commit `d672a02`）
-- **方法**：重新 fetch 並核對基線、全樹差異覆核、Python 3.14.6 執行 `python -m pytest tests/ -q`（**423 passed, 10 skipped**）、GitHub Python 3.10–3.14 五版本 CI、Release workflow、兩個正式資產重新下載與 SHA-256、ZIP 中央目錄 filename/UTF-8 flag、全檔 CRC、Windows `Expand-Archive` round-trip，以及由正式 Lite 解壓目錄與包內 Python 執行的 Settings／About callback、原生 widget 截圖與 `QSystemTrayIcon` live object 驗證。真人有效音量、真 API key 與前景情境 LLM 端到端仍依 `docs/RELEASE_VERIFICATION.md` 標為 `BLOCKED`／待驗證，未用自動化結果代替。
+- **日期**：2026-07-24
+- **Review 對象**：`main` 分支（`a1284f5` 自動化基線）、正式發佈 `v3.4.3`（tag commit `d672a02`）
+- **方法**：重新 fetch 並核對基線、全樹差異覆核；GitHub Python 3.10–3.14 五版本 CI（run `30028699102`，每版 **464 passed**）；正式 v3.4.3 資產沿用前輪重新下載、SHA-256、CRC、UTF-8 filename 與 Windows `Expand-Archive` 證據。本輪另以正式 Lite runtime 執行最新 source：Settings／About callback 與原生 widget 截圖、Computer Use 操作 About、VoxProse `TextInjector` 貼字到記事本、設定頁真三秒 callback 取得 `LINE.exe`；本輪未重新建置可攜包。真人有效音量、真 API key 與前景情境 LLM 端到端仍依 `docs/RELEASE_VERIFICATION.md` 標為 `BLOCKED`／待驗證，未用自動化結果代替。
 
 ---
 
@@ -26,7 +26,7 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 | 2 | STT 引擎選單「Gemini」無對應分派分支 | 中高 | ✅ 已修（`71f0cbe`） | `stt/__init__.py` 已有分支，測試通過 |
 | 3 | 無 Whisper 幻覺過濾機制 | 中高 | ✅ 已修（`7bf8592`） | `stt/hallucination_filter.py` 接線；實機驗證「嗯」被過濾、完整句不被過濾 |
 | 4 | API Key 明碼且會同步到雲端資料夾 | 高 | ✅ 已修（`cc1e2d1`） | `LOCAL_KEYS` 已收錄 `*_api_key` |
-| 5 | 無 `test_*.py`，核心 pipeline 零測試覆蓋 | 中高 | ✅ 已修（`f8633de` 起） | `tests/` 現有 36 個 `test_*.py`，423 passed, 10 skipped（Python 3.14.6，2026-07-23 本輪） |
+| 5 | 無 `test_*.py`，核心 pipeline 零測試覆蓋 | 中高 | ✅ 已修（`f8633de` 起） | `tests/` 現有 45 個 `test_*.py`；GitHub Python 3.10–3.14 五版本 CI 每版 464 passed（run `30028699102`，2026-07-24） |
 | 6 | `paths.py` 雲端同步路徑常數是死碼 | 中 | ✅ 已修 | 四個常數已移除 |
 | 7 | `ui/settings_window.py` god file | 中 | ✅ 已修（`1252a68`） | 拆為 7 分頁 mixin；實機驗證（含真 sounddevice）全數通過 |
 | 8 | `requirements-win.txt` 無版本上限 | 中低 | ✅ 已修（`266280d`） | 實機驗證乾淨 venv 89 秒安裝成功、零衝突 |
@@ -61,7 +61,7 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 | 27-2 | 新增前景視窗感知的情境模板自動切換（`utils/foreground.py`＋`auto_scenario_enabled`/`auto_scenario_rules`，見 `docs/REFERENCES.md` Wispr Flow 調研條目） | — | 🔍 真 API/LLM 端到端待驗；倒數兩階段修復（`c93b37f`、`e34e7a8`，2026-07-24） | `c93b37f` 先把阻塞 GUI 的 `time.sleep()` 改成 `QTimer`；真機覆核再發現 modal `QProgressDialog` 於更新時會搶回前景：Computer Use 切到 LINE、當下函式讀到 `LINE.exe`，三秒 callback 卻兩次得到 `python.exe`。`e34e7a8` 改用原按鈕文字倒數、不建立頂層 dialog；同一流程 callback 實際 PASS `LINE.exe`，規則命中「社群貼文」、未命中回 `None`。驗證器反查 source root；仍待真 API/LLM 輸出情境與 fallback 端到端驗證，故維持 🔍。 |
 | 28-1 | v3.4.0 Windows Release ZIP 的 7 個中文檔名在英文 runner 被 `tar.exe` 轉成 literal `?`，導致 `Expand-Archive` 失敗且情境模板缺失 | 高（正式產物不可正常解壓） | ✅ 已修並自 v3.4.1 重發（`a9ac6de`，2026-07-23） | 改 .NET `ZipArchive` UTF-8；新增 `tools/verify_release_zip.py`、10 項回歸測試與 workflow 上傳前 gate。正式 v3.4.2 Lite／NoModel 的 SHA、CRC、UTF-8 資源均再次實證通過，Lite 完成 Windows 解壓與 runtime imports；既有 v3.4.0 資產保留為壞包事故紀錄。 |
 | 28-2 | `_sync_preload_models()` 把非同步 subprocess warmup 當成同步完成，worker 尚未 ready 就設 `_models_ready=True` 並顯示設定 UI | 中（啟動狀態與真實 readiness 不一致） | ✅ 已修（`7778e13`，2026-07-23） | `warmup()` 現等待 worker 的 `ready`＋帶成功狀態的 `warmup_done`；error、程序死亡、pipe 關閉或 reader 失敗均撤銷 ready 並拋錯。首次模型下載不設絕對 timeout，避免慢網路超時後永久卡住。8 項回歸測試；Windows 真 worker tiny CPU int8 首次 11.12 秒、快取後 1.52 秒；正式 v3.4.2 Lite 解壓目錄 warmup 2.14 秒，皆只在完成後 PASS。 |
-| 28-3 | Computer Use/UIA 操作封裝 UI 時，app 兩度以 Windows fatal exception `0x8001010d` 消失 | 中（需重現歸因） | 🔍 真人環境重驗 | `main_crash.log` 兩次都停在 `ui/app.py:173 app_inst.exec()`，無正常 shutdown；可能是 UIA/COM 輸入同步互動誘發，現有證據不足以歸咎一般使用者操作或 STT warmup。需不用 UI 自動化的真人點擊重驗。 |
+| 28-3 | Computer Use/UIA 操作封裝 UI 時，app 兩度以 Windows fatal exception `0x8001010d` 消失 | 中（需重現歸因） | 🔍 真人環境重驗 | `main_crash.log` 兩次都停在 `ui/app.py:173 app_inst.exec()`，無正常 shutdown；本輪 Computer Use 已成功操作 About、記事本貼字及 LINE 切窗，QA process 全程 responding，crash log 最後修改時間仍為 2026-07-23 23:12、未新增崩潰。這降低一般操作可重現性，但仍不足以取代「不掛 UI Automation」的真人點擊，故維持 🔍。 |
 | 28-4 | `manual_stt_warmup_check.py` 的來源 override 指錯時仍可能從 cwd 匯入 repo，讓「正式包 PASS」測到原始碼 | 高（驗證可產生假陽性） | ✅ 已修（`119836a`，2026-07-23） | override 先驗 `stt/subprocess_whisper.py` 存在，import 後再要求模組 `__file__` 位於指定 root。不存在路徑實測 exit 1；正式 v3.4.2 解壓目錄實測列出正確 module path 並 PASS。 |
 | 28-5 | 暫存清理範例只用 `StartsWith($TempBase)`，會把 `%TEMP%` 本身也判為可遞迴刪除 | 高（可能誤刪整個暫存根目錄） | ✅ 已修（`119836a`，2026-07-23） | `docs/RELEASE_VERIFICATION.md` 現拒絕空白、明確拒絕 target 等於 temp root，並要求 canonical target 以 temp child prefix 開頭；.NET fallback 沿用同一 guard。負向／合法子目錄案例均實測通過。 |
 | 28-6 | `9f95aa1` 把 `self.tray.run()` 換成 `app_inst.exec()` 時漏掉隱含的 `tray.start()`，Windows 系統匣從未建立 | 中高（基本 UI 功能缺失） | ✅ 已修（`d672a02`，2026-07-23） | `run()` 現在模型／全時模式準備後先啟動 tray，再啟動 hotkey。新增 AST 順序回歸測試；正式 v3.4.3 Lite 包內 Qt live object 回讀 `visible=True`、`tooltip=聲成文`、icon 非空。 |
@@ -103,4 +103,4 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 再補上 STT readiness 契約與 fai
 
 ---
 
-*本 review 為對 release ZIP 修補 `a9ac6de`、STT readiness 修補 `7778e13` 與正式 v3.4.3 發佈（`d672a02`）的覆核；`python -m pytest tests/ -q` 已實跑（423 passed, 10 skipped），五版本 CI、正式資產重下載、Windows 解壓、正式包 tray 與視窗 callback 驗證通過。既有 GitHub v3.4.0 資產仍不得視為通過。*
+*本 review 為對正式 v3.4.3 發佈（`d672a02`）與 2026-07-24 main QA checkpoint 的 latest-only 覆核；`a1284f5` 五版本 CI 每版 464 passed，正式資產沿用已完成的重下載／Windows 解壓證據，最新 source 另通過 About、記事本貼字與 LINE 前景 callback 實機操作。本輪依維護者指示未重新建置可攜包；既有 GitHub v3.4.0 資產仍不得視為通過。*
