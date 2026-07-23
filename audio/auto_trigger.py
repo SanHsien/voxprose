@@ -1,7 +1,7 @@
 """
 Always-on voice activity trigger (全時自動觸發模式).
 
-Opens a persistent low-cost input stream and segments speech by RMS with
+Opens a persistent low-cost input stream and segments speech with
 hysteresis — no hotkey needed. A short pre-roll ring buffer is prepended to
 each segment so the first syllable is not clipped. Complete segments are
 emitted as WAV bytes through on_segment_stop, compatible with the existing
@@ -9,6 +9,11 @@ STT pipeline (VoiceTypeApp._process_audio).
 
 Runs independently of AudioRecorder: PTT/toggle hotkeys keep their own
 stream, so enabling auto mode never touches the existing recording paths.
+
+語音強度判斷（本來是內嵌的 RMS 能量計算）已抽象成 `audio/vad/` 的
+`BaseVAD` 介面（`vad_engine` 參數：`"rms"`｜`"silero"`），這裡的狀態機
+（hysteresis、`min_speech_sec`、`max_segment_sec`）完全不變——見
+`audio/vad/base.py` 與 docs/DECISIONS.md 全時模式 VAD 引擎決策。
 """
 import io
 import logging
@@ -19,6 +24,8 @@ from typing import Callable, Optional
 
 import numpy as np
 import sounddevice as sd
+
+from audio.vad import get_vad_engine
 
 log = logging.getLogger("voicetype.autotrigger")
 
@@ -36,11 +43,15 @@ class AutoTriggerController:
         silence_sec: float = 1.5,
         min_speech_sec: float = 0.4,
         max_segment_sec: float = 60.0,
+        vad_engine: str = "rms",
     ):
         self.on_segment_start = on_segment_start
         self.on_segment_stop = on_segment_stop
         self.level_callback = level_callback
         self.samplerate = samplerate
+        # 語音強度判斷引擎（預設 "rms"，現行行為位元級不變；"silero" 缺依賴
+        # /模型時 get_vad_engine() 已自行優雅降級回 rms，這裡不需要再判斷）。
+        self._vad = get_vad_engine(vad_engine)
         # 觸發門檻（0~1，與 Indicator 音量條同一尺度）；低於門檻的 60% 才算靜音（遲滯）
         self.sensitivity = max(0.02, min(float(sensitivity), 1.0))
         self.silence_sec = max(0.4, float(silence_sec))
@@ -61,6 +72,7 @@ class AutoTriggerController:
             return
         self._running = True
         self._reset_segment_state()
+        self._vad.reset()
         self._stream = sd.InputStream(
             samplerate=self.samplerate,
             channels=1,
@@ -112,8 +124,7 @@ class AutoTriggerController:
         if not self._running:
             return
         try:
-            rms = float(np.sqrt(np.mean(indata.astype(np.float32) ** 2))) / 32768.0
-            level = min(rms * 10, 1.0)
+            level = self._vad.compute_level(indata)
             speaking = level >= self.sensitivity
             barely_silent = level < self.sensitivity * 0.6
 
