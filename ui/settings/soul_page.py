@@ -8,13 +8,12 @@ split's mapping table.
 import logging
 import os
 import platform
-import time
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QListWidget, QTextEdit, QMessageBox, QCheckBox, QTableWidget,
-    QTableWidgetItem, QComboBox, QHeaderView, QApplication, QProgressDialog,
+    QTableWidgetItem, QComboBox, QHeaderView, QProgressDialog,
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
@@ -122,6 +121,7 @@ class SoulPageMixin:
         btn_detect = QPushButton("🔍 偵測目前前景程式 (3 秒倒數)")
         btn_detect.setToolTip("按下後請立刻切換到你要偵測的目標視窗，3 秒後會抓取當時的前景程式並新增一列規則")
         btn_detect.clicked.connect(self._detect_foreground_app_for_rule)
+        self.auto_scenario_detect_btn = btn_detect
         btn_row.addWidget(btn_detect)
 
         btn_row.addStretch()
@@ -187,23 +187,62 @@ class SoulPageMixin:
         程式——這裡用 3 秒倒數（QProgressDialog，比照既有麥克風測試按鈕的
         使用者體驗），提示使用者先切到目標視窗，倒數結束後才真正抓取前景程式，
         並直接新增一列規則（情境先預設為 default，使用者自行從下拉選正確的）。"""
-        from utils.foreground import get_foreground_process_name
+        active_timer = getattr(self, "_foreground_detection_timer", None)
+        if active_timer is not None and active_timer.isActive():
+            return
 
         progress = QProgressDialog("請立刻切換到你要偵測的目標視窗...", None, 0, 3, self)
         progress.setWindowTitle("偵測前景程式")
         progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setAutoClose(False)
+        progress.setValue(0)
+        progress.setLabelText("請切換到目標視窗... 3 秒後偵測")
         progress.show()
 
-        for i in range(3):
-            progress.setValue(i)
-            progress.setLabelText(f"請切換到目標視窗... {3 - i} 秒後偵測")
-            QApplication.processEvents()
-            time.sleep(1)
+        self._foreground_detection_progress = progress
+        self._foreground_detection_remaining = 3
+        self.auto_scenario_detect_btn.setEnabled(False)
 
-        progress.setValue(3)
-        progress.close()
+        timer = QTimer(self)
+        timer.setInterval(1000)
+        timer.timeout.connect(self._advance_foreground_detection)
+        self._foreground_detection_timer = timer
+        timer.start()
 
+    def _advance_foreground_detection(self):
+        """非阻塞倒數；Qt event loop 保持可用，使用者才能真的切到目標視窗。"""
+        progress = getattr(self, "_foreground_detection_progress", None)
+        if progress is None:
+            return
+
+        self._foreground_detection_remaining -= 1
+        remaining = self._foreground_detection_remaining
+        if remaining > 0:
+            progress.setValue(3 - remaining)
+            progress.setLabelText(f"請切換到目標視窗... {remaining} 秒後偵測")
+            return
+
+        self._finish_foreground_detection()
+
+    def _finish_foreground_detection(self):
+        from utils.foreground import get_foreground_process_name
+
+        timer = getattr(self, "_foreground_detection_timer", None)
+        if timer is not None:
+            timer.stop()
+
+        # 必須先抓取前景程式再關閉 progress。Windows 關閉 modal dialog 時可能
+        # 把父 Settings 視窗重新帶到前景，反過來就只會抓到 pythonw.exe。
         proc_name = get_foreground_process_name()
+        progress = getattr(self, "_foreground_detection_progress", None)
+        if progress is not None:
+            progress.setValue(3)
+            progress.close()
+        self.auto_scenario_detect_btn.setEnabled(True)
+        self._foreground_detection_timer = None
+        self._foreground_detection_progress = None
+
         if not proc_name:
             QMessageBox.warning(
                 self, "偵測失敗",
