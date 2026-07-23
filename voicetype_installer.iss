@@ -2,7 +2,7 @@
 ; 創辦人視角：提供極速、穩定的安裝體驗
 
 #define MyAppName "VoxProse"
-#define MyAppVersion "3.3.0"
+#define MyAppVersion "3.4.0"
 #define MyAppPublisher "jfamily"
 #define MyAppURL "https://github.com/SanHsien/voxprose"
 #define MyAppExeName "run_voicetype.bat"
@@ -22,7 +22,7 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 ; 創辦人偏好：簡潔、專業的安裝介面
-OutputBaseFilename=ShengChengWen-Windows-Setup-v3.3
+OutputBaseFilename=ShengChengWen-Windows-Setup-v3.4
 SetupIconFile={#MyIcon}
 Compression=lzma
 SolidCompression=yes

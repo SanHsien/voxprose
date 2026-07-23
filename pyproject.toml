@@ -1,6 +1,6 @@
 [project]
 name = "voxprose"
-version = "3.3.0"
+version = "3.4.0"
 description = "聲成文 VoxProse — Windows-only fork of jfamily4tw/voicetype4tw-mac (VoiceType4TW / 嘴炮輸入法, win-stable), maintained by SanHsien"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"

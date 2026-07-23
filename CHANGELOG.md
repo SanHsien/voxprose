@@ -8,7 +8,9 @@
 
 ## [Unreleased]
 
-隱私與加固審查（實機驗證前的靜態修 bug 輪）。
+## [3.4.0] - 2026-07-23
+
+兩個新功能（Silero VAD、前景視窗自動情境切換，皆預設不改變現行行為、待實機驗證）＋隱私與加固審查（log 輪替、broad except 清查、權限檢查實質化）＋正式支援 Python 3.13/3.14＋keystrike 死碼清除。
 
 ### Added
 
@@ -136,6 +138,8 @@
 - STT 語言 hint 被翻譯目標語言污染：移植 `stt/language.py:get_transcription_language()`。
 - `ui/settings_window.py:_run_mic_test`：移除誤植的「非 macOS 拒絕」假擋板。
 
-[Unreleased]: https://github.com/SanHsien/voxprose/compare/v3.2.0...HEAD
+[Unreleased]: https://github.com/SanHsien/voxprose/compare/v3.4.0...HEAD
+[3.4.0]: https://github.com/SanHsien/voxprose/compare/v3.3.0...v3.4.0
+[3.3.0]: https://github.com/SanHsien/voxprose/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/SanHsien/voxprose/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/SanHsien/voxprose/compare/b694e40...v3.1.0
