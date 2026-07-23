@@ -29,3 +29,13 @@ groq>=0.9.0,<2
 opencc-python-reimplemented>=0.1.7,<1
 # NVIDIA CUDA wheels moved to requirements-cuda-win.txt —
 # installed by setup_win.bat only when an NVIDIA GPU is detected.
+#
+# onnxruntime (audio/vad/silero_vad.py, Silero VAD 全時模式選用引擎) is
+# intentionally NOT listed here. PyPI JSON API query (2026-07-23) shows no
+# single onnxruntime release has win_amd64 wheels covering this project's
+# full CI matrix (3.10-3.14): 1.23.2 covers cp310-cp313 but not cp314;
+# 1.24.1+ covers cp311-cp314 but dropped cp310 entirely. Pinning either way
+# would break a supported Python version in CI. vad_engine="silero" is an
+# advanced opt-in feature (default is "rms", unaffected) — users who want it
+# run `pip install onnxruntime` manually; get_vad_engine() falls back to RMS
+# gracefully when it's missing. See docs/DECISIONS.md.

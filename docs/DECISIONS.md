@@ -4,6 +4,23 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-23 — Silero VAD 全時模式引擎（`docs/REFERENCES.md` 調研項目落地）
+
+維護者核准實作 `docs/REFERENCES.md` 調研的大型功能：Silero VAD 作為全時模式（`audio/auto_trigger.py`）的選用語音偵測引擎，取代/輔助現行 RMS 能量+遲滯門檻判斷。本功能發佈時標記「🔍 待實機驗證」（見 `REVIEW.md` 27-1），由維護者之後統一驗證真人麥克風場景。
+
+- **架構（介面抽象，RMS 行為位元級不變）**：新增 `audio/vad/` 套件——`base.py`（`BaseVAD` 抽象介面，只定義 `compute_level(indata) -> float` 一個方法＋`reset()`）、`rms_vad.py`（把 `auto_trigger.py` 原本內嵌的 RMS 公式逐行搬移包裝，無任何數值調整）、`silero_vad.py`（onnxruntime 版）、`__init__.py`（`get_vad_engine(engine)` 工廠函式＋`describe_silero_availability()`）。`auto_trigger.py` 的 hysteresis/`min_speech_sec`/`max_segment_sec` 狀態機完全不動，只把原本內嵌的 RMS 算式換成呼叫 `self._vad.compute_level(indata)`——因為 RMS 與 Silero 的輸出天然都落在 0~1 尺度，`auto_trigger_sensitivity`/`auto_trigger_silence_sec` 的門檻語義不必因引擎切換而改變，使用者既有設定不需重學。
+- **決定（後端用 onnxruntime，不用 torch）**：torch 完整安裝約 2GB，塞不進可攜打包版；onnxruntime CPU 版只有數十 MB，模型本身（ONNX 版）約 2.3MB。
+- **決定（onnxruntime 改列選用依賴，不進 `requirements-win.txt`）**：PyPI JSON API 實查（2026-07-23）onnxruntime 近 8 個版本（1.20.0-1.27.0）的 win_amd64 wheel 矩陣：`1.20.0`-`1.23.2` 涵蓋 cp310-cp313（無 cp314）；`1.24.1`起改成涵蓋 cp311-cp314（**完全不提供 cp310**）。也就是說 onnxruntime 近期版本切換支援窗口時直接跳過 3.10，**沒有任何單一版本能同時涵蓋本專案 CI 矩陣 3.10-3.14**——不管鎖哪個版本區間，都會讓 CI 五版矩陣其中一端變紅。因此 `vad_engine="silero"` 定位為「進階選用功能」：`requirements-win.txt` 不列出 onnxruntime（只加註解說明查證結果與理由），需要的使用者自行 `pip install onnxruntime`；`get_vad_engine()` 捕捉 `ImportError` 優雅降級回 RMS，不影響預設安裝流程與 CI。
+- **決定（模型來源：首次使用時下載，釘住穩定 tag 而非 vendor 進 repo）**：模型來源查證用 `gh api repos/snakers4/silero-vad/...`，確認 `src/silero_vad/data/silero_vad.onnx`（2,327,524 bytes，MIT）在 `v6.2.1`（最新 release tag，2026-02-24）存在且可下載；下載 URL 釘住這個 tag（而非 `master` 分支），避免上游更新造成不可預期的行為變化。下載到 `%APPDATA%\VoxProse\models\silero_vad.onnx`，比照 `tools/download_models.py` 的 Whisper 模型下載模式（首次使用觸發，不進版控）。權衡：vendor 進 repo 可省一次網路請求，但要多一份 2.3MB 二進位檔案入 git 歷史；選擇下載模式與既有 Whisper 模型的使用者心智模型一致（設定頁已經有「模型未下載」的三態文案先例），故不 vendor。
+- **真模型實測（scratchpad `venv_real`，Python 3.11.15 + onnxruntime 1.27.0，非 mock）**：
+  - 下載驗證：`ensure_model_downloaded()` 對真實 `%APPDATA%\VoxProse\models\` 執行，實際下載 2,327,524 bytes（與 GitHub API 回報的 blob size 一致），首次下載 1.135s。
+  - 推論介面查證（**第一版實作的 bug，經真模型測出**）：`InferenceSession.get_inputs()/get_outputs()` 顯示 `input(float32[N,N])`/`state(float32[2,N,128])`/`sr(int64[])` → `output(float32[N,1])`/`stateN`；第一版只餵純 512 樣本窗口，跑起來不報錯，但真實語音音檔（scratchpad SAPI 合成 WAV）機率始終貼近 0（`max=0.0029`），跟純靜音/雜音幾乎無法區分——比對官方 `utils_vad.py:OnnxWrapper.__call__`（`gh api` 抓 `v6.2.1` 版本）發現 v5/v6 系列模型每步驟實際吃「上一步驟最後 64 樣本(context) + 這一步驟新的 512 樣本」共 576 樣本，不是單純 512。補上 context 前綴（`CONTEXT_SAMPLES=64`，`audio/vad/silero_vad.py`）後才恢復正常判別力。
+  - 修正後數字（2 秒靜音／2 秒白雜音／4 段 SAPI 合成語音，全部經 `AutoTriggerController` 同款 50ms/800 樣本 block 餵入）：靜音 `max=0.0089 mean=0.0041`；雜音 `max=0.0418 mean=0.0092`；語音（`tts_normal.wav`）`max=1.0000 mean=0.7823`（77% 的 block 機率 >0.5）、`tts_um_sentence.wav` `mean=0.7391`、`tts_um_triple.wav` `mean=0.5104`、`tts_um_long.wav` `mean=0.3140`——語音與靜音/雜音有數量級差距，判別力明確。
+  - 端到端：把 `tts_normal.wav`（+1 秒尾端靜音）以 `AutoTriggerController._callback()` 逐 block 餵入（`vad_engine="silero"`），`on_segment_start` 觸發 1 次、`on_segment_stop` 觸發 1 次、輸出 116,844 bytes 非空 WAV（`min_speech_sec` 門檻正常判定為有效語音，可送 STT）。
+- **驗證產物清理**：真模型測試過程中一度誤觸發 `SettingsWindow._save_action()` 把 `vad_engine="silero"` 寫進真實 `%APPDATA%\VoxProse\config_local.json`（測試腳本副作用，非產品邏輯問題）；已手動移除該 key，確認 `load_config()` 還原回預設 `rms`。真的模型快取檔（`silero_vad.onnx`，2.3MB）留在 `%APPDATA%\VoxProse\models\`——與 Whisper 模型快取同一分類，視為合法產物不清除。
+- **UI（`ui/settings/engine_page.py`）**：麥克風增益區塊下方新增「🎯 全時模式語音偵測引擎 (VAD)」區段，下拉選單列出 RMS／Silero 兩個選項；Silero 不可用（未裝 onnxruntime）時選項仍然列出但文字註明原因，下方另有一行狀態文案即時反映目前選取的引擎是否可用（比照 `stt/cuda_check.py` 的 CUDA 三態誠實文案原則，`audio/vad/__init__.py:describe_silero_availability()` 是共用真相源）。已用 PyQt6 offscreen 模式（venv_real）煙霧測試：下拉 2 個選項、資料值正確、切換後狀態文案正確更新。
+- **測試**：`tests/test_vad_rms.py`（11 項，含逐項比對重構前公式）、`tests/test_vad_factory.py`（8 項，涵蓋 fallback 三情境：缺 onnxruntime／初始化失敗／`engine="rms"`成功路徑）、`tests/test_vad_silero.py`（11 項，mock onnxruntime session 驗證 512+64 窗口緩衝、state/context 跨呼叫延續、下載函式三情境）。`python -m pytest tests/ -q`：**363 passed, 11 skipped**（基準 326 passed + 37 淨增，含 7 個新檔案的 `test_smoke.py::test_py_compile` 自動 parametrize）。
+
 ## 2026-07-23 — 正式支援 Python 3.13/3.14
 
 - **背景**：26-5（`docs/DECISIONS.md` 前一輪）修 CI matrix 時明確留下伏筆：「本輪任務範圍只要求修 CI matrix，未動 `requires-python` 上限或這台機器的直譯器版本，留給日後若要正式支援/驗證 3.13+ 時再處理」。本機系統 Python 已是 3.14.6，且 `python -m pytest tests/ -q` 全綠（326 passed, 11 skipped），是時候把上限放寬。

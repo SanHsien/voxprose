@@ -85,6 +85,19 @@ class EnginePageMixin:
         gain_row.addWidget(self.mic_gain_auto_cb)
         layout.addLayout(gain_row)
 
+        # 語音偵測引擎（全時模式 VAD）：RMS（現行能量門檻，預設）或 Silero
+        # （神經網路 VAD，見 audio/vad/），不可用時顯示原因（比照 CUDA 三態
+        # 文案誠實原則，見 ui/settings/dashboard_page.py）。
+        layout.addWidget(self._page_section_header("🎯 全時模式語音偵測引擎 (VAD)"))
+        self.vad_engine_combo = self._add_grid_row(layout, "偵測引擎", QComboBox())
+        self._populate_vad_engine_combo()
+        self.vad_engine_status_lbl = QLabel("")
+        self.vad_engine_status_lbl.setWordWrap(True)
+        self.vad_engine_status_lbl.setStyleSheet("color: #999; font-size: 11px;")
+        layout.addWidget(self.vad_engine_status_lbl)
+        self.vad_engine_combo.currentIndexChanged.connect(self._update_vad_engine_status_label)
+        self._update_vad_engine_status_label()
+
         layout.addWidget(self._page_section_header("🤖 大語言模型潤飾 (LLM) 配置"))
         self.llm_enabled = QCheckBox("啟用高階智慧潤飾與翻譯")
         layout.addWidget(self.llm_enabled)
@@ -140,6 +153,34 @@ class EnginePageMixin:
                 status = " (已就緒)" if is_ready else " (未下載)"
                 label = f"{m.upper():<8} [{size}] - {desc}{status}"
                 self.whisper_model.addItem(label, m) # m 為內部代號，例如 "medium"
+
+    def _populate_vad_engine_combo(self):
+        """RMS（現行）／Silero（神經網路 VAD）兩個選項；Silero 不可用時仍列
+        出選項但附上原因（見 _update_vad_engine_status_label），讓使用者知道
+        「這個功能存在，只是這台機器還沒裝好」而不是直接藏起來。"""
+        from audio.vad import describe_silero_availability
+
+        self.vad_engine_combo.clear()
+        self.vad_engine_combo.addItem("RMS 能量門檻 (現行預設，免額外依賴)", "rms")
+        available, _reason = describe_silero_availability()
+        silero_label = "Silero VAD (神經網路，精準度較高)" if available else \
+            "Silero VAD (神經網路，尚未安裝 onnxruntime)"
+        self.vad_engine_combo.addItem(silero_label, "silero")
+
+        current = self.config.get("vad_engine", "rms")
+        idx = self.vad_engine_combo.findData(current)
+        self.vad_engine_combo.setCurrentIndex(idx if idx >= 0 else 0)
+
+    def _update_vad_engine_status_label(self):
+        from audio.vad import describe_silero_availability
+
+        selected = self.vad_engine_combo.currentData()
+        if selected == "silero":
+            available, reason = describe_silero_availability()
+            prefix = "✅" if available else "⚠️"
+            self.vad_engine_status_lbl.setText(f"{prefix} {reason}")
+        else:
+            self.vad_engine_status_lbl.setText("目前使用的全時模式判斷方式，環境噪音較大時可考慮切換 Silero。")
 
     def _check_mic_devices_changed(self):
         """2 秒輪詢：裝置清單（名稱序列）若變動就重新整理下拉選單（插拔偵測）。"""

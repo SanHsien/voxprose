@@ -37,7 +37,7 @@ Requires internet access; depending on connection speed this takes about 10–30
 
 - **One-click install**: `setup_win.bat` automatically downloads a portable Python and conditionally installs CUDA based on NVIDIA GPU detection.
 - **Global hotkeys**: push-to-talk (PTT) or toggle mode.
-- **Always-on mode**: VAD detects speech and automatically segments it for recognition, hands-free.
+- **Always-on mode**: VAD detects speech and automatically segments it for recognition, hands-free; detection engine is switchable between RMS energy threshold (default) and Silero VAD neural network (higher accuracy, requires installing `onnxruntime`).
 - **Local recognition**: Faster-Whisper with CUDA acceleration support; optionally use Groq / Gemini / OpenRouter cloud engines.
 - **Microphone device selection + gain + AGC**: switch between multiple microphones (headset/USB/built-in) from the settings page, with automatic hot-plug detection; manual gain (50–300%) and automatic gain control (AGC) can be toggled independently.
 - **Three-layer Soul System**: Base Soul + Scenario Template + Output Format, with tone and style polished via LLM.
@@ -164,6 +164,7 @@ The config file lives at `%APPDATA%\VoxProse\` (`config_local.json` for machine-
 | `hotkey_ptt` | Push-to-talk hotkey (alt_r / ctrl_r / shift_r / f13-f15 / code:VK) | `alt_r` |
 | `hotkey_toggle` | Toggle hotkey | `f13` |
 | `auto_trigger_enabled` | Always-on mode (hands-free auto trigger) | `false` |
+| `vad_engine` | Always-on mode detection engine (`rms`/`silero`; `silero` requires installing `onnxruntime`, machine-specific, not cloud-synced) | `rms` |
 | `stt_engine` | Speech engine (local_whisper / groq / gemini / openrouter) | `local_whisper` |
 | `whisper_model` | Whisper model size (tiny/base/small/medium/large) | `medium` |
 | `mic_device` | Microphone input device (sounddevice device index; `null` = system default; machine-specific, not synced to cloud) | `null` |

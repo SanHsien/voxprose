@@ -15,6 +15,7 @@
 - **`utils/log_rotation.py`**：`debug.log`／`worker_debug.log` 改用 `RotatingFileHandler`（5MB×2 備份），修正原本無上限附加寫入會無限增長的問題。新增 `tests/test_log_rotation.py`。
 - **`utils/permissions.py` 麥克風權限真實檢查**：`check_microphone()` 改讀 Windows 隱私權登錄檔，`ensure_all_permissions()` 補上啟動時的實際呼叫（過去 import 了卻從未被呼叫，是死碼）。新增 `tests/test_permissions.py`。
 - **CI Python 版本矩陣**：`.github/workflows/ci.yml` 改測 3.10/3.11/3.12（比照 `pyproject.toml` 宣告範圍），過去只測 3.12。新增 `tests/test_ci_workflow.py`。
+- **Silero VAD 全時模式引擎（選用）**：新增 `audio/vad/`（`BaseVAD` 介面＋`RmsVAD`/`SileroVAD`），設定新增 `vad_engine`（`rms`預設／`silero`），onnxruntime 缺席或模型下載失敗優雅降級回 RMS；設定頁新增偵測引擎下拉。🔍 待實機驗證，見 `REVIEW.md` 27-1。
 
 ### Changed
 

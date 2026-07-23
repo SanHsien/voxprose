@@ -57,8 +57,9 @@
 | 26-3 | `debug.log`／`worker_debug.log` 無大小上限，長期執行無限增長 | 低中 | ✅ 已修（2026-07-23） | 新增 `utils/log_rotation.py`（5MB×2 備份）；`keystrike.log` 因目前無任何 handler 寫入暫不適用，見 26-4 |
 | 26-4 | `keystrike.log`：`separate_keystrike_log` 設定開關是死碼（無程式碼讀取），檔案永遠是空 touch 占位 | 低 | ✅ 已修（2026-07-23） | 原判定 🚫 決定不做（隱私審查確認無疑慮，見 `docs/DECISIONS.md` 2026-07-23 一）；主人 2026-07-23 明示改為指示清除，已移除 `paths.KEYSTRIKE_LOG_PATH`／`touch()` 佔位、`config.py` 的 `separate_keystrike_log` 開關、UI 勾選框與「檢視熱鍵紀錄」按鈕、`utils/diagnostics.py` 收集項；全 repo grep `keystrike` 程式碼零殘留，僅留文件歷史紀錄 |
 | 26-5 | `.github/workflows/ci.yml` 只測 Python 3.12，未涵蓋 `pyproject.toml` 宣告的 3.10/3.11 | 低 | ✅ 已修（2026-07-23） | 改 `strategy.matrix` 涵蓋 3.10/3.11/3.12；新增 `tests/test_ci_workflow.py` |
+| 27-1 | 新增 Silero VAD 全時模式引擎（`audio/vad/`，`vad_engine="silero"`，見 `docs/REFERENCES.md` 調研條目） | — | 🔍 需實機驗證 | 介面抽象＋RMS 行為位元級不變（既有測試全綠）＋真模型實測（scratchpad venv_real，onnxruntime 1.27.0：靜音/雜音機率 <0.05，真實語音機率 mean 0.31~0.78、max 接近 1.0）＋端到端合成音訊過 `AutoTriggerController` 狀態機成功切出可送 STT 的段落；**未驗證**：真人對麥克風即時說話、與真實 STT/UI 全流程整合、Windows 打包後（PyInstaller）能否正確找到選用依賴。詳見 `docs/DECISIONS.md`。 |
 
-**統計**：已修/已驗證 35 項、待修 0 項、決定不做 0 項（26-4 已於 2026-07-23 由主人指示改為清除，見下方 2026-07-23 條目；歷史「不吸收」項目屬功能吸收分析範圍，見 `docs/mac-mainline-absorption-analysis.md`）。
+**統計**：已修/已驗證 35 項、待修 0 項、決定不做 0 項、需實機驗證 1 項（27-1，新功能非既有問題；26-4 已於 2026-07-23 由主人指示改為清除，見下方 2026-07-23 條目；歷史「不吸收」項目屬功能吸收分析範圍，見 `docs/mac-mainline-absorption-analysis.md`）。
 
 ---
 

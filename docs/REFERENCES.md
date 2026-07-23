@@ -53,7 +53,7 @@
 
 | 名稱/主題 | 授權/性質 | 與 VoxProse 相關的亮點 | 可借鏡點 |
 |---|---|---|---|
-| [Silero VAD](https://github.com/snakers4/silero-vad) | MIT，開源（PyTorch 模型） | 業界常用的輕量神經網路 VAD，精準度優於單純能量（RMS）門檻判斷 | VoxProse 現有「全時模式」（`audio/auto_trigger.py`）是用 RMS + 遲滯（hysteresis）門檻切段，容易被環境噪音/呼吸聲誤觸發；可評估用 Silero VAD 取代或輔助現有 RMS 判斷，減少誤觸發，但需權衡額外的模型推論開銷 |
+| [Silero VAD](https://github.com/snakers4/silero-vad) | MIT，開源（PyTorch 模型，本專案改用 onnxruntime + ONNX 版模型） | 業界常用的輕量神經網路 VAD，精準度優於單純能量（RMS）門檻判斷 | **已實作**（`audio/vad/silero_vad.py`，`vad_engine="silero"`，2026-07-23）：VoxProse 現有「全時模式」（`audio/auto_trigger.py`）RMS + 遲滯（hysteresis）門檻切段的邏輯抽象成 `audio/vad/base.py` 介面，Silero 引擎作為選用替代（預設仍是 `rms`，行為不變）；onnxruntime 因 PyPI wheel 版本區間無法同時涵蓋本專案 CI 矩陣 3.10-3.14，改列選用依賴，詳見 `docs/DECISIONS.md` |
 | [Windows Text Services Framework (TSF)](https://learn.microsoft.com/en-us/windows/win32/tsf/text-services-framework) | Microsoft 原生框架（非開源函式庫，Win32 API） | 是 Windows 原生的「輸入法/文字服務」整合層，IME、手寫辨識、語音輸入的官方標準介面 | VoxProse 目前文字注入（`output/injector.py`）採「剪貼簿 + 模擬 Ctrl+V」+ 針對 LLM 模式用 `SendInput` 模拟 Shift+Left 選字的作法，註解中明確提到是為了避開 IME 衝突而選擇此路線；TSF 是「正規」的 Windows 文字服務整合方式，可注入至任何支援 TSF 的應用而不經剪貼簿，但實作複雜度高（需 COM 介面），可列為長期重構方向而非近期優先項 |
 | [boppreh/keyboard](https://github.com/boppreh/keyboard) | MIT，開源（Python） | 提供跨 Windows/Linux 的全域鍵盤 hook 與熱鍵組合解析 | VoxProse 現有 `hotkey/listener.py` 為 Windows 專屬底層實作；可作為熱鍵組合解析（如多鍵組合、修飾鍵狀態管理）的程式介面設計參考，非必然替換現有實作 |
 | 標點恢復（Punctuation Restoration，[GitHub topic](https://github.com/topics/punctuation-restoration)） | 各實作授權不一（多為 MIT/Apache，需逐一查證） | 針對不主動輸出標點的 ASR 引擎（如部分 Vosk/Moonshine 輸出），額外做標點與大小寫還原 | 若未來導入 Vosk 或其他不含標點恢復的引擎作為備用選項，可在 STT 輸出後、LLM 潤飾前insert一個輕量標點恢復步驟，避免完全依賴 LLM 潤飾階段補標點（目前 VoxProse 的標點很大程度依賴可選的 LLM 潤飾層） |
@@ -65,7 +65,7 @@
 以下建議按優先順序排列，均標注來源條目，僅供決策參考，非已決議事項：
 
 1. **前景應用程式感知的情境模板自動切換**（來源：Wispr Flow）。目前三層靈魂系統（`soul/`）情境模板需手動於系統匣切換；可評估依作用中視窗程序名稱建立「應用程式 → 預設情境模板」對照表的可選功能，降低高頻切換情境的手動操作成本。
-2. **評估 Silero VAD 取代/輔助全時模式的 RMS 能量判斷**（來源：Silero VAD）。現有 `audio/auto_trigger.py` 用固定門檻+遲滯的能量偵測，環境噪音下誤觸發機率較高；Silero VAD 是成熟、輕量（MIT）的替代方案，但需先評估額外推論開銷是否可接受。
+2. **已實作**：評估 Silero VAD 取代/輔助全時模式的 RMS 能量判斷（來源：Silero VAD）。見上表「已實作」備註與 `docs/DECISIONS.md` 2026-07-23 條目（真模型實測數字、onnxruntime 選用依賴決策）。
 3. **AssemblyAI keyterm prompting 與現有詞彙庫的整合可能性**（來源：AssemblyAI）。若日後導入 AssemblyAI 作為第四個雲端引擎選項，其 keyterm prompting 機制可直接讀取 `vocab/manager.py` 的 `custom_vocab.json`／`auto_memory.json`，讓自訂詞彙同時嘉惠雲端與本地兩種辨識路徑。
 4. **whisper.cpp 作為免 CUDA/PyTorch 輕量後端的可行性評估**（來源：Vibe、whisper.cpp 本身）。目前 Lite/NoModel 打包已針對體積分層，若進一步想縮小無 GPU 使用者的安裝體積與依賴複雜度，whisper.cpp（MIT，純 C/C++）是已有其他開源專案（Vibe、Handy）驗證過可行的路線，但需重新設計 Python↔C++ 的呼叫介面，工作量不小。
 5. **有限度的語音編輯指令（如「刪掉上一句」「重講」）**（來源：Aqua Voice）。目前 VoxProse 是單向「辨識→（可選潤飾）→輸出」流程；可作為長期功能方向探索小範圍語音編輯指令集，須注意與現有「魔術語即時翻譯」機制的觸發詞衝突設計。

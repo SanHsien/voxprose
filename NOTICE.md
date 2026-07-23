@@ -33,6 +33,7 @@
 - **本 fork（Windows）維護**：SanHsien，修改、文件與 Windows 端調整由其維護，另有註明者除外。
 - **上游列名的 AI 協助開發者**：Codex、Claude、Gemini、Nebula（沿用上游 README 記載，非本 fork 新增聲明）。
 - **語音辨識**：[Faster Whisper](https://github.com/SYSTRAN/faster-whisper)（CTranslate2 實作）、[MLX Whisper](https://github.com/ml-explore/mlx-examples)（Apple Silicon 加速）——僅作為執行期相依套件使用，程式碼未 vendored 進本 repo。
+- **語音偵測（VAD）**：[Silero VAD](https://github.com/snakers4/silero-vad)（`snakers4`，MIT License）——`audio/vad/silero_vad.py` 選用引擎（`vad_engine="silero"`），模型檔（`silero_vad.onnx`，釘住 `v6.2.1` tag）於使用者首次啟用時下載到本機 `%APPDATA%\VoxProse\models\`，不隨 repo 版控，程式碼亦未 vendored 進本 repo。
 - **UI 框架**：PyQt6（Riverbank Computing，GPL v3 / 商業雙授權）——作為執行期相依套件使用，非本 repo 程式碼的一部分；`requirements-win.txt` 直接依賴其官方 PyPI 套件。
 
 ## Third-Party Services And Trademarks

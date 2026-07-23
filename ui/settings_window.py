@@ -422,6 +422,7 @@ class SettingsWindow(
         self.config["mic_device"] = self.mic_device_combo.currentData()
         self.config["mic_gain"] = self.mic_gain_slider.value()
         self.config["mic_gain_auto"] = self.mic_gain_auto_cb.isChecked()
+        self.config["vad_engine"] = self.vad_engine_combo.currentData() or "rms"
         self.config["language"] = self.language.currentData() or self.language.currentText()
         self.config["llm_enabled"] = self.llm_enabled.isChecked()
         self.config["llm_engine"] = self.llm_engine.currentText()

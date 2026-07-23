@@ -59,6 +59,9 @@ venv\Scripts\activate
 pip install -r requirements-win.txt
 rem 有 NVIDIA GPU 才需要下一行
 pip install -r requirements-cuda-win.txt
+rem 想試全時模式的 Silero VAD 引擎（vad_engine="silero"）才需要下一行——
+rem 選用依賴，未裝時全時模式優雅降級回 RMS，見 audio/vad/silero_vad.py
+pip install onnxruntime
 
 python main.py
 ```

@@ -258,6 +258,7 @@ class VoiceTypeApp(QObject):
                 level_callback=self._on_audio_level,
                 sensitivity=float(self.config.get("auto_trigger_sensitivity", 0.15)),
                 silence_sec=float(self.config.get("auto_trigger_silence_sec", 1.5)),
+                vad_engine=self.config.get("vad_engine", "rms"),
             )
             self.auto_trigger.start()
         except Exception as e:

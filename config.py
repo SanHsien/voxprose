@@ -52,6 +52,10 @@ DEFAULT_CONFIG = {
     "auto_trigger_enabled": False,
     "auto_trigger_sensitivity": 0.15,   # 0~1 觸發門檻（與音量條同尺度）
     "auto_trigger_silence_sec": 1.5,    # 靜音多久視為一句結束
+    # 語音偵測引擎："rms"（現行能量+遲滯門檻，預設）｜"silero"（Silero VAD
+    # 神經網路，需 onnxruntime 已安裝且模型可下載，缺任一優雅降級回 rms，
+    # 見 audio/vad/__init__.py:get_vad_engine() 與 docs/DECISIONS.md）
+    "vad_engine": "rms",
     # Mac 主線 v2.9.7（7-1/7-2/7-3）移植：麥克風裝置選擇 + 增益 + AGC
     "mic_device": None,      # None = 系統預設；否則為 sounddevice 裝置索引
     "mic_gain": 100,         # 手動基底放大倍率（50~300，100=×1.0 不變）
@@ -67,8 +71,10 @@ LOCAL_KEYS = {
     "debug_mode", "is_demo", "output_prefix",
     "showcase_mode",
     "stt_engine", "whisper_model",
-    # 麥克風靈敏度與觸發習慣屬於機器特定設定，不做雲端同步
+    # 麥克風靈敏度與觸發習慣屬於機器特定設定，不做雲端同步；vad_engine 是
+    # 否可用取決於這台機器有沒有裝 onnxruntime/下載過模型，同屬機器特定。
     "auto_trigger_enabled", "auto_trigger_sensitivity", "auto_trigger_silence_sec",
+    "vad_engine",
     # 麥克風裝置選擇 / 增益 / AGC 是機器特定設定，不做雲端同步
     "mic_device", "mic_gain", "mic_gain_auto",
 } | API_KEY_FIELDS
