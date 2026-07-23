@@ -16,6 +16,7 @@
 - **`utils/permissions.py` 麥克風權限真實檢查**：`check_microphone()` 改讀 Windows 隱私權登錄檔，`ensure_all_permissions()` 補上啟動時的實際呼叫（過去 import 了卻從未被呼叫，是死碼）。新增 `tests/test_permissions.py`。
 - **CI Python 版本矩陣**：`.github/workflows/ci.yml` 改測 3.10/3.11/3.12（比照 `pyproject.toml` 宣告範圍），過去只測 3.12。新增 `tests/test_ci_workflow.py`。
 - **Silero VAD 全時模式引擎（選用）**：新增 `audio/vad/`（`BaseVAD` 介面＋`RmsVAD`/`SileroVAD`），設定新增 `vad_engine`（`rms`預設／`silero`），onnxruntime 缺席或模型下載失敗優雅降級回 RMS；設定頁新增偵測引擎下拉。🔍 待實機驗證，見 `REVIEW.md` 27-1。
+- **前景視窗自動情境切換（選用，`docs/REFERENCES.md` Wispr Flow 調研條目落地）**：新增 `utils/foreground.py`（純 ctypes Win32，取得目前前景視窗程序執行檔名稱，非 Windows/失敗回 `None`），設定新增 `auto_scenario_enabled`（預設 `False`）／`auto_scenario_rules`（程式檔名→情境模板，預設空）；`ui/app.py` 於錄音開始那一刻（PTT/Toggle/VAD 段落開始）偵測一次前景程式，命中規則時該次辨識套用對應情境，不覆寫使用者手動選定的 `active_scenario`。靈魂設定頁新增對應 UI 區塊（啟用勾選框、規則清單、偵測前景程式按鈕）。🔍 待實機驗證，見 `REVIEW.md` 27-2。
 
 ### Changed
 

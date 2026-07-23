@@ -41,6 +41,7 @@ Requires internet access; depending on connection speed this takes about 10–30
 - **Local recognition**: Faster-Whisper with CUDA acceleration support; optionally use Groq / Gemini / OpenRouter cloud engines.
 - **Microphone device selection + gain + AGC**: switch between multiple microphones (headset/USB/built-in) from the settings page, with automatic hot-plug detection; manual gain (50–300%) and automatic gain control (AGC) can be toggled independently.
 - **Three-layer Soul System**: Base Soul + Scenario Template + Output Format, with tone and style polished via LLM.
+- **Automatic scenario switching by foreground app (optional)**: configure an "app → scenario template" mapping so the right scenario is applied automatically based on the active window when you start recording (e.g. Business Reply in Outlook, Social Media Post in LINE); off by default.
 - **Multi-monitor follow, position memory, non-intrusive focus injection, smart vocabulary learning, and instant translation magic words.**
 
 ## Feature Tour
@@ -81,6 +82,8 @@ Freely mix and match the AI's "soul composition":
 3. **📝 Output Format**: decides how the final result is presented, e.g. email format, bullet-point notes, Markdown table.
 
 Combine different souls anytime from the system tray menu, turning the input method into a true personal assistant.
+
+The Soul settings page also has an "Automatic Scenario Switching by Foreground App" section (off by default): enable it and set up "app filename → scenario template" rules (use the "Detect Current Foreground App" button to find the correct filename), and the scenario matching the active window at the moment you start recording is applied automatically for that recognition; if no rule matches, it falls back to whatever scenario you selected manually. This only affects the LLM-polishing stage, so "AI Polishing/Translation" must be enabled for it to have any effect.
 
 ### Vocabulary Memory
 

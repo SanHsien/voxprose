@@ -8,11 +8,13 @@ split's mapping table.
 import logging
 import os
 import platform
+import time
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QListWidget, QTextEdit, QMessageBox,
+    QListWidget, QTextEdit, QMessageBox, QCheckBox, QTableWidget,
+    QTableWidgetItem, QComboBox, QHeaderView, QApplication, QProgressDialog,
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
@@ -62,7 +64,160 @@ class SoulPageMixin:
         # self.soul_tabs.addTab(template_tab, "📌 我的模板")
 
         layout.addWidget(self.soul_tabs)
+
+        layout.addWidget(self._create_auto_scenario_section())
+
         return page
+
+    def _create_auto_scenario_section(self):
+        """2026-07-23：前景視窗感知的情境模板自動切換（來源：docs/REFERENCES.md
+        Wispr Flow 調研條目）。啟用勾選框 + 規則清單（程式檔名 → 情境模板）+
+        「偵測目前前景程式」按鈕，方便使用者查到要填在規則裡的正確程式檔名。
+        對應設定：config.py 的 auto_scenario_enabled/auto_scenario_rules；接線
+        邏輯在 ui/app.py 的 _detect_auto_scenario()/_get_effective_scenario()。
+        預設關閉、規則預設空，關閉時對現有行為零影響。"""
+        section = QWidget()
+        layout = QVBoxLayout(section)
+        layout.setContentsMargins(0, 10, 0, 0)
+
+        layout.addWidget(self._page_section_header("🪟 前景視窗自動情境切換"))
+
+        desc = QLabel(
+            "依「目前正在打字的應用程式」自動套用對應的情境模板（如在 Outlook 用商務回應、"
+            "在 LINE 用社群貼文），只在按下錄音的那一刻判斷一次，不影響上方手動選擇的情境；"
+            "僅在「AI 潤飾/翻譯」啟用時才有效果（情境模板只用於 LLM 潤飾階段）。"
+        )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color: #888; font-size: 12px;")
+        layout.addWidget(desc)
+
+        self.auto_scenario_enabled_cb = QCheckBox("啟用前景視窗自動情境切換 (Auto Scenario by Foreground App)")
+        self.auto_scenario_enabled_cb.setChecked(self.config.get("auto_scenario_enabled", False))
+        layout.addWidget(self.auto_scenario_enabled_cb)
+
+        # 規則清單：程式檔名（不分大小寫，副檔名可省略）→ 情境模板
+        self.auto_scenario_table = QTableWidget(0, 2)
+        self.auto_scenario_table.setHorizontalHeaderLabels(["程式檔名 (如 outlook.exe)", "情境模板"])
+        self.auto_scenario_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.auto_scenario_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.auto_scenario_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.auto_scenario_table.setStyleSheet(
+            "background: rgba(20,20,30,150); border: 1px solid rgba(255,255,255,10); border-radius: 8px; color: #eee;"
+        )
+        self.auto_scenario_table.setMinimumHeight(140)
+        layout.addWidget(self.auto_scenario_table)
+
+        btn_row = QHBoxLayout()
+
+        btn_add_rule = QPushButton("➕ 新增規則列")
+        btn_add_rule.setStyleSheet("background: #2e7d32; color: white; padding: 5px; border-radius: 4px;")
+        btn_add_rule.clicked.connect(lambda: self._add_auto_scenario_rule_row())
+        btn_row.addWidget(btn_add_rule)
+
+        btn_del_rule = QPushButton("🗑 刪除所選列")
+        btn_del_rule.setStyleSheet("background: #c62828; color: white; padding: 5px; border-radius: 4px;")
+        btn_del_rule.clicked.connect(self._remove_selected_auto_scenario_rule)
+        btn_row.addWidget(btn_del_rule)
+
+        btn_detect = QPushButton("🔍 偵測目前前景程式 (3 秒倒數)")
+        btn_detect.setToolTip("按下後請立刻切換到你要偵測的目標視窗，3 秒後會抓取當時的前景程式並新增一列規則")
+        btn_detect.clicked.connect(self._detect_foreground_app_for_rule)
+        btn_row.addWidget(btn_detect)
+
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        # 首次載入延後填充，避免建構期間就觸發資料存取
+        QTimer.singleShot(100, self._populate_auto_scenario_rules_table)
+
+        return section
+
+    def _available_scenario_names(self):
+        """情境模板下拉選單的選項清單：'default'（基底靈魂/預設）+ SOUL_SCENARIO_DIR
+        底下所有 *.md 檔案的檔名主體，與 ui/menu_bar.py 的手動選單邏輯一致。"""
+        names = ["default"]
+        if SOUL_SCENARIO_DIR.exists():
+            names += sorted(f.stem for f in SOUL_SCENARIO_DIR.glob("*.md") if f.stem != "default")
+        return names
+
+    def _make_scenario_combo(self, current_value="default"):
+        combo = QComboBox()
+        options = self._available_scenario_names()
+        if current_value and current_value not in options:
+            options.append(current_value)  # 保留使用者既有設定，即使該情境檔已被刪除
+        combo.addItems(options)
+        idx = combo.findText(current_value or "default")
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+        return combo
+
+    def _add_auto_scenario_rule_row(self, process_name="", scenario="default"):
+        row = self.auto_scenario_table.rowCount()
+        self.auto_scenario_table.insertRow(row)
+        self.auto_scenario_table.setItem(row, 0, QTableWidgetItem(process_name))
+        self.auto_scenario_table.setCellWidget(row, 1, self._make_scenario_combo(scenario))
+        return row
+
+    def _remove_selected_auto_scenario_rule(self):
+        rows = sorted({idx.row() for idx in self.auto_scenario_table.selectedIndexes()}, reverse=True)
+        for row in rows:
+            self.auto_scenario_table.removeRow(row)
+
+    def _populate_auto_scenario_rules_table(self):
+        self.auto_scenario_table.setRowCount(0)
+        rules = self.config.get("auto_scenario_rules", {}) or {}
+        for process_name, scenario in rules.items():
+            self._add_auto_scenario_rule_row(process_name, scenario)
+
+    def _collect_auto_scenario_rules(self) -> dict:
+        """從表格讀出目前的規則（存檔用）：略過程式檔名空白的列。"""
+        rules = {}
+        for row in range(self.auto_scenario_table.rowCount()):
+            name_item = self.auto_scenario_table.item(row, 0)
+            name = name_item.text().strip() if name_item else ""
+            if not name:
+                continue
+            combo = self.auto_scenario_table.cellWidget(row, 1)
+            scenario = combo.currentText() if combo else "default"
+            rules[name] = scenario
+        return rules
+
+    def _detect_foreground_app_for_rule(self):
+        """按下當下前景視窗就是本設定視窗本身，偵測不到使用者實際想設定的目標
+        程式——這裡用 3 秒倒數（QProgressDialog，比照既有麥克風測試按鈕的
+        使用者體驗），提示使用者先切到目標視窗，倒數結束後才真正抓取前景程式，
+        並直接新增一列規則（情境先預設為 default，使用者自行從下拉選正確的）。"""
+        from utils.foreground import get_foreground_process_name
+
+        progress = QProgressDialog("請立刻切換到你要偵測的目標視窗...", None, 0, 3, self)
+        progress.setWindowTitle("偵測前景程式")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.show()
+
+        for i in range(3):
+            progress.setValue(i)
+            progress.setLabelText(f"請切換到目標視窗... {3 - i} 秒後偵測")
+            QApplication.processEvents()
+            time.sleep(1)
+
+        progress.setValue(3)
+        progress.close()
+
+        proc_name = get_foreground_process_name()
+        if not proc_name:
+            QMessageBox.warning(
+                self, "偵測失敗",
+                "無法取得前景程式名稱（可能不是 Windows 環境，或該視窗權限受限）。\n請手動輸入程式檔名。",
+            )
+            self._add_auto_scenario_rule_row("", "default")
+            return
+
+        row = self._add_auto_scenario_rule_row(proc_name, "default")
+        self.auto_scenario_table.selectRow(row)
+        QMessageBox.information(
+            self, "偵測成功",
+            f"偵測到前景程式：{proc_name}\n已新增一列規則，請從下拉選單選擇要套用的情境模板。",
+        )
 
     def _create_file_list_tab(self, directory: Path, desc: str, is_json: bool = False):
         tab = QWidget()

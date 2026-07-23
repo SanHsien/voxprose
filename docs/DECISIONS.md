@@ -4,6 +4,19 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-23 — 前景視窗感知的情境模板自動切換（`docs/REFERENCES.md` 調研項目落地）
+
+維護者核准實作 `docs/REFERENCES.md` 調研的第二個大型功能（概念來自 Wispr Flow）：依「當下正在打字的應用程式」自動套用對應的三層靈魂系統情境模板，取代目前完全手動的系統匣切換。本功能發佈時標記「🔍 待實機驗證」（見 `REVIEW.md` 27-2），由維護者之後統一驗證真實使用情境（在不同應用程式間切換錄音）。
+
+- **偵測方式（純 ctypes，不加依賴）**：新增 `utils/foreground.py`，`GetForegroundWindow()` → `GetWindowThreadProcessId()` → `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)` → `QueryFullProcessImageNameW()` 取得前景視窗所屬程序的執行檔名稱（如 `OUTLOOK.EXE`）。刻意不用 `psutil`——現有 `hotkey/listener.py`、`utils/permissions.py` 等 Windows 專屬模組都是純 `ctypes.windll`，沒有理由為這個功能破例加新依賴。DLL 函式指標存在模組層級變數 `_user32`/`_kernel32`（而非函式內區域變數），讓測試可以整個換掉 mock 物件而不必碰 ctypes 底層，見 `tests/test_foreground.py`。任何失敗（非 Windows、抓不到前景視窗、Win32 呼叫失敗）一律回傳 `None`，絕不拋例外。
+- **偵測時機：只在錄音開始那一刻，不輪詢**：`ui/app.py._detect_auto_scenario()` 在 `_on_start()`（PTT/toggle）與 `_on_auto_segment_start()`（VAD 全時模式，且未被 PTT/VAD 互斥擋下時）各呼叫一次，取代原本「常駐監看前景視窗」的方案——本 app 設計為不搶焦點，前景視窗天然就是使用者正在打字的目標視窗，錄音中途切換視窗不應該讓已經在錄的這一段語音情境「漂移」，故只在起始點採樣一次、整段沿用。
+- **套用語義：只影響「這一次」，不覆寫手動設定**：命中規則時，`_session_scenario_override`（app 實例上的暫存值，非 config）覆蓋 `_get_effective_scenario()` 的回傳值，供 `_process_audio()`／`_apply_basic_soul_rules()`／`_build_llm_prompt()` 三處讀取；**完全不寫回 `config["active_scenario"]`**——這是「最不意外」的語義：使用者手動在系統匣選定的情境是持久狀態，不該被一次自動偵測悄悄覆蓋。未啟用功能、偵測失敗、或無規則命中，`_get_effective_scenario()` fallback 回 `config.get("active_scenario", "default")`，與功能存在之前行為位元級一致（既有 363 個測試全綠即為證據——這個改動沒有動到任何既有測試斷言）。若 LLM 未啟用，情境模板本來就只在 LLM 潤飾階段被讀取，故此功能自然無效果，README/UI 文案均已提及。
+- **規則比對語義（決定並測死，見 `tests/test_foreground.py::test_resolve_*`）**：`resolve_scenario_for_process()`——不分大小寫；規則鍵可省略 `.exe` 副檔名（`"outlook"` 與 `"outlook.exe"` 都能比對到 `proc_name="OUTLOOK.EXE"`），降低使用者手動輸入規則時的挫折感；規則字典為空或 `proc_name` 為空一律回傳 `None`；多筆規則同時命中時取字典插入順序中第一筆（對應設定頁列表由上到下的順序）。
+- **`LOCAL_KEYS` 決定：兩個新設定都不列入（隨全域/雲端同步）**：`auto_scenario_enabled` 性質上與既有的 `active_scenario`／`llm_enabled`（皆非 `LOCAL_KEYS`）同類——是使用者的工作流程偏好，不是機器特定設定（不像熱鍵、麥克風增益那樣「換一台機器就該重設」）；`auto_scenario_rules` 是使用者精心維護的「應用程式→情境」規則表，換到另一台裝置時延續使用才是預期行為，比照 `active_scenario` 的同步邏輯。
+- **UI（`ui/settings/soul_page.py`）**：靈魂設定頁在既有分頁下方新增「🪟 前景視窗自動情境切換」區塊——啟用勾選框＋`QTableWidget` 規則清單（程式檔名／情境模板下拉，選項來源與 `ui/menu_bar.py` 手動情境選單一致：`"default"` + `SOUL_SCENARIO_DIR` 底下所有 `*.md` 檔名）、新增/刪除列按鈕、「偵測目前前景程式」按鈕。偵測按鈕的已知限制——按下當下前景視窗就是設定視窗本身——採 3 秒倒數（`QProgressDialog`，比照既有麥克風測試按鈕的 UX 慣例）：提示使用者切到目標視窗，倒數結束才真正呼叫 `get_foreground_process_name()`，避免每次都測到「聲成文設定」自己。已用 PyQt6 offscreen 模式（本機系統 Python 3.14.6 + 新裝 `PyQt6==6.11.0`）驗證：獨立 mixin 建構（不牽動其他分頁的檔案系統存取）、勾選狀態、規則新增/刪除、既有規則回填、未知情境值不被靜默丟棄、完整 `SettingsWindow()` 端到端建構＋`_save_action`/`refresh_config` 資料流手動腳本驗證皆通過，見 `tests/test_soul_page_auto_scenario.py`。
+- **本機真實偵測驗證（非 mock，真 Windows）**：`python -c "from utils.foreground import get_foreground_process_name; print(get_foreground_process_name())"` 實際回傳 `'LINE.exe'`（當時前景應用程式），證明 ctypes 呼叫鏈在這台機器上確實能取得真實前景程式執行檔名稱。
+- **未驗證邊界**：真人在不同應用程式間切換並實際錄音，驗證情境確實依規則切換且輸出內容套用正確的 LLM 情境 prompt；PyInstaller 打包後 ctypes.windll 呼叫鏈是否受影響（理論上不會，`hotkey/listener.py` 已是同類用法且打包後正常運作，但本次未重新驗證打包鏈）。
+
 ## 2026-07-23 — Silero VAD 全時模式引擎（`docs/REFERENCES.md` 調研項目落地）
 
 維護者核准實作 `docs/REFERENCES.md` 調研的大型功能：Silero VAD 作為全時模式（`audio/auto_trigger.py`）的選用語音偵測引擎，取代/輔助現行 RMS 能量+遲滯門檻判斷。本功能發佈時標記「🔍 待實機驗證」（見 `REVIEW.md` 27-1），由維護者之後統一驗證真人麥克風場景。

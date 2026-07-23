@@ -12,7 +12,7 @@
 | 名稱 | 授權/商業模式 | 平台 | 本地/雲端 | 與 VoxProse 相關的亮點 | 可借鏡點（具體到功能） |
 |---|---|---|---|---|---|
 | [TypeLess](https://www.typeless.com/) | 商業（訂閱） | Windows / macOS / iOS / Android | 雲端 | 自動偵測多語言混講並即時轉錄、免手動切換語言 | VoxProse 目前語言由使用者/設定指定；可評估「中英混講自動偵測」邏輯，改善中英夾雜口語的辨識切分（對照 `stt/language.py`） |
-| [Wispr Flow](https://wisprflow.ai/) | 商業（訂閱） | Windows / macOS | 雲端 | 依「目前作用中應用程式」自動套用不同輸出格式（如 Slack 用短句、郵件用完整句子） | VoxProse 的三層靈魂系統（`soul/`）目前由使用者手動切換情境模板；可評估依前景視窗自動選情境模板的可選功能，降低手動切換靈魂的摩擦 |
+| [Wispr Flow](https://wisprflow.ai/) | 商業（訂閱） | Windows / macOS | 雲端 | 依「目前作用中應用程式」自動套用不同輸出格式（如 Slack 用短句、郵件用完整句子） | **已實作**（`utils/foreground.py`＋`config.py` 的 `auto_scenario_enabled`/`auto_scenario_rules`，2026-07-23，🔍 待實機驗證）：VoxProse 三層靈魂系統（`soul/`）新增依前景視窗自動選情境模板的選用功能，預設關閉，詳見 `docs/DECISIONS.md` |
 | [Superwhisper](https://superwhisper.com/) | 商業（一次性+訂閱分層） | macOS / Windows / iOS | 本地 + 雲端混合 | 使用者可自訂/分享「AI 模式」（提示詞+輸出風格組合），社群可互相匯入模式 | 可對照 VoxProse 三層靈魂系統，評估「模式匯出/匯入 JSON」讓使用者分享情境模板與輸出格式組合，而非僅限本機設定 |
 | [Aqua Voice](https://aquavoice.com/) | 商業（訂閱） | Windows / macOS | 雲端 | 支援語音直接下達編輯指令（如「刪掉上一句」），啟動延遲宣稱 <50ms | VoxProse 目前僅做「辨識→（可選潤飾）→貼上」單向輸出；可評估新增有限的語音編輯指令集（如「重講」「刪除剛才」）作為未來魔術語擴充方向 |
 | [WhisperWriter](https://github.com/savbell/whisper-writer)（savbell） | MIT，開源 | Windows / macOS / Linux（Python） | 本地（Whisper API 或本地模型）+ 可選雲端 | 架構與 VoxProse 高度相似：全域熱鍵→VAD 偵測停頓自動結束→Whisper 轉錄→自動輸入；config 檔案驅動 | 架構最接近的開源同類，可作為設定檔結構、VAD 停頓判斷參數命名的對照參考 |
@@ -64,7 +64,7 @@
 
 以下建議按優先順序排列，均標注來源條目，僅供決策參考，非已決議事項：
 
-1. **前景應用程式感知的情境模板自動切換**（來源：Wispr Flow）。目前三層靈魂系統（`soul/`）情境模板需手動於系統匣切換；可評估依作用中視窗程序名稱建立「應用程式 → 預設情境模板」對照表的可選功能，降低高頻切換情境的手動操作成本。
+1. **已實作**：前景應用程式感知的情境模板自動切換（來源：Wispr Flow）。見上表「已實作」備註與 `docs/DECISIONS.md` 2026-07-23 條目（`utils/foreground.py` 純 ctypes 偵測、規則比對語義、UI）。
 2. **已實作**：評估 Silero VAD 取代/輔助全時模式的 RMS 能量判斷（來源：Silero VAD）。見上表「已實作」備註與 `docs/DECISIONS.md` 2026-07-23 條目（真模型實測數字、onnxruntime 選用依賴決策）。
 3. **AssemblyAI keyterm prompting 與現有詞彙庫的整合可能性**（來源：AssemblyAI）。若日後導入 AssemblyAI 作為第四個雲端引擎選項，其 keyterm prompting 機制可直接讀取 `vocab/manager.py` 的 `custom_vocab.json`／`auto_memory.json`，讓自訂詞彙同時嘉惠雲端與本地兩種辨識路徑。
 4. **whisper.cpp 作為免 CUDA/PyTorch 輕量後端的可行性評估**（來源：Vibe、whisper.cpp 本身）。目前 Lite/NoModel 打包已針對體積分層，若進一步想縮小無 GPU 使用者的安裝體積與依賴複雜度，whisper.cpp（MIT，純 C/C++）是已有其他開源專案（Vibe、Handy）驗證過可行的路線，但需重新設計 Python↔C++ 的呼叫介面，工作量不小。

@@ -402,6 +402,10 @@ class SettingsWindow(
         self.showcase_mode.setChecked(self.config.get("showcase_mode", False))
         self.memory_inject_cb.setChecked(self.config.get("memory_enabled", False))
 
+        # 2026-07-23：前景視窗感知的情境模板自動切換
+        self.auto_scenario_enabled_cb.setChecked(self.config.get("auto_scenario_enabled", False))
+        self._populate_auto_scenario_rules_table()
+
         # Refreshes
         self._refresh_vocab()
         self._refresh_learned_vocab()
@@ -447,6 +451,10 @@ class SettingsWindow(
         self.config["show_floating_button"] = self.show_floating_button.isChecked()
         self.config["showcase_mode"] = self.showcase_mode.isChecked()
         self.config["memory_enabled"] = self.memory_inject_cb.isChecked()
+
+        # 2026-07-23：前景視窗感知的情境模板自動切換
+        self.config["auto_scenario_enabled"] = self.auto_scenario_enabled_cb.isChecked()
+        self.config["auto_scenario_rules"] = self._collect_auto_scenario_rules()
 
         try:
             SOUL_BASE_PATH.write_text(self.soul_prompt.toPlainText().strip(), encoding="utf-8")
