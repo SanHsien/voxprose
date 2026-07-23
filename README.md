@@ -127,7 +127,7 @@ Speak naturally and turn your voice into polished text.
 
 ## 開發環境安裝
 
-需 Python 3.10–3.12：
+需 Python 3.10–3.14：
 
 ```bat
 git clone https://github.com/SanHsien/voxprose.git

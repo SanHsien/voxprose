@@ -23,8 +23,18 @@ jobs:
       # 3.12，等於 3.10/3.11 從未被 CI 驗證過。改成矩陣涵蓋宣告的三個版本
       # （比照 yt_fetch 的做法）。faster-whisper/ctranslate2/PyQt6 在這三個
       # 版本上都有預編譯 wheel，不需要退回輕量子集。
+      #
+      # 2026-07-23（同日第二輪）：正式支援 3.13/3.14，`requires-python` 放寬到
+      # `>=3.10,<3.15`，矩陣同步擴充。實查 PyPI JSON API（非憑印象）：
+      # ctranslate2 4.8.1 有 cp313/cp314 win_amd64 專屬 wheel；PyQt6 6.11.0
+      # 用 cp310-abi3 穩定 ABI wheel（涵蓋 3.10 以上所有版本，含 3.13/3.14）；
+      # faster-whisper 1.2.1／sounddevice 0.5.5／opencc-python-reimplemented
+      # 0.1.7 皆為 py3-none-any 通用 wheel 或純 Python sdist（opencc 本來就
+      # 一直只有 sdist，是純 Python 重寫、無 C 擴充，任何版本皆可建置）。
+      # numpy/pywin32/Pillow 等其餘依賴也逐一查證有 cp313/cp314 win_amd64
+      # wheel。本機系統 Python 3.14.6 已實跑全套 pytest 驗證（326 passed）。
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
 

@@ -1,7 +1,12 @@
 """驗證 .github/workflows/ci.yml 的 Python 版本矩陣（2026-07-23 加固任務第
-5 項）：pyproject.toml 宣告支援 `>=3.10,<3.13`，但 CI 過去只測 3.12，
-3.10/3.11 從未被實際驗證過。這裡鎖定矩陣涵蓋宣告的三個版本，避免之後被
+5 項）：pyproject.toml 原宣告支援 `>=3.10,<3.13`，但 CI 過去只測 3.12，
+3.10/3.11 從未被實際驗證過。這裡鎖定矩陣涵蓋宣告的版本範圍，避免之後被
 悄悄改回單一版本。
+
+2026-07-23（同日第二輪，正式支援 3.13/3.14）：`requires-python` 放寬為
+`>=3.10,<3.15`，本檔斷言邏輯是動態從 pyproject.toml 解析範圍再與矩陣比對
+（見 `test_ci_matrix_covers_python_versions_declared_in_pyproject`），因此
+兩邊只要同步更新就會繼續通過，不需要跟著改斷言本身。
 """
 import re
 from pathlib import Path

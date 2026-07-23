@@ -4,6 +4,14 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-07-23 — 正式支援 Python 3.13/3.14
+
+- **背景**：26-5（`docs/DECISIONS.md` 前一輪）修 CI matrix 時明確留下伏筆：「本輪任務範圍只要求修 CI matrix，未動 `requires-python` 上限或這台機器的直譯器版本，留給日後若要正式支援/驗證 3.13+ 時再處理」。本機系統 Python 已是 3.14.6，且 `python -m pytest tests/ -q` 全綠（326 passed, 11 skipped），是時候把上限放寬。
+- **查證**（PyPI JSON API 實查，非憑印象）：`ctranslate2` 4.8.1 有 `cp313`/`cp314` win_amd64 專屬 wheel；`PyQt6` 6.11.0 用 `cp310-abi3` 穩定 ABI wheel（涵蓋 3.10 以上所有版本）；`faster-whisper` 1.2.1／`sounddevice` 0.5.5 是 `py3-none-any` 通用 wheel；`opencc-python-reimplemented` 0.1.7 只有 sdist（本來就一直如此，純 Python 重寫無 C 擴充，任何版本都能建置，非本次新增風險）；`numpy`／`pywin32`／`Pillow` 等其餘 `requirements-win.txt` 依賴逐一確認皆有 cp313/cp314 win_amd64 wheel。`actions/setup-python@v5` 依據的 `actions/python-versions` manifest 也已收錄 3.13.x／3.14.x。
+- **決定**：`pyproject.toml` 的 `requires-python` 由 `>=3.10,<3.13` 放寬為 `>=3.10,<3.15`；`.github/workflows/ci.yml` 矩陣同步擴充為 `3.10/3.11/3.12/3.13/3.14`（`tests/test_ci_workflow.py` 動態解析兩邊比對，繼續通過不需改斷言本身）；`setup_win.bat` 的 py-launcher 偵測鏈擴充為 `3.14→3.13→3.12→3.11→3.10`（新到舊優先）。
+- **維持不動**：可攜包內嵌式 Python（`tools/get_portable_python.ps1`）維持 `3.12.2` 不變——這是打包產物已實測驗證過的版本，換版本要重新驗證整條打包鏈（下載/解壓/`ensurepip`/依賴安裝/EXE 編譯/啟動），本次任務範圍只到「正式支援」（讓使用者自己的系統 Python 3.13/3.14 能跑），不含重新驗證可攜包鏈，故不動。
+- **驗證**：本機系統 Python 3.14.6 實跑 `python -m pytest tests/ -q` 全綠（326 passed, 11 skipped），作為 3.14 相容性的直接證據。
+
 ## 2026-07-23 — keystrike 死碼清除（推翻 REVIEW 26-4「決定不做」）
 
 - **背景**：同日稍早的隱私與加固審查（見下一節）已查明 `keystrike.log` 從未被實際寫入、`separate_keystrike_log` 開關無程式碼讀取，並判定「無隱私疑慮、死碼留給未來需要時再處理」（REVIEW.md 26-4 🚫 決定不做）。

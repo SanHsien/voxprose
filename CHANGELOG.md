@@ -16,6 +16,10 @@
 - **`utils/permissions.py` 麥克風權限真實檢查**：`check_microphone()` 改讀 Windows 隱私權登錄檔，`ensure_all_permissions()` 補上啟動時的實際呼叫（過去 import 了卻從未被呼叫，是死碼）。新增 `tests/test_permissions.py`。
 - **CI Python 版本矩陣**：`.github/workflows/ci.yml` 改測 3.10/3.11/3.12（比照 `pyproject.toml` 宣告範圍），過去只測 3.12。新增 `tests/test_ci_workflow.py`。
 
+### Changed
+
+- **正式支援 Python 3.13/3.14**：`pyproject.toml` 的 `requires-python` 由 `>=3.10,<3.13` 放寬為 `>=3.10,<3.15`；CI matrix 同步擴充為 3.10–3.14（PyPI 實查 `PyQt6`/`faster-whisper`/`ctranslate2`/`sounddevice`/`opencc-python-reimplemented` 等關鍵依賴在 Windows 上皆有 3.13/3.14 wheel）；`setup_win.bat` 的 py-launcher 偵測鏈擴充為 `3.14→3.13→3.12→3.11→3.10`。可攜包內嵌式 Python（`tools/get_portable_python.ps1`）維持 3.12 不動。本機系統 Python 3.14.6 實跑 `pytest` 全綠（326 passed, 11 skipped）作為相容性證據。詳見 `docs/DECISIONS.md`。
+
 ### Fixed
 
 - **broad except 靜默吞噬清查**：全 repo 掃描後修正 43 處會隱藏真實錯誤的 `except`（補 log 或收窄型別），涵蓋設定檔/記憶/統計損毀時完全靜默、LLM prompt 注入失敗無痕跡等與歷史「引擎自始壞掉」同類的風險點；不改變任何 fallback 行為語義。詳見 `docs/DECISIONS.md`。新增 `tests/test_broad_except_logging.py`。

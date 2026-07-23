@@ -127,7 +127,7 @@ For manual steps if the model download gets stuck, see the [Install & Download G
 
 ## Development Environment Setup
 
-Requires Python 3.10–3.12:
+Requires Python 3.10–3.14:
 
 ```bat
 git clone https://github.com/SanHsien/voxprose.git
