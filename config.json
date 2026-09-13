@@ -1,0 +1,8 @@
+{
+    "stt_engine": "local_whisper",
+    "whisper_model": "medium",
+    "language": "zh",
+    "llm_enabled": false,
+    "active_scenario": "default",
+    "auto_paste": true
+}

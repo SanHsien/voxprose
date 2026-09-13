@@ -1,0 +1,7 @@
+{
+  "anthropic": {
+    "deferredLatest": "1.2.0",
+    "reviewed": "2026-08-29",
+    "reason": "anthropic 1.x 把 messages.create 的 temperature 拿掉了（新的 output_config 只有 effort 與 format）。llm/claude.py 傳 temperature=0.1，照升會直接 TypeError。那個 0.1 不是隨手填的預設值——這支是潤飾功能，低溫度才是「改寫而不自由發揮」的保證。要升 1.x 得先決定拿掉溫度控制後靠什麼維持保守度，那是產品決定不是依賴維護；預設模型 claude-3-haiku-20240307 在 1.x 是否仍受支援也需要真實 API key 驗一次。見 docs/DECISIONS.md 2026-08-29。"
+  }
+}

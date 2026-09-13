@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+.env
+
+# pytest (tests/ + pyproject.toml [tool.pytest.ini_options])
+.pytest_cache/
+
+# AI / Project Memory (Moved to Ignore for Privacy)
+INTERNAL_TODO.md
+AI_MEMORY.md
+HANDOVER.md
+task.md
+.agents/
+config_global.json
+sync_path.txt
+soul.md
+memory/*.json
+memory/archive/
+
+# Project Specific Data (Personal/Sensitive)
+config_local.json
+vocab/*.json
+vocab/archive/
+stats/*.json
+audio/*.wav
+output/*.txt
+
+# Windows Runtime & Local Artifacts
+.runtime/
+archive/
+bundled_models/
+*.exe
+
+# Build & App Pack
+build/
+dist/
+VoxProse_Win_Stable_V*/
+.eggs/
+*.egg-info/
+*.zip
+
+# Logs & Temp
+*.log
+*.txt
+out.txt
+verbose_log.txt
+!README.md
+!requirements*.txt
+!VERSION_TAG.txt
+
+# 上游檢查器產生的報告（workflow 讀它寫進 job summary），不進版控
+upstream-check-report.md
