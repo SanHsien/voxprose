@@ -81,6 +81,13 @@ CI 在 Windows runner 上測 Python 3.10–3.14，並做全 repo `py_compile` + 
 
 沒有實機證據時，明確寫「未驗證」，不要用「應該可以」代替測試。
 
+UI、熱鍵、錄音、CUDA、STT 或焦點貼字等涉及 Windows 實機的改動，若無實機證據要明確標記未驗證範圍；程式邏輯改動至少附對應 pytest 結果。
+
+## 回覆風格
+
+- 使用繁體中文回覆，先講改了什麼、驗證了什麼，再補細節。
+- 簡單任務不要擴寫成架構論文。
+
 ## 上游同步
 
 `.github/workflows/upstream-check.yml` 發現上游新 commit 時：
