@@ -1,0 +1,28 @@
+# 預設統一換行符為 LF：避免 Windows/OneDrive + core.autocrlf=true 造成不必要的
+# 換行符 diff 噪音。eol 屬性會覆蓋 autocrlf。比照 SanHsien/gpt-ai-assistant 的做法。
+* text=auto eol=lf
+
+# Windows batch / PowerShell 檔案必須是 CRLF —— cmd.exe 的批次直譯器對純 LF
+# 批次檔（尤其含 `goto`/標籤跳轉）行為不穩定，且 Windows 記事本等工具開啟 LF
+# 檔案容易顯示異常。這是本 repo 專屬地雷，setup_win.bat/release_win.ps1 等打包
+# 鏈腳本若被意外轉成 LF，開發者本機可能仍可執行，但在某些 Windows 版本/工具鏈
+# 組合下會出現詭異的解析錯誤。
+*.bat eol=crlf
+*.cmd eol=crlf
+*.ps1 eol=crlf
+
+# 二進位檔案：不做任何換行轉換
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.icns binary
+*.webp binary
+*.wav  binary
+*.zip  binary
+*.exe  binary
+*.woff  binary
+*.woff2 binary
+*.ttf  binary
+*.otf  binary

@@ -1,0 +1,47 @@
+version: 2
+updates:
+  # Windows 執行期與 CUDA 依賴。所有 PR 都保留人工審查，不啟用自動合併。
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:20"
+      timezone: "Asia/Taipei"
+    versioning-strategy: "increase"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "python"
+    groups:
+      cuda-runtime:
+        patterns:
+          - "nvidia-*"
+      windows-runtime-minor-and-patch:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "nvidia-*"
+        update-types:
+          - "minor"
+          - "patch"
+      windows-runtime-major:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "nvidia-*"
+        update-types:
+          - "major"
+
+  # checkout、setup-python、CodeQL、artifact 與 Release actions。
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:20"
+      timezone: "Asia/Taipei"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "github-actions"
