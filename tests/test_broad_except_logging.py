@@ -1,7 +1,7 @@
 """2026-07-23（隱私與加固任務第 3 項：broad except 靜默吞噬掃描）。
 
 本專案歷史上三個「引擎自始壞掉」bug 全是被 `except Exception` 吞掉才長期
-未被發現（見 CLAUDE.md 派工說明／REVIEW.md 問題總帳）。這次全 repo 掃描後，
+未被發現（見 REVIEW.md 問題總帳）。這次全 repo 掃描後，
 對「真的該補 log」的靜默 except 補了一筆 log/print，但刻意不改變原本的
 fallback 行為語義。
 
