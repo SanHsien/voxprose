@@ -493,7 +493,7 @@ if ([System.IO.Directory]::Exists($CleanupTarget)) {
 ├── CHANGELOG.md               # 版本歷史單一真相源（精簡摘要＋逐版詳細全紀錄）
 ├── .github/workflows/ci.yml  # GitHub Actions：windows-latest，py_compile + pytest 子集
 ├── .gitattributes             # eol 規則（.bat/.cmd/.ps1 強制 CRLF）
-├── AGENTS.md / CLAUDE.md      # AI 協作規則
+├── AGENTS.md                  # AI 協作規則
 ├── NOTICE.md / LICENSE        # fork 來源、授權查證、雙軌授權聲明
 ├── README.md / README.en.md  # 使用者入口
 ├── setup_win.bat / run_voicetype.bat / release_win.ps1 / build_win.py / voicetype_installer.iss

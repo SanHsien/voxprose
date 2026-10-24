@@ -1,6 +1,6 @@
 # AGENTS.md
 
-給 Codex 與其他 AI coding agents 在 `SanHsien/voxprose` 工作時使用。**本檔是 AI 維護規則的單一真相源**；Claude 專屬補充只放在 [`CLAUDE.md`](CLAUDE.md)，不要在多份文件重複同一套規則。
+給 Codex 與其他 AI coding agents 在 `SanHsien/voxprose` 工作時使用。**本檔是 AI 維護規則的單一真相源**；Claude Code 與 Antigravity 也直接讀本檔，不另設 `CLAUDE.md`／`GEMINI.md`，不要在多份文件重複同一套規則。
 
 ## 專案定位
 
