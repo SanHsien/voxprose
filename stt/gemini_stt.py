@@ -23,7 +23,7 @@ class GeminiSTT(BaseSTT):
             audio_b64 = base64.b64encode(audio_bytes).decode()
 
             lang_hint = "Traditional Chinese" if self.language == "zh" else "English"
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
             payload = {
                 "contents": [{
                     "parts": [
@@ -32,7 +32,13 @@ class GeminiSTT(BaseSTT):
                     ]
                 }]
             }
-            resp = httpx.post(url, json=payload, timeout=30)
+            # 金鑰走標頭而非網址查詢字串（見 llm/gemini.py 註解）。
+            resp = httpx.post(
+                url,
+                json=payload,
+                headers={"x-goog-api-key": self.api_key},
+                timeout=30,
+            )
             resp.raise_for_status()
             return resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
         except Exception as e:
