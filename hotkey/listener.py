@@ -11,6 +11,26 @@ def key_to_str(key) -> str:
 def str_to_key(key_str: str):
     return key_str
 
+_LEGACY_VK_MAP = {
+    "alt": 0x12, "alt_l": 0xA4, "alt_r": 0xA5,
+    "ctrl": 0x11, "ctrl_l": 0xA2, "ctrl_r": 0xA3,
+    "shift": 0x10, "shift_l": 0xA0, "shift_r": 0xA1,
+    # F1..F24：VK_F1 = 0x70 起連續。預設設定的切換／LLM 熱鍵是 f13／f14。
+    **{f"f{n}": 0x70 + n - 1 for n in range(1, 25)},
+}
+
+
+def resolve_vk(cfg_key: str) -> int:
+    """設定字串轉 Windows 虛擬鍵碼：設定頁錄到的 `... (code:NN)` 優先，
+    其次舊式名稱（alt_r、f13…）；無法解析回傳 0（輪詢迴圈會跳過）。"""
+    import re
+
+    match = re.search(r'code:(\d+)', cfg_key or "", re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    return _LEGACY_VK_MAP.get((cfg_key or "").lower(), 0)
+
+
 class HotkeyListener:
     def __init__(
         self,
@@ -52,26 +72,11 @@ class HotkeyListener:
 
     def _run_windows(self):
         import ctypes
-        import re
 
         user32 = ctypes.windll.user32
 
         # V68: Parse configurations to obtain exact Virtual Keys
-        parsed_configs = {}
-        for mode, cfg_key in self.configs.items():
-            match = re.search(r'code:(\d+)', cfg_key, re.IGNORECASE)
-            if match:
-                parsed_configs[mode] = int(match.group(1))
-            else:
-                # Fallback VK mappings for legacy string configs
-                key_map = {
-                    "alt": 0x12, "alt_l": 0xA4, "alt_r": 0xA5,
-                    "ctrl": 0x11, "ctrl_l": 0xA2, "ctrl_r": 0xA3,
-                    "shift": 0x10, "shift_l": 0xA0, "shift_r": 0xA1,
-                    "f1": 0x70, "f2": 0x71, "f3": 0x72, "f4": 0x73, "f5": 0x74, "f6": 0x75,
-                    "f7": 0x76, "f8": 0x77, "f9": 0x78, "f10": 0x79, "f11": 0x7A, "f12": 0x7B
-                }
-                parsed_configs[mode] = key_map.get(cfg_key.lower(), 0)
+        parsed_configs = {mode: resolve_vk(cfg_key) for mode, cfg_key in self.configs.items()}
 
         self.log.info(f"[win_hotkey] Listener started. Parsed VKs: {parsed_configs}")
 
