@@ -92,30 +92,37 @@ class AudioRecorder:
             self.is_silent = False
 
         try:
-            self._stream = sd.InputStream(
-                samplerate=self.samplerate,
-                channels=self.channels,
-                dtype="int16",
-                device=self.device,
-                callback=self._callback,
-                blocksize=int(self.samplerate * 0.05), # 50ms chunks
-            )
-            self._stream.start()
-        except Exception as e:
-            if self.device is not None:
-                # 裝置消失（拔線/切換）：fallback 回系統預設裝置（7-1）
-                print(f"[recorder] Device {self.device} unavailable ({e}), falling back to system default.")
+            try:
                 self._stream = sd.InputStream(
                     samplerate=self.samplerate,
                     channels=self.channels,
                     dtype="int16",
-                    device=None,
+                    device=self.device,
                     callback=self._callback,
-                    blocksize=int(self.samplerate * 0.05),
+                    blocksize=int(self.samplerate * 0.05), # 50ms chunks
                 )
                 self._stream.start()
-            else:
-                raise
+            except Exception as e:
+                if self.device is not None:
+                    # 裝置消失（拔線/切換）：fallback 回系統預設裝置（7-1）
+                    print(f"[recorder] Device {self.device} unavailable ({e}), falling back to system default.")
+                    self._stream = sd.InputStream(
+                        samplerate=self.samplerate,
+                        channels=self.channels,
+                        dtype="int16",
+                        device=None,
+                        callback=self._callback,
+                        blocksize=int(self.samplerate * 0.05),
+                    )
+                    self._stream.start()
+                else:
+                    raise
+        except Exception:
+            # 串流開不起來：還原狀態，否則 _recording 卡在 True，之後的 start() 會被擋掉
+            with self._lock:
+                self._recording = False
+            self._stream = None
+            raise
 
         if self.on_start:
             self.on_start()
