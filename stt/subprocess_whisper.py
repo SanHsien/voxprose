@@ -432,6 +432,13 @@ class SubprocessWhisperSTT(BaseSTT):
         
         try:
             with self._lock: # V33: 防止主程序的多個執行緒 (例如 warmup 和 record_stop) 搶奪 pipe
+                # 清掉上一輪逾時後才抵達的過期結果／錯誤，否則會被當成這一輪的答案。
+                import queue
+                while True:
+                    try:
+                        self._result_queue.get_nowait()
+                    except queue.Empty:
+                        break
                 self._parent_conn.send({
                     "type": "transcribe",
                     "audio": audio_bytes, # Use "audio" to match worker's recv
