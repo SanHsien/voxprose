@@ -3,7 +3,7 @@
 # bounds are unchanged; ceilings only block untested major upgrades, not
 # routine patch/minor updates.
 PyQt6>=6.6.0,<7
-Pillow>=10.2.0,<13
+Pillow>=10.2.0,<14
 # pywin32 has no major.minor.patch scheme — each release is a bare build
 # number (currently 312) bumped roughly annually alongside new Python
 # versions. "<400" is a generous ceiling on that build-number series rather

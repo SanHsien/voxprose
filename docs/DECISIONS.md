@@ -11,6 +11,12 @@
 - **考慮過的替代方案**：把 anthropic 的上限直接開到 `<2`（等於假裝已經升級）、或在 workflow 加 ignore list（理由不會留在版控裡）。兩者都是用「看不見」換「沒問題」。
 - **驗證**：新增 5 條測試——暫緩對判斷過的版本生效且 `blocked_by_upper` 仍如實為 `True`（報告要看得出它超出上限，只是判斷過）、上游發新版時暫緩失效、沒寫理由的暫緩不生效、檔案缺失或壞掉時一律視為沒有暫緩、以及 repo 內實際的暫緩檔每筆都有版本與理由。486 passed。
 
+## 2026-10-25 — 依賴新鮮度 issue #1：anthropic 續延暫緩到 2.3.0、Pillow 上限開到 <14
+
+- **問題**：10-24 的 freshness 排程再度開 issue #1，兩筆在範圍外：`anthropic` 最新 2.3.0（暫緩只記到 1.11.0，已失效）、`Pillow` 最新 13.0.0（上限 `<13`）。
+- **決定（anthropic：續延暫緩）**：實際下載 2.3.0 wheel 檢視 `message_create_params`，參數表仍無 `temperature`（只有 `output_config`、`thinking`、`service_tier`、`speed` 等），`llm/claude.py` 的 `temperature=0.1` 照升會 TypeError，判斷與 2026-08-29 相同。`.github/dependency-deferrals.json` 的 `deferredLatest` 改 `2.3.0`，requirements 上限不動。重新評估條件同 2026-08-29：決定溫度替代做法並能以真實 API key 驗證 `refine()`。
+- **決定（Pillow：採用）**：上限開到 `<14`。全 repo 原始碼沒有任何 `import PIL`（僅 `build_win.py` 的 PyInstaller excludes 提到 `PIL._imagingtk`／`PIL.ImageQt`），升版不影響執行期介面；Python 3.10 等不支援 13 的環境由 pip 依 wheel 解析退回 12.x。
+
 ## 2026-08-29 — openai 上限開到 <4；anthropic 維持 <1
 
 - **問題**：依賴新鮮度檢查列出兩筆「有新版主線，需評估相容性」——`openai>=1.30.0,<3` 對 PyPI 3.6.0、`anthropic>=0.25.0,<1` 對 1.2.0。
