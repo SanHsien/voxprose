@@ -121,6 +121,11 @@ class AudioRecorder:
             # 串流開不起來：還原狀態，否則 _recording 卡在 True，之後的 start() 會被擋掉
             with self._lock:
                 self._recording = False
+            if self._stream is not None:
+                try:
+                    self._stream.close()  # 建立成功但 start() 失敗時別洩漏 PortAudio handle
+                except Exception as close_err:
+                    log.debug(f"[recorder] Error closing stream after failed start: {close_err}")
             self._stream = None
             raise
 

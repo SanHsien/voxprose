@@ -35,3 +35,18 @@ def test_stale_result_from_a_timed_out_request_is_discarded(monkeypatch):
 
     assert stt.transcribe(b"\x00" * 200, language="zh") == "這一段的結果"
     assert stt._result_queue.empty()
+
+
+def test_stale_result_arriving_after_send_is_matched_out_by_request_id(monkeypatch):
+    """主要路徑：worker 還在跑上一輪，舊結果在新請求送出「之後」才回來。"""
+    import vocab.manager
+
+    monkeypatch.setattr(vocab.manager, "build_vocab_prompt", lambda: "p")
+
+    def worker_replies(stt, msg):
+        stt._result_queue.put({"type": "result", "text": "上一段的過期結果", "id": msg["id"] - 1})
+        stt._result_queue.put({"type": "result", "text": "這一段的結果", "id": msg["id"]})
+
+    stt = _make_stt(worker_replies)
+
+    assert stt.transcribe(b"\x00" * 200, language="zh") == "這一段的結果"

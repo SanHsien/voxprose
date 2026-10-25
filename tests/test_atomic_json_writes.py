@@ -114,3 +114,31 @@ def test_legacy_config_is_kept_when_migration_cannot_be_saved(tmp_path, monkeypa
     config_module.load_config()
 
     assert legacy.exists()
+
+
+def test_write_succeeds_while_another_handle_holds_the_target_open(tmp_path):
+    """Windows：目標檔被雲端同步／防毒以讀取方式開著時，os.replace 會 PermissionError，
+    舊的直接覆寫卻成功——原子寫入不能因此讓存檔失敗。"""
+    target = tmp_path / "data.json"
+    target.write_text('{"v": 1}', encoding="utf-8")
+
+    with open(target, "r", encoding="utf-8"):  # 持續持有，逼出重試後的退路
+        write_json_atomic(target, {"v": 2})
+
+    assert json.loads(target.read_text(encoding="utf-8")) == {"v": 2}
+    assert [p.name for p in tmp_path.iterdir()] == ["data.json"]
+
+
+def test_write_succeeds_when_handle_is_released_shortly_after(tmp_path):
+    import threading
+    import time
+
+    target = tmp_path / "data.json"
+    target.write_text('{"v": 1}', encoding="utf-8")
+    fh = open(target, "r", encoding="utf-8")
+    threading.Timer(0.12, fh.close).start()
+
+    write_json_atomic(target, {"v": 3})
+    time.sleep(0.2)
+
+    assert json.loads(target.read_text(encoding="utf-8")) == {"v": 3}

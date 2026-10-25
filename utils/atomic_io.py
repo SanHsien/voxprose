@@ -9,7 +9,31 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 from pathlib import Path
+
+
+_REPLACE_ATTEMPTS = 10
+_REPLACE_DELAY_SEC = 0.05
+
+
+def _replace_with_retry(tmp: Path, path: Path, data, indent: int) -> None:
+    """Windows 上目標檔被別的程序（雲端同步、防毒、索引）以不含 FILE_SHARE_DELETE 的
+    方式開著時，os.replace 會丟 PermissionError，而直接覆寫反而成功。先短暫重試；
+    仍不行就退回直接覆寫（等同改動前的行為），不讓寫入因此失敗。"""
+    for attempt in range(_REPLACE_ATTEMPTS):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt < _REPLACE_ATTEMPTS - 1:
+                time.sleep(_REPLACE_DELAY_SEC)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=indent)
+    try:
+        tmp.unlink()
+    except OSError:
+        pass
 
 
 def write_json_atomic(path, data, *, indent: int = 2) -> None:
@@ -21,7 +45,7 @@ def write_json_atomic(path, data, *, indent: int = 2) -> None:
             json.dump(data, f, ensure_ascii=False, indent=indent)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, path)
+        _replace_with_retry(tmp, path, data, indent)
     except BaseException:
         try:
             tmp.unlink()

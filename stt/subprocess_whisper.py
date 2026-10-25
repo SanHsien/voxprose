@@ -257,10 +257,11 @@ def _stt_worker(pipe_conn: multiprocessing.connection.Connection, config: dict):
                     # Bug fix（2026-07-20）：讀取 client 端送來的詞彙 prompt（見上方
                     # _run_transcribe 註解）；空/缺一律 fallback 回預設字串。
                     initial_prompt = msg.get("prompt") or DEFAULT_INITIAL_PROMPT
+                    req_id = msg.get("id")
 
                     if not audio_raw or len(audio_raw) < 100:
                         log.warning(f"[stt-worker] Received empty or tiny audio ({len(audio_raw) if audio_raw else 0} bytes). Skipping.")
-                        pipe_conn.send({"type": "result", "text": ""})
+                        pipe_conn.send({"type": "result", "text": "", "id": req_id})
                         continue
 
                     audio_len_kb = len(audio_raw) / 1024
@@ -278,10 +279,10 @@ def _stt_worker(pipe_conn: multiprocessing.connection.Connection, config: dict):
                         trans_duration = time.time() - start_time
                         
                         log.info(f"[stt-worker] Result: '{text}' (Time: {trans_duration:.2f}s, Prob: {info.language_probability:.2f})")
-                        pipe_conn.send({"type": "result", "text": text, "info": info.language})
+                        pipe_conn.send({"type": "result", "text": text, "info": info.language, "id": req_id})
                     except Exception as trans_e:
                         log.error(f"[stt-worker] Transcription error: {trans_e}\n{traceback.format_exc()}")
-                        pipe_conn.send({"type": "error", "message": f"Transcribe failed: {trans_e}"})
+                        pipe_conn.send({"type": "error", "message": f"Transcribe failed: {trans_e}", "id": req_id})
 
                 elif msg.get("type") == "warmup":
                     # Corrected warmup for WhisperModel
@@ -439,8 +440,11 @@ class SubprocessWhisperSTT(BaseSTT):
                         self._result_queue.get_nowait()
                     except queue.Empty:
                         break
+                self._req_id = getattr(self, "_req_id", 0) + 1
+                req_id = self._req_id
                 self._parent_conn.send({
                     "type": "transcribe",
+                    "id": req_id,
                     "audio": audio_bytes, # Use "audio" to match worker's recv
                     "language": language,
                     "prompt": prompt
@@ -452,7 +456,13 @@ class SubprocessWhisperSTT(BaseSTT):
                     while True:
                         msg = self._result_queue.get(timeout=30.0) 
                         msg_type = msg.get("type")
-                        
+
+                        # worker 依序處理：逾時的上一輪結果可能在這一輪送出後才抵達，
+                        # 靠請求編號丟掉（沒帶編號的訊息，如啟動錯誤，照舊處理）。
+                        if msg_type in ("result", "error") and msg.get("id") not in (None, req_id):
+                            print(f"[stt-mgr] Dropping stale {msg_type} for request {msg.get('id')}")
+                            continue
+
                         if msg_type == "result":
                             text_result = msg.get("text", "")
                             print(f"[stt-mgr] Received result ({msg.get('info', 'zh')}): {text_result}")
