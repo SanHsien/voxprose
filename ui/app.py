@@ -482,8 +482,8 @@ class VoiceTypeApp(QObject):
                         is_llm_used = True
                         
                         # 標點處理
-                        replacements = {",": "，", ".": ".", "?": "？", "!": "！", ":": "：", ";": "；"}
-                        for hw, fw in replacements.items(): refined = refined.replace(hw, fw)
+                        from utils.punctuation import to_fullwidth_punctuation
+                        refined = to_fullwidth_punctuation(refined)
                         
                         # V88: 通用後處理，硬核剔除可能的前綴雜訊
                         noise_prefixes = ["草稿：", "草稿:", "Draft:", "Result:", "潤飾後：", "潤飾後:"]
