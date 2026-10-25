@@ -6,7 +6,6 @@ migrate logic it depends on. No logic changes.
 import logging
 from pathlib import Path
 
-import shutil
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
@@ -123,29 +122,10 @@ class SyncPageMixin:
         self.sync_status_lbl.setStyleSheet("color: #00e676; font-weight: bold;")
 
     def _migrate_to_sync(self, target_base: Path):
-        """將本地資料搬移至同步目錄。"""
+        """將本地資料搬移至同步目錄（實作與防護見 utils/sync_migrate.py）。"""
         from paths import APP_DATA_DIR
-        folders_to_sync = ["soul", "vocab", "memory", "stats"]
-        files_to_sync = ["ai_permanent_memory.md"]
-
-        for folder in folders_to_sync:
-            src = APP_DATA_DIR / folder
-            dst = target_base / folder
-            if src.exists():
-                try:
-                    if dst.exists(): shutil.rmtree(dst)
-                    shutil.copytree(src, dst)
-                except Exception as e:
-                    print(f"[Sync] Error migrating folder {folder}: {e}")
-
-        for filename in files_to_sync:
-            src = APP_DATA_DIR / filename
-            dst = target_base / filename
-            if src.exists():
-                try:
-                    shutil.copy2(src, dst)
-                except Exception as e:
-                    print(f"[Sync] Error migrating file {filename}: {e}")
+        from utils.sync_migrate import migrate_to_sync
+        migrate_to_sync(APP_DATA_DIR, target_base)
 
     def _clear_sync_directory(self):
         """取消同步。"""
