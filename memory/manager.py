@@ -29,6 +29,18 @@ def _ensure_dirs():
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _unique_archive_path(path: Path) -> Path:
+    """歸檔檔名以「週」為單位，同一週內第二次歸檔不能覆蓋第一份（歸檔是備份）。"""
+    if not path.exists():
+        return path
+    n = 2
+    while True:
+        candidate = path.with_name(f"{path.stem}_{n}{path.suffix}")
+        if not candidate.exists():
+            return candidate
+        n += 1
+
+
 def load_memory() -> dict:
     """載入記憶檔，回傳 {entries: [...], summary: str, last_archive: str}"""
     _ensure_dirs()
@@ -110,7 +122,7 @@ def maybe_archive(memory: Optional[dict] = None):
 
     # 歸檔舊資料
     week_str = datetime.now().strftime("%Y-W%W")
-    archive_path = ARCHIVE_DIR / f"memory_{week_str}.json"
+    archive_path = _unique_archive_path(ARCHIVE_DIR / f"memory_{week_str}.json")
     archive_data = {
         "archived_at": datetime.now().isoformat(timespec="seconds"),
         "entries": entries,
@@ -210,7 +222,7 @@ def purge_and_summarize() -> int:
 
     # 歸檔原始資料
     week_str = datetime.now().strftime("%Y-W%W")
-    archive_path = ARCHIVE_DIR / f"memory_{week_str}_purge.json"
+    archive_path = _unique_archive_path(ARCHIVE_DIR / f"memory_{week_str}_purge.json")
     with open(archive_path, "w", encoding="utf-8") as f:
         json.dump({
             "archived_at": datetime.now().isoformat(timespec="seconds"),
