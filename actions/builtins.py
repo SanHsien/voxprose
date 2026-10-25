@@ -1,5 +1,7 @@
 import ast
 import operator
+import re
+from urllib.parse import quote
 import webbrowser
 import time
 from datetime import datetime
@@ -22,14 +24,16 @@ def get_current_time():
 
 def open_google_search(query: str):
     if not query: return "請提供搜尋關鍵字。"
-    url = f"https://www.google.com/search?q={query}"
+    # 只跳脫會破壞查詢參數的字元；中文維持可讀，瀏覽器與聊天軟體都能處理。
+    encoded = re.sub(r"[ &#+%=?]", lambda m: quote(m.group()), query)
+    url = f"https://www.google.com/search?q={encoded}"
     # v2.7.32: 禁用自動開啟瀏覽器，改為返回 URL 供使用者參考
     print(f"[action] Prevented opening Google: {url}")
     # import pyperclip; pyperclip.copy(url) # 可選：改存到剪貼簿
     return f"【搜尋連結已建立】{url}"
 
 def open_website(url: str):
-    if not url.startswith("http"):
+    if not url.lower().startswith(("http://", "https://")):
         url = "https://" + url
     # v2.7.32: 禁用自動開啟瀏覽器
     print(f"[action] Prevented opening URL: {url}")
@@ -108,7 +112,6 @@ def run_calculator(expr: str):
         .replace("^", "**")  # 次方
     )
     # 移除所有非數字與運算符
-    import re
     clean_expr = re.sub(r'[^\d\+\-\*\/\.\(\) ]', '', clean_expr)
     try:
         result = safe_calculate(clean_expr)
