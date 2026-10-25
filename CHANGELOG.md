@@ -14,6 +14,10 @@
 
 - 依賴：`openai` 上限自 `<3` 開到 `<4`，實裝解析為 3.6.0（`chat.completions.create` 用到的 `model`／`messages`／`max_tokens`／`temperature`／`timeout` 五個參數在 3.6.0 全數仍在，經 SDK 內省確認；481 條測試全過）。`anthropic` 維持 `<1`：1.x 移除了 `messages.create` 的 `temperature`，而 `llm/claude.py` 的潤飾功能依賴 `temperature=0.1`，照升會 `TypeError`；理由與重評條件見 `docs/DECISIONS.md`。
 
+### Fixed
+
+- **第二輪深度掃描（2026-10-26）修了 12 個實際缺陷**，每項先有會失敗的重現測試，細節與 commit 見 `REVIEW.md` 31-1～31-12：Gemini API key 改走 `x-goog-api-key` 標頭（原本在網址，會隨 httpx log 與診斷包外流）；同步遷移選到與本機資料夾重疊的目錄時不再先刪光來源；口述含「初始化」的句子不再被當成引擎未就緒而吞掉；設定視窗重開時重讀磁碟設定，避免儲存時還原托盤切換；設定／記憶／統計／詞彙改原子寫入；計算機「10除2」、全形標點破壞「3:30」「1,000」、記憶歸檔互相覆蓋、預設 f13／f14 熱鍵失效、逾時後過期辨識結果錯位、麥克風開失敗後卡在錄音中、搜尋連結未跳脫。
+
 ### Added
 
 - **依賴與安全自動維護**：新增 Dependabot 每週 Python／GitHub Actions 更新、CodeQL `security-extended` 每週掃描；GitHub repo 啟用 Issues、vulnerability alerts 與 Dependabot security updates。Windows／CUDA／Release 相關更新一律人工審查，不自動合併。

@@ -76,7 +76,20 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 補上 STT readiness 契約與 fail-c
 | 30-2 | 依賴／上游排程以 GitHub issue 提醒，但 repo Issues 關閉；發現更新後 workflow 必然失敗 | 中低（維護提醒失效） | ✅ 已修（2026-07-28） | 2026-07-27 上游檢查 run `30240895198` 實證在 `gh issue create` 失敗。repo 現已啟用 Issues；freshness tracker 同步補上 stale SHA guard、同 issue 重開／更新／關閉，並加入 Dependabot 與 CodeQL。詳見 `docs/DECISIONS.md` 2026-07-28。 |
 | 30-3 | 依賴 freshness checker 把「PyPI 最新版高於最低支援版」一律當成待維護，忽略最新版仍在允許範圍內，導致 issue #1 永遠無法自動關閉 | 低中（維護提醒永久假陽性） | ✅ 已修（`b926543`，2026-07-29） | `baseline_behind` 改為純報告資訊；只有最新版超出上限、PyPI 查詢失敗或 open Dependabot PR 才需 issue。新增 3 條回歸測試，完整 pytest 471 passed、10 skipped；live PyPI 查詢 18 個直接依賴皆未超出上限，`needs_attention=false`。 |
 
-**統計**：已修/已驗證 50 項、待修 0 項、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
+| 31-1 | 計算機「10除2」的「除」被當雜字刪掉，算成 102（`actions/builtins.py`） | 中（語音指令答錯） | ✅ 已修（2026-10-26，`c3ecfce`） | 重現測試 `test_bare_chu_is_division_not_dropped` |
+| 31-2 | `ui/app.py` 守衛 `"初始化" in text`：口述含「初始化」的正常句子被當成引擎未就緒，整句不輸出 | 中高（吞掉聽寫內容） | ✅ 已修（2026-10-26，`42eff83`） | 判斷與提示常數抽到 `stt/status.py`，只認 worker 實際回傳的那句 |
+| 31-3 | LLM 輸出的半形標點逐字轉全形，破壞「3:30」「1,000」「http://」 | 中 | ✅ 已修（2026-10-26，`35a988b`） | `utils/punctuation.py`，數字間 `, :` 與 `://` 保持半形 |
+| 31-4 | Gemini API key 放在 URL 查詢字串；httpx INFO log 與診斷包（含 debug.log）會把金鑰明文帶出 | 高（金鑰外流） | ✅ 已修（2026-10-26，`094c900`、`174f0a0`、`874f495`） | 改 `x-goog-api-key` 標頭（LLM 與 STT） |
+| 31-5 | 記憶歸檔檔名只有週數，同週第二次歸檔／壓縮覆蓋前一份備份 | 中（備份遺失） | ✅ 已修（2026-10-26，`9064056`） | 衝突時加 `_2`、`_3` 後綴 |
+| 31-6 | 同步遷移對目的地先 rmtree 再 copytree；選到與本機資料夾重疊的目錄時先刪光來源 | 高（資料永久遺失） | ✅ 已修（2026-10-26，`d829c4e`） | `utils/sync_migrate.py`，重疊時跳過 |
+| 31-7 | 預設熱鍵 f13／f14 不在舊式對照表（只到 f12），解析成 0 而失效 | 中（全新安裝切換／LLM 熱鍵無反應） | ✅ 已修（2026-10-26，`d6d3c14`） | `resolve_vk()` 補 f1–f24 |
+| 31-8 | 逾時後才到的辨識結果留在佇列，被下一段錄音當成答案 | 中 | ✅ 已修（2026-10-26，`218683e`） | 送出前清空 `_result_queue` |
+| 31-9 | 麥克風串流開失敗時 `_recording` 維持 True，之後 `start()` 被擋掉 | 中 | ✅ 已修（2026-10-26，`187d5d9`） | 失敗時還原旗標 |
+| 31-10 | 設定視窗重用舊實例，儲存時用過期快照還原托盤／選單的切換 | 中高（設定被悄悄還原） | ✅ 已修（2026-10-26，`920a3db`） | 未顯示時 `refresh_config(load_config())`，已開著不動 |
+| 31-11 | config／memory／stats／vocab 非原子寫入，中斷即留下截斷 JSON 使設定（含 API key）無聲重置；舊版 config.json 遷移吞錯後仍刪來源 | 中高 | ✅ 已修（2026-10-26，`6bb8102`） | `utils/atomic_io.py`；`save_config()` 回傳是否成功 |
+| 31-12 | 搜尋連結未跳脫 `& # 空白`；`httpbin.org` 這類 http 開頭網域不補 https:// | 低中 | ✅ 已修（2026-10-26，`f7cea41`） | |
+
+**統計**：已修/已驗證 62 項、待修 0 項、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
 
 ---
 
