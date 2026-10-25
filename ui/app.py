@@ -670,6 +670,11 @@ class VoiceTypeApp(QObject):
             self.settings_window.test_start.connect(lambda: self._on_start("toggle"))
             self.settings_window.test_stop.connect(self._on_stop)
             self.settings_window.test_toggle.connect(self._on_toggle_test)
+        elif not self.settings_window.isVisible():
+            # 視窗被重用：它的 config 是建立當下的快照，之後托盤／選單的切換
+            # （情境、LLM、動作模式…）已直接寫入磁碟。不重讀的話，按「儲存」
+            # 會把這些切換悄悄還原。已開著的視窗不重載，避免洗掉使用者編輯中的內容。
+            self.settings_window.refresh_config(load_config())
 
         # 先讓視窗進入 visible 狀態，再等 tray / floating-button menu 關閉後
         # 重新取回前景。Windows 在 QAction callback 尚未返回時直接 activateWindow()
