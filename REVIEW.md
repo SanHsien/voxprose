@@ -87,9 +87,10 @@ v3.4.1 已修正 ZIP 中文檔名，v3.4.2 補上 STT readiness 契約與 fail-c
 | 31-9 | 麥克風串流開失敗時 `_recording` 維持 True，之後 `start()` 被擋掉 | 中 | ✅ 已修（2026-10-26，`187d5d9`） | 失敗時還原旗標 |
 | 31-10 | 設定視窗重用舊實例，儲存時用過期快照還原托盤／選單的切換 | 中高（設定被悄悄還原） | ✅ 已修（2026-10-26，`920a3db`） | 未顯示時 `refresh_config(load_config())`，已開著不動 |
 | 31-11 | config／memory／stats／vocab 非原子寫入，中斷即留下截斷 JSON 使設定（含 API key）無聲重置；舊版 config.json 遷移吞錯後仍刪來源 | 中高 | ✅ 已修（2026-10-26，`6bb8102`） | `utils/atomic_io.py`；`save_config()` 回傳是否成功 |
+| 31-13 | 「快速翻譯」（選單／語音指令）寫入 `translation_lang`，但全 repo 沒有程式讀取，選了翻譯輸出仍不翻；README 與 `docs/DEVELOPMENT.md` 檢核表都承諾會翻 | 中（功能失效、文件與實作不符） | ✅ 已修（2026-10-26，見下方 commit） | `llm/prompts.py:get_translation_instruction()` 附加在 `_build_llm_prompt` 末端，助理模式不翻 |
 | 31-12 | 搜尋連結未跳脫 `& # 空白`；`httpbin.org` 這類 http 開頭網域不補 https:// | 低中 | ✅ 已修（2026-10-26，`f7cea41`） | |
 
-**統計**：已修/已驗證 62 項、待修 0 項、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
+**統計**：已修/已驗證 63 項、待修 0 項、決定不做 0 項、需實機驗證 3 項（27-1／27-2／28-3）。
 
 ---
 

@@ -37,3 +37,17 @@ def get_default_system_prompt(language: str = DEFAULT_LANGUAGE) -> str:
         對應語言的預設 system prompt；查無該語言時 fallback 回中文版本。
     """
     return SYSTEM_PROMPTS.get(language, SYSTEM_PROMPTS[DEFAULT_LANGUAGE])
+
+
+# 「快速翻譯」（選單／語音指令寫入 config["translation_lang"]）要附加在 LLM prompt 末端的
+# 指令。放在最後是因為 docs/DEVELOPMENT.md 檢核表要求「開啟翻譯時，即使有其他情境設定，
+# 也優先翻譯為目標語文」。
+TRANSLATION_INSTRUCTIONS = {
+    "en": "【翻譯指令】無論原文是什麼語言，請將潤飾後的最終內容翻譯成英文（English）後輸出；只輸出譯文，不附原文、不加說明。",
+    "ja": "【翻譯指令】無論原文是什麼語言，請將潤飾後的最終內容翻譯成日文（日本語）後輸出；只輸出譯文，不附原文、不加說明。",
+}
+
+
+def get_translation_instruction(target) -> str:
+    """翻譯目標（"en"／"ja"）對應的 prompt 指令；None、空字串或未知語言回傳空字串。"""
+    return TRANSLATION_INSTRUCTIONS.get(target or "", "")

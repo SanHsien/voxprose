@@ -602,6 +602,13 @@ class VoiceTypeApp(QObject):
             except Exception as e:
                 log.warning(f"[process] Memory context injection failed: {e}")
 
+        # 快速翻譯：放在最後以優先於情境設定（見 llm/prompts.py）
+        if not is_assistant:
+            from llm.prompts import get_translation_instruction
+            translation = get_translation_instruction(self.config.get("translation_lang"))
+            if translation:
+                parts.append(translation)
+
         return "\n\n".join(parts)
 
     def quit(self):
