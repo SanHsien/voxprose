@@ -414,7 +414,8 @@ class VoiceTypeApp(QObject):
                 log.error(f"[process] Vocab correction error: {e}")
                 
             # V62: LocalWhisperSTT 不再返回「系統初始化中」，此守衛保留為安全網
-            if "系統初始化中" in text or "初始化" in text:
+            from stt.status import is_stt_not_ready_text
+            if is_stt_not_ready_text(text):
                 self.ui_signal.emit({"type": "state", "value": "error"})
                 self.ui_signal.emit({"type": "suffix", "value": " 引擎尚未就緒，請稍候重試"})
                 log.warning(f"[process] STT returned init message: {text}")

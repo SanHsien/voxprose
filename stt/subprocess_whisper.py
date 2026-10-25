@@ -15,6 +15,7 @@ def _download_progress_callback(n, total, pipe, model_alias):
         pipe.send({"type": "progress", "value": pct, "detail": f"Downloading {model_alias}: {pct}%"})
 
 from .base import BaseSTT
+from .status import STT_NOT_READY_MESSAGE
 
 
 # Mac 主線 13-2（51094bf:stt/mlx_whisper.py）移植：抗幻覺轉錄參數。
@@ -425,7 +426,7 @@ class SubprocessWhisperSTT(BaseSTT):
                 time.sleep(0.5)
             if not self._ready_status:
                 print("[stt-mgr] Model loading timeout or crashed. Check worker_debug.log")
-                return "（系統初始化中，請稍後再試...）"
+                return STT_NOT_READY_MESSAGE
 
         print("[stt-mgr] Dispatching transcription task to worker...")
         
