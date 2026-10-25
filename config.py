@@ -87,6 +87,7 @@ LOCAL_KEYS = {
 } | API_KEY_FIELDS
 
 from paths import GLOBAL_CONFIG_PATH, LOCAL_CONFIG_PATH, APP_DATA_DIR
+from utils.atomic_io import write_json_atomic
 
 def load_config() -> dict:
     """載入設定：合併本機設定與全域同步設定。"""
@@ -101,9 +102,11 @@ def load_config() -> dict:
             # 先跟目前的 config 合併（確保 legacy 有值的地方蓋掉 default）
             config.update(legacy_config)
             # 立即觸發拆分儲存，這樣會產生 config_local.json 與 config_global.json
-            save_config(config) 
-            # 成功遷移後刪除舊檔
-            os.remove(old_config_path)
+            if save_config(config):
+                # 成功遷移後刪除舊檔；寫入失敗時保留，下次啟動再試
+                os.remove(old_config_path)
+            else:
+                print("[config] Legacy config.json kept: new config files could not be written")
         except Exception as e:
             # 2026-07-23（broad except 清查）：舊版單一 config.json 遷移失敗
             # 原本完全靜默，使用者設定莫名其妙沒被搬過來時完全無跡可查。
@@ -136,8 +139,7 @@ def load_config() -> dict:
             remaining_global = {k: v for k, v in global_data.items() if k not in LOCAL_KEYS}
             try:
                 GLOBAL_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-                with open(GLOBAL_CONFIG_PATH, "w", encoding="utf-8") as f:
-                    json.dump(remaining_global, f, ensure_ascii=False, indent=2)
+                write_json_atomic(GLOBAL_CONFIG_PATH, remaining_global)
             except Exception as e:
                 print(f"[config] Failed to rewrite global config after key migration: {e}")
 
@@ -149,8 +151,7 @@ def load_config() -> dict:
                     with open(LOCAL_CONFIG_PATH, "r", encoding="utf-8") as f:
                         existing_local = json.load(f)
                 existing_local.update(leaked_to_local)
-                with open(LOCAL_CONFIG_PATH, "w", encoding="utf-8") as f:
-                    json.dump(existing_local, f, ensure_ascii=False, indent=2)
+                write_json_atomic(LOCAL_CONFIG_PATH, existing_local)
             except Exception as e:
                 print(f"[config] Failed to write migrated keys to local config: {e}")
 
@@ -168,24 +169,29 @@ def load_config() -> dict:
     return config
 
 
-def save_config(config: dict) -> None:
-    """儲存設定：依據白名單拆分並分別寫入本機與同步目錄。"""
+def save_config(config: dict) -> bool:
+    """儲存設定：依據白名單拆分並分別寫入本機與同步目錄。
+
+    兩份都寫成功回傳 True；任一份失敗只記錄、不拋例外，並回傳 False
+    （呼叫端如舊版設定遷移需要據此決定能不能刪除來源）。"""
+    ok = True
     # 拆分資料
     local_data = {k: v for k, v in config.items() if k in LOCAL_KEYS}
     global_data = {k: v for k, v in config.items() if k not in LOCAL_KEYS}
 
     # 儲存本機配置
     try:
-        with open(LOCAL_CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(local_data, f, ensure_ascii=False, indent=2)
+        write_json_atomic(LOCAL_CONFIG_PATH, local_data)
     except Exception as e:
+        ok = False
         print(f"[config] Error saving local config: {e}")
 
     # 儲存全域配置
     try:
         # 確保全域所在的父目錄存在 (可能在 NAS 上)
         GLOBAL_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(GLOBAL_CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(global_data, f, ensure_ascii=False, indent=2)
+        write_json_atomic(GLOBAL_CONFIG_PATH, global_data)
     except Exception as e:
+        ok = False
         print(f"[config] Error saving global config: {e}")
+    return ok

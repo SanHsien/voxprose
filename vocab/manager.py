@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from paths import get_data_dir
+from utils.atomic_io import write_json_atomic
 
 # 命名說明（2026-07-20 REVIEW 提醒後改名）：此常數是本機詞彙資料目錄
 # （get_data_dir("vocab") -> APP_DATA_DIR/vocab），與曾經存在於 paths.py、
@@ -59,12 +60,11 @@ def load_custom_vocab() -> list:
 
 def _save_custom_vocab(words: list):
     _ensure_dir()
-    with open(CUSTOM_VOCAB_PATH, "w", encoding="utf-8") as f:
-        json.dump({
-            "_comment": "在 words 陣列中新增您常用的詞彙，例如人名、品牌名、專有名詞。這些詞彙會提示 Whisper 正確辨識。",
-            "words": words,
-            "updated_at": datetime.now().isoformat(),
-        }, f, ensure_ascii=False, indent=2)
+    write_json_atomic(CUSTOM_VOCAB_PATH, {
+        "_comment": "在 words 陣列中新增您常用的詞彙，例如人名、品牌名、專有名詞。這些詞彙會提示 Whisper 正確辨識。",
+        "words": words,
+        "updated_at": datetime.now().isoformat(),
+    })
 
 
 def add_custom_word(word: str):
@@ -94,8 +94,7 @@ def load_auto_memory() -> dict:
 
 def _save_auto_memory(memory: dict):
     _ensure_dir()
-    with open(AUTO_MEMORY_PATH, "w", encoding="utf-8") as f:
-        json.dump({"memory": memory, "updated_at": datetime.now().isoformat()}, f, ensure_ascii=False, indent=2)
+    write_json_atomic(AUTO_MEMORY_PATH, {"memory": memory, "updated_at": datetime.now().isoformat()})
 
 
 def learn_from_text(text: str):

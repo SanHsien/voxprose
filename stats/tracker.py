@@ -9,6 +9,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 from paths import get_data_dir
+from utils.atomic_io import write_json_atomic
 
 log = logging.getLogger("voicetype.stats")
 
@@ -35,8 +36,7 @@ def load_stats() -> dict:
 
 def save_stats(stats: dict):
     _ensure_dir()
-    with open(STATS_PATH, "w", encoding="utf-8") as f:
-        json.dump(stats, f, ensure_ascii=False, indent=2)
+    write_json_atomic(STATS_PATH, stats)
 
 
 def record_session(duration_sec: float, char_count: int):

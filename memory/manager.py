@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from paths import get_data_dir
+from utils.atomic_io import write_json_atomic
 
 log = logging.getLogger("voicetype.memory")
 
@@ -57,8 +58,7 @@ def load_memory() -> dict:
 
 def save_memory(memory: dict):
     _ensure_dirs()
-    with open(MEMORY_PATH, "w", encoding="utf-8") as f:
-        json.dump(memory, f, ensure_ascii=False, indent=2)
+    write_json_atomic(MEMORY_PATH, memory)
 
 
 def add_entry(stt_text: str, llm_text: str):
