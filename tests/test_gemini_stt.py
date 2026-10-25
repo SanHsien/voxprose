@@ -65,8 +65,9 @@ def test_transcribe_sends_base64_of_the_original_wav_bytes_and_returns_text(monk
     wav_bytes = _make_wav_bytes()
     captured = {}
 
-    def fake_post(url, json, timeout):
+    def fake_post(url, json, headers, timeout):
         captured["url"] = url
+        captured["headers"] = headers
         captured["json"] = json
         captured["timeout"] = timeout
         return _FakeResponse({
@@ -79,7 +80,8 @@ def test_transcribe_sends_base64_of_the_original_wav_bytes_and_returns_text(monk
     result = gemini_stt.transcribe(wav_bytes, language="zh")
 
     assert result == "測試轉錄結果"
-    assert "test-key" in captured["url"]
+    assert "test-key" not in captured["url"]  # 金鑰走標頭，見 tests/test_gemini_key_not_in_url.py
+    assert captured["headers"]["x-goog-api-key"] == "test-key"
     sent_audio_b64 = captured["json"]["contents"][0]["parts"][1]["inline_data"]["data"]
     assert base64.b64decode(sent_audio_b64) == wav_bytes  # exact round-trip, no re-encoding
 
