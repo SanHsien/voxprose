@@ -104,6 +104,7 @@ def run_calculator(expr: str):
         .replace("減", "-")
         .replace("乘", "*")
         .replace("除以", "/")
+        .replace("除", "/")  # 「10除2」：沒有「以」也是除法，不能被下面的清洗刪掉
         .replace("^", "**")  # 次方
     )
     # 移除所有非數字與運算符

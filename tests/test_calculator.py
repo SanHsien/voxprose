@@ -126,3 +126,9 @@ def test_builtins_module_has_no_eval_usage():
         and node.func.id in ("eval", "exec")
     ]
     assert not offenders, f"actions/builtins.py must not call eval()/exec(): {offenders}"
+
+
+def test_bare_chu_is_division_not_dropped():
+    """「10除2」的「除」不是「除以」；舊實作把它當雜字刪掉，算成 102。"""
+    assert run_calculator("10除2") == "計算結果：10除2 = 5.0"
+    assert run_calculator("9除3") == "計算結果：9除3 = 3.0"
