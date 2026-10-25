@@ -483,7 +483,7 @@ class VoiceTypeApp(QObject):
                         
                         # 標點處理
                         from utils.punctuation import to_fullwidth_punctuation
-                        refined = to_fullwidth_punctuation(refined)
+                        refined = to_fullwidth_punctuation(refined, self.config.get("translation_lang"))
                         
                         # V88: 通用後處理，硬核剔除可能的前綴雜訊
                         noise_prefixes = ["草稿：", "草稿:", "Draft:", "Result:", "潤飾後：", "潤飾後:"]

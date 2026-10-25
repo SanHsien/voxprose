@@ -22,3 +22,12 @@ def test_url_scheme_colon_untouched():
 def test_period_unchanged_and_empty_safe():
     assert to_fullwidth_punctuation("3.14") == "3.14"
     assert to_fullwidth_punctuation("") == ""
+
+
+def test_english_translation_output_keeps_halfwidth_punctuation():
+    text = "Hello, how are you? Great: thanks!"
+    assert to_fullwidth_punctuation(text, "en") == text
+
+
+def test_japanese_translation_still_uses_fullwidth():
+    assert to_fullwidth_punctuation("こんにちは, 元気?", "ja") == "こんにちは， 元気？"

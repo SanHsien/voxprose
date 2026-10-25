@@ -16,8 +16,9 @@ def _is_digit(ch: str) -> bool:
     return len(ch) == 1 and ch in _DIGITS
 
 
-def to_fullwidth_punctuation(text: str) -> str:
-    if not text:
+def to_fullwidth_punctuation(text: str, target_lang=None) -> str:
+    """target_lang 為 "en"（快速翻譯成英文）時整段是英文，標點維持半形。"""
+    if not text or target_lang == "en":
         return text
 
     def _repl(m: re.Match) -> str:
