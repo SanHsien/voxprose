@@ -78,7 +78,7 @@ class EngineFallbackTest(unittest.TestCase):
         llm = GeminiLLM({"gemini_api_key": "k", "language": "ja"})
         captured = {}
 
-        def fake_post(url, json, timeout):
+        def fake_post(url, json, headers, timeout):
             captured["text"] = json["contents"][0]["parts"][0]["text"]
             return FakeResponse(200, {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]})
 

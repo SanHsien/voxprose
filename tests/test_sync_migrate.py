@@ -1,7 +1,7 @@
 """同步目錄遷移不能刪掉來源資料。
 
 Regression: ui/settings/sync_page.py 的 `_migrate_to_sync` 對 `dst` 先 rmtree 再
-copytree。使用者選到本機資料夾本身（%APPDATA%\VoxProse）或其子／父目錄時，
+copytree。使用者選到本機資料夾本身（%APPDATA%\\VoxProse）或其子／父目錄時，
 dst 與 src 是同一個目錄：rmtree 先把來源刪光，copytree 再因來源不存在而失敗，
 靈魂情境／詞彙／記憶／統計全部永久消失。
 """
