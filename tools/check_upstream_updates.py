@@ -223,6 +223,13 @@ def fetch_new_tickets(
             items.append({"number": number, "title": item.get("title", "")})
         if len(batch) < per_page:
             break
+    else:
+        # 查滿 10 頁還沒碰到已審視編號：清單被截斷，缺的會被讀成「沒有新項目」。
+        # 記成錯誤，不當成結果。
+        raise ValueError(
+            f"{kind} 清單到 {per_page * 10} 筆上限仍未碰到 #{last_reviewed_number}；"
+            "更舊的未審視項目可能被漏掉"
+        )
     return sorted(items, key=lambda entry: entry["number"])
 
 
@@ -417,6 +424,12 @@ def write_github_output(has_updates: bool, report_path: Path) -> None:
         f.write(f"report_path={report_path.as_posix()}\n")
 
 
+def print_safely(text: str) -> None:
+    """不依賴主控台編碼的 print（cp950 沒有 emoji，cp1252 沒有中日韓字）。"""
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    print(text.encode(encoding, errors="backslashreplace").decode(encoding))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="檢查上游 jfamily4tw/voicetype4tw-mac 是否有新 commit 待審視"
@@ -457,7 +470,7 @@ def main() -> int:
 
     output_path = Path(args.output)
     output_path.write_text(report, encoding="utf-8")
-    print(report)
+    print_safely(report)
 
     # PR 與 issue 跟 commit 用同一個訊號。sync-points 一直記著這兩個
     # reviewed_*_through，卻沒有

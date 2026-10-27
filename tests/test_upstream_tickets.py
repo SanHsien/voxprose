@@ -114,3 +114,27 @@ def test_sync_points_actually_carry_the_two_watermarks():
 
     assert isinstance(tickets.get("reviewed_pr_through"), int)
     assert isinstance(tickets.get("reviewed_issue_through"), int)
+
+
+def test_清單在頁數上限被截斷時是錯誤而不是完整清單(monkeypatch):
+    """查滿 10 頁仍沒碰到已審視編號，不能被讀成「沒有新項目」。"""
+    full_page = [{"number": 5000 - i, "title": "t"} for i in range(100)]
+    monkeypatch.setattr(checker, "_github_request", lambda url, token, timeout=15.0: full_page)
+    raised = False
+    try:
+        checker.fetch_new_tickets("example/product", "pr", 9)
+    except ValueError:
+        raised = True
+    assert raised
+    results = checker.collect_ticket_results(SYNC_POINTS, repo="example/product")
+    assert all(result["error"] for result in results)
+
+
+def test_print_safely_survives_a_console_that_cannot_encode_the_report(monkeypatch):
+    import io
+
+    console = io.TextIOWrapper(io.BytesIO(), encoding="cp950")
+    monkeypatch.setattr(sys, "stdout", console)
+    checker.print_safely("| #1 | 🚀 修復 |")
+    console.flush()
+    assert b"#1" in console.buffer.getvalue()
