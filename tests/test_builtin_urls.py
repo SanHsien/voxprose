@@ -6,7 +6,14 @@ Regression:
 - open_website 用 startswith("http") 判斷是否已有通訊協定，「httpbin.org」
   這類以 http 開頭的網域不會補 https://，產出的不是網址。
 """
+from urllib.parse import urlparse
+
 from actions.builtins import open_google_search, open_website
+
+
+def _url(message: str) -> str:
+    """取出「【…】」前綴後面的連結本體，之後用 urlparse 比對，不做子字串比對。"""
+    return message.split("】", 1)[1]
 
 
 def test_google_search_escapes_query_delimiters():
@@ -23,11 +30,12 @@ def test_google_search_empty_query():
 
 
 def test_open_website_adds_scheme_for_domains_starting_with_http():
-    assert "https://httpbin.org" in open_website("httpbin.org")
-    assert "https://httpd.apache.org" in open_website("httpd.apache.org")
+    for host in ("httpbin.org", "httpd.apache.org"):
+        parsed = urlparse(_url(open_website(host)))
+        assert (parsed.scheme, parsed.netloc) == ("https", host)
 
 
 def test_open_website_keeps_existing_scheme():
-    assert "http://example.com" in open_website("http://example.com")
-    assert "https://example.com" in open_website("https://example.com")
-    assert "https://https://" not in open_website("https://example.com")
+    for scheme, host in (("http", "example.com"), ("https", "example.com")):
+        parsed = urlparse(_url(open_website(f"{scheme}://{host}")))
+        assert (parsed.scheme, parsed.netloc) == (scheme, host)
