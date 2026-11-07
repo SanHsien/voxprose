@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+## [3.4.5] - 2026-11-08
+
 - 依賴新鮮度檢查加上「已核准暫緩」機制：`.github/dependency-deferrals.json` 讓判斷過、暫時不升的套件停止每月復發，但暫緩綁定當初判斷的版本，上游一發新版就自動失效並重新提醒。首筆是 `anthropic`（1.x 移除 `messages.create` 的 `temperature`，理由見 `docs/DECISIONS.md`）。
 
 - 依賴：`openai` 上限自 `<3` 開到 `<4`，實裝解析為 3.6.0（`chat.completions.create` 用到的 `model`／`messages`／`max_tokens`／`temperature`／`timeout` 五個參數在 3.6.0 全數仍在，經 SDK 內省確認；481 條測試全過）。`anthropic` 維持 `<1`：1.x 移除了 `messages.create` 的 `temperature`，而 `llm/claude.py` 的潤飾功能依賴 `temperature=0.1`，照升會 `TypeError`；理由與重評條件見 `docs/DECISIONS.md`。

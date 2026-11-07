@@ -426,3 +426,15 @@ Apple Foundation Models 整套、Mac 打包鏈、Mac 專屬 UI 改動、`COMMON_
 4. 選單的情境名稱用 `re.sub(r'^[\W_]+', '', name)` 去前綴，檔名以符號開頭的情境（如 `_work.md`）會對不到檔。
 5. Silero VAD 模型下載後沒有雜湊驗證；來源已釘 tag，風險低。
 6. 「快速翻譯」只在 LLM 開啟時生效；選單選了翻譯但 LLM 關著時畫面沒有任何提示（既有產品行為，是否要提示屬 UI 決定）。
+
+## 2026-11-08：決定發布 v3.4.5 patch 版本
+
+**決定**：發布 v3.4.5。版本號由 3.4.4 推進至 3.4.5，將累積於 `[Unreleased]` 的 13 項缺陷修復（含 Gemini API key 安全標頭修復、atomic JSON 寫入防損毀、Windows 熱鍵修正等）與依賴防護封裝為正式 patch 版。外部建立 release／tag 動作由維護者／coordinator 審核後執行。
+
+**理由**：
+- 維護者已授權代為決定。
+- 最新 release 為 v3.4.4，累積之修復已完整通過 CI 與 py_compile 及本機單元測試（516 passed），具備正式發版穩定度。
+- 外部 GitHub writes（建立 tag `v3.4.5`、`gh release create --repo SanHsien/voxprose`）依艦隊規則列於報告中由協調員執行。
+
+**重新檢視條件**：
+- 下次有新功能或缺陷修正累積需要發版時。
