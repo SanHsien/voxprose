@@ -10,6 +10,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Claude 潤飾引擎的預設模型改為 `claude-haiku-5-5`（舊預設 `claude-3-haiku-20240307` 已退役，API 回 404），並不再送 `temperature`（新模型對非預設值回 400），保守度改由 prompt 寫明；回應改依型別取文字塊。已存設定裡仍是舊模型的使用者需在設定中改選。理由見 `docs/DECISIONS.md` 2026-11-22。
+
 ## [3.4.5] - 2026-11-08
 
 - 依賴新鮮度檢查加上「已核准暫緩」機制：`.github/dependency-deferrals.json` 讓判斷過、暫時不升的套件停止每月復發，但暫緩綁定當初判斷的版本，上游一發新版就自動失效並重新提醒。首筆是 `anthropic`（1.x 移除 `messages.create` 的 `temperature`，理由見 `docs/DECISIONS.md`）。

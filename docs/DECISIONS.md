@@ -4,6 +4,13 @@
 
 > **關於歷史 commit hash**：v3.1.0 發版時 fork 開發歷史已 squash 成單一 commit（`84d1b28`）。本檔引用的更早 hash 屬 squash 前的開發過程紀錄，已不存在於 git 歷史，僅作文件內識別碼保留。
 
+## 2026-11-22 — Claude 引擎預設模型換成 claude-haiku-5-5，不再送 temperature；2026-08-29「保留低溫」作廢
+
+- **問題**：Claude 引擎的預設路徑不能用。預設模型 `claude-3-haiku-20240307` 已在 2026-04-20 退役，Claude API 對它回 404（Anthropic 模型遷移指南 `shared/model-migration.md` §「Retired Model Replacements」，替代是 `claude-haiku-5-5`）。換成 `claude-haiku-5-5` 之後，`temperature=0.1` 又會回 400：同指南 §「Migrating to Claude Haiku 5.5」→「Breaking change 2: non-default sampling parameters return a 400」寫明 API 版本 `2023-06-01` 下 `temperature` 只能是 `1`，其他值一律 400，要求省略並改由 prompt 引導。
+- **決定**：預設模型（`config.py`、`llm/claude.py`）改 `claude-haiku-5-5`；`llm/claude.py` 不再送 `temperature`。原本靠低溫換來的保守度，改成每次請求的 user turn 都帶一句 `STABILITY_INSTRUCTION`（保持原意與用字、不增補、不自由發揮、同一段草稿每次結果相同），放 user turn 而不是 system，因為 system 可能是使用者自訂的 soul。同一輪也照指南同段「Thinking is on by default」處理兩件事：回應改依 `type` 取文字塊（開頭可能是 thinking 塊），`max_tokens` 由 1024 提高到 4096（思考也算進上限）。
+- **作廢**：2026-08-29「anthropic 維持 `<1`」的理由「低溫度才能讓模型改寫而不自由發揮」不再成立——現行 Claude 模型不接受非預設溫度，保留它等於讓引擎永遠 400。該條的另一個前提「預設模型是否仍受支援」也已有答案：已退役。其他引擎（OpenAI、Gemini、DeepSeek、Qwen、Ollama、OpenRouter）的 `temperature=0.1` 不受影響、不改。
+- **未做**：沒有真實 API key，**未實呼叫 API**；驗證只有單元測試（`tests/test_provider_timeouts.py` 釘住請求不帶 sampling 參數、回應依型別取文字塊、預設模型）。`anthropic` 上限仍是 `<1`、`.github/dependency-deferrals.json` 的暫緩理由仍是舊的溫度說法；升級的程式面阻礙已除，剩真 key 驗證，留在 `ROADMAP.md`。使用者已存的 `config_local.json` 若寫著舊模型，仍會 404，要使用者在設定裡改選。
+
 ## 2026-08-29（補）— 依賴新鮮度加上「已核准暫緩」機制
 
 - **問題**：anthropic 已判斷過、明確決定維持 `<1`（見上一條），但檢查器只認「有沒有超出上限」，不認「有沒有判斷過」。結果 issue #1 會每月穩定復發一次，內容永遠是同一筆已經有結論的東西。**每月一次的假警報比沒有警報更糟**——它會訓練人略過這份報告。

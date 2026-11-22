@@ -20,7 +20,7 @@ DEFAULT_CONFIG = {
     "openai_api_key": "",
     "openai_model": "gpt-4o-mini",
     "anthropic_api_key": "",
-    "anthropic_model": "claude-3-haiku-20240307",
+    "anthropic_model": "claude-haiku-5-5",
     "openrouter_api_key": "",
     "openrouter_model": "google/gemini-2.5-flash",  # v2.9.16 Mac 主線 16-4：2.0-flash-001 已屬淘汰風險模型
     "gemini_api_key": "",
